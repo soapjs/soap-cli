@@ -1,4 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
+import { CliPackageManager, Texts } from "@soapjs/soap-cli-common";
 import chalk from "chalk";
 import {
   Config,
@@ -67,6 +67,12 @@ export const newComponent = async (options: any, type?: string) => {
   const cliPluginPackageName = pluginMap.getLanguage(
     config.code.alias
   ).cli_plugin;
+
+  const packageManager = new CliPackageManager();
+
+  if (packageManager.hasPackage(cliPluginPackageName) === false) {
+    await packageManager.installPackage(cliPluginPackageName);
+  }
 
   switch (type) {
     case "controller":

@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import { InitOptions } from "./types";
 import {
+  CliPackageManager,
   LanguageStrategyProvider,
   PluginMap,
   ProjectDescription,
@@ -70,9 +71,13 @@ export class InitOptionsStrategy extends Strategy {
       );
     }
 
-    const languageStrategies: LanguageStrategyProvider = require(
-      languagePlugin.cli_plugin
-    );
+    const packageManager = new CliPackageManager();
+
+    if (packageManager.hasPackage(languagePlugin.cli_plugin) === false) {
+      await packageManager.installPackage(languagePlugin.cli_plugin);
+    }
+    const languageStrategies: LanguageStrategyProvider =
+      packageManager.requirePackage(languagePlugin.cli_plugin);
 
     await new PluginConfigService(RootConfig.local_plugin_config_path).sync(
       languagePlugin.cli_plugin_config_url

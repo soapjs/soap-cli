@@ -19,6 +19,7 @@ import { ControllerJson } from "../actions/new-controller/types";
 import { EntityJson } from "../actions/new-entity/types";
 import { ToolsetJson, ToolsetJsonParser } from "../actions/new-toolset";
 import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { ServiceJson, ServiceJsonParser } from "../actions";
 
 export class ApiJsonParser {
   private apiSchema: ApiSchema;
@@ -74,6 +75,31 @@ export class ApiJsonParser {
 
     result.toolsets.forEach((t) => {
       apiSchema.toolsets.add(t);
+    });
+
+    result.entities.forEach((e) => {
+      apiSchema.entities.add(e);
+    });
+
+    result.models.forEach((m) => {
+      apiSchema.models.add(m);
+    });
+
+    result.test_suites.forEach((t) => {
+      apiSchema.test_suites.add(t);
+    });
+  }
+
+  parseServices(list: ServiceJson[]) {
+    const { apiSchema, config, texts, writeMethod } = this;
+    const result = new ServiceJsonParser(config, texts, writeMethod).build(
+      list,
+      apiSchema.models.toArray(),
+      apiSchema.entities.toArray()
+    );
+
+    result.services.forEach((t) => {
+      apiSchema.services.add(t);
     });
 
     result.entities.forEach((e) => {
@@ -274,6 +300,7 @@ export class ApiJsonParser {
     this.parseControllers(json.controllers || []);
     this.parseRoutes(json.routes || []);
     this.parseTools(json.toolsets || []);
+    this.parseServices(json.services || []);
 
     this.apiSchema.controllers.forEach((controller) => {
       this.apiSchema.container.addDependency(controller, config);
@@ -308,6 +335,10 @@ export class ApiJsonParser {
 
     this.apiSchema.toolsets.forEach((toolset) => {
       this.apiSchema.container.addDependency(toolset, config);
+    });
+    
+    this.apiSchema.services.forEach((service) => {
+      this.apiSchema.container.addDependency(service, config);
     });
 
     return this.apiSchema;

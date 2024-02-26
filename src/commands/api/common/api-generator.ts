@@ -1,4 +1,8 @@
-import { LanguageStrategyProvider, Result } from "@soapjs/soap-cli-common";
+import {
+  CliPackageManager,
+  LanguageStrategyProvider,
+  Result,
+} from "@soapjs/soap-cli-common";
 import { ApiSchema } from "./api.schema";
 import { COMPILER_WORKER_PATH } from "../../../core/workers/worker";
 import { Config, WorkerPool } from "../../../core";
@@ -13,9 +17,10 @@ export class ApiGenerator {
   public async generate(api: ApiSchema): Promise<Result> {
     const { config, cliPluginPackageName } = this;
     const obj = api.toObject();
-    const languageModule: LanguageStrategyProvider = require(
-      cliPluginPackageName
-    );
+    const packageManager = new CliPackageManager();
+    const languageModule: LanguageStrategyProvider =
+      packageManager.requirePackage(cliPluginPackageName);
+
     const { content: models, failure } = languageModule
       .createTemplateModelStrategy()
       .apply(obj, config.project);
