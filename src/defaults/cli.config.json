@@ -1,0 +1,9 @@
+{
+  "headless_mode": false,
+  "override": false,
+  "skip_tests": false,
+  "with_dependencies": false,
+  "batch_size": 10,
+  "thread_count": -1,
+  "transport": "file"
+}

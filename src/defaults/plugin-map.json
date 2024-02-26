@@ -1,0 +1,167 @@
+{
+  "version": "0.0.0",
+  "languages": [
+    {
+      "name": "TypeScript",
+      "alias": "typescript",
+      "packages": [
+        "typescript@^4.5.4",
+        "dev:@types/node@^18.7.14"
+      ],
+      "plugin": "@soapjs/soap",
+      "cli_plugin": "@soapjs/soap-cli-typescript",
+      "cli_plugin_config_url": "https://raw.githubusercontent.com/soapjs/soap-cli-typescript/main/src/config/config.json",
+      "ioc": [
+        {
+          "name": "SoapJS Singleton Container",
+          "alias": "singleton",
+          "packages": []
+        },
+        {
+          "name": "Inversify",
+          "alias": "inversify",
+          "packages": ["inversify@^6.0.1", "reflect-metadata@^0.1.13"]
+        }
+      ]
+    },
+    {
+      "name": "JavaScript",
+      "alias": "javascript",
+      "plugin": "@soapjs/soap",
+      "cli_plugin": "@soapjs/soap-cli-javascript",
+      "cli_plugin_config_url": "https://raw.githubusercontent.com/soapjs/soap-cli-javascript/main/src/config/config.json",
+      "ioc": [
+        {
+          "name": "SoapJS Singleton Container",
+          "alias": "singleton",
+          "packages": []
+        },
+        {
+          "name": "Inversify",
+          "alias": "inversify",
+          "packages": ["inversify@^6.0.1"]
+        }
+      ]
+    }
+  ],
+  "databases": [
+    {
+      "name": "MongoDB",
+      "alias": "mongo",
+      "packages": {
+        "typescript": ["mongodb"],
+        "javascript": ["mongodb"]
+      },
+      "plugins": {
+        "typescript": "@soapjs/soap-node-mongo",
+        "javascript": "@soapjs/soap-node-mongo"
+      }
+    },
+    {
+      "name": "Redis",
+      "alias": "redis",
+      "packages": {
+        "typescript": ["redis"],
+        "javascript": ["redis"]
+      },
+      "plugins": {
+        "typescript": "@soapjs/soap-node-redis",
+        "javascript": "@soapjs/soap-node-redis"
+      }
+    },
+    {
+      "name": "MySql",
+      "alias": "mysql",
+      "packages": {
+        "typescript": ["mysql"],
+        "javascript": ["mysql"]
+      },
+      "plugins": {
+        "typescript": "@soapjs/soap-node-mysql",
+        "javascript": "@soapjs/soap-node-mysql"
+      }
+    }
+  ],
+  "web_frameworks": [
+    {
+      "name": "Express.js",
+      "alias": "express",
+      "packages": {
+        "typescript": [
+          "express@^4.18.2",
+          "dev:@types/express@^4.17.17",
+          "body-parser@^1.20.2"
+        ],
+        "javascript": [
+          "express@^4.18.2",
+          "body-parser@^1.20.2"
+        ]
+      },
+      "plugins": {
+        "typescript": "@soapjs/soap-express",
+        "javascript": "@soapjs/soap-express"
+      }
+    },
+    {
+      "name": "AWS Serverless",
+      "alias": "aws",
+      "packages": {
+        "typescript": [
+          "@aws-cdk/aws-apigateway@^1.204.0",
+          "@aws-cdk/aws-lambda@^1.204.0",
+          "@aws-cdk/aws-lambda-nodejs@^1.204.0",
+          "aws-cdk@^2.103.1",
+          "aws-lambda@^1.0.7",
+          "aws-sdk@^2.1483.0"
+        ],
+        "javascript": [
+          "@aws-cdk/aws-apigateway@^1.204.0",
+          "@aws-cdk/aws-lambda@^1.204.0",
+          "@aws-cdk/aws-lambda-nodejs@^1.204.0",
+          "aws-cdk@^2.103.1",
+          "aws-lambda@^1.0.7",
+          "aws-sdk@^2.1483.0"
+        ]
+      },
+      "plugins": {
+        "typescript": "@soapjs/soap-node-aws",
+        "javascript": "@soapjs/soap-node-aws"
+      }
+    },
+    {
+      "name": "NestJS",
+      "alias": "nest",
+      "packages": {
+        "typescript": [
+          "@nestjs/common@^10.0.0",
+          "@nestjs/config@^3.2.0",
+          "@nestjs/core@^10.0.0",
+          "@nestjs/platform-express@^10.0.0",
+          "@nestjs/throttler@^5.1.2",
+          "class-transformer@^0.5.1",
+          "class-validator@^0.14.1",
+          "dev:@nestjs/cli@^10.0.0",
+          "dev:@nestjs/schematics@^10.0.0",
+          "dev:@nestjs/testing@^10.0.0"
+        ],
+        "javascript": [
+          "@nestjs/common@^10.0.0",
+          "@nestjs/config@^3.2.0",
+          "@nestjs/core@^10.0.0",
+          "@nestjs/platform-express@^10.0.0",
+          "@nestjs/throttler@^5.1.2",
+          "class-transformer@^0.5.1",
+          "class-validator@^0.14.1",
+          "dev:@nestjs/cli@^10.0.0",
+          "dev:@nestjs/schematics@^10.0.0",
+          "dev:@nestjs/testing@^10.0.0"
+        ]
+      },
+      "plugins": {
+        "typescript": "@soapjs/soap-nestjs",
+        "javascript": "@soapjs/soap-nestjs"
+      }
+    }
+  ],
+  "platforms": []
+}

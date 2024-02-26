@@ -1,0 +1,9 @@
+{
+  "plugin_map_url": "https://raw.githubusercontent.com/soapjs/soap-cli-config/main/plugin-map.json",
+  "local_plugin_map_path": "./.soap/plugin-map.json",
+  "local_plugin_config_path": "./.soap/plugin.config.json",
+  "local_project_config_path": "./.soap/project.config.json",
+  "local_cli_config_path": "./.soap/cli.config.json",
+  "local_texts_path": "./.soap/texts.json",
+  "local_cli_session_path": "./.soap/sessions"
+}
