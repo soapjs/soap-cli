@@ -1,19 +1,32 @@
 import chalk from "chalk";
-import { NewRepositoryOptions, RepositoryJson } from "./types";
+import { NewRepositoryOptions } from "./types";
 import { ApiGenerator, ApiJsonParser } from "../../common";
-import { Strategy, Texts } from "@soapjs/soap-cli-common";
-import { CliOptionsTools, Config } from "../../../../core";
+import {
+  Config,
+  RepositoryJson,
+  Strategy,
+  Texts,
+} from "@soapjs/soap-cli-common";
+import {
+  CliOptionsTools,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 import { paramCase } from "change-case";
 
 export class NewRepositoryOptionsStrategy extends Strategy {
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    private command: CommandConfig,
+    private compilation: CompilationConfig
+  ) {
     super();
   }
   public async apply(
     options: NewRepositoryOptions,
     cliPluginPackageName: string
   ) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = await Texts.load();
 
     if (
@@ -51,12 +64,13 @@ export class NewRepositoryOptionsStrategy extends Strategy {
       repository.contexts.push(...storages);
     }
 
-    const schema = new ApiJsonParser(config, texts).build({
+    const schema = new ApiJsonParser(config, command, texts).build({
       repositories: [repository],
     });
 
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

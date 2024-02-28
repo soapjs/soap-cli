@@ -1,4 +1,4 @@
-import { ProjectConfigService } from "./../../../../core/config/tools/project.config.service";
+import { ProjectConfigService } from "../../../../core/config/project.config.service";
 import chalk from "chalk";
 import {
   CliPackageManager,

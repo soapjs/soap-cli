@@ -1,16 +1,24 @@
 import chalk from "chalk";
-import { MapperJson, NewMapperOptions } from "./types";
-import { CliOptionsTools, Config } from "../../../../core";
+import { NewMapperOptions } from "./types";
+import {
+  CliOptionsTools,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 import { ApiJsonParser } from "../../common/api-json.parser";
 import { ApiGenerator } from "../../common";
-import { Strategy, Texts } from "@soapjs/soap-cli-common";
+import { Config, MapperJson, Strategy, Texts } from "@soapjs/soap-cli-common";
 
 export class NewMapperOptionsStrategy extends Strategy {
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    private command: CommandConfig,
+    private compilation: CompilationConfig
+  ) {
     super();
   }
   public async apply(options: NewMapperOptions, cliPluginPackageName: string) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = await Texts.load();
 
     if (!options.endpoint && config.components.model.isEndpointRequired()) {
@@ -28,7 +36,7 @@ export class NewMapperOptionsStrategy extends Strategy {
       entity,
     };
 
-    const schema = new ApiJsonParser(config, texts).build({
+    const schema = new ApiJsonParser(config, command, texts).build({
       entities: [],
       models: [],
       mappers: [mapper],
@@ -36,6 +44,7 @@ export class NewMapperOptionsStrategy extends Strategy {
 
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

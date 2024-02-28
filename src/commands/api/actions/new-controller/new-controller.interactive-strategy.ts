@@ -1,8 +1,13 @@
-import { Config } from "../../../../core";
-import { Controller } from "./types";
+import { CommandConfig, CompilationConfig } from "../../../../core";
 import { NewControllerStoryboard } from "./new-controler.storyboard";
 import { ApiGenerator, ApiJsonParser } from "../../common";
-import { Strategy, Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  Config,
+  Controller,
+  Strategy,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export type NewControllerStoryboardResult = {
   writeMethod: WriteMethod;
@@ -13,16 +18,24 @@ export type NewControllerStoryboardResult = {
 };
 
 export class NewControllerInteractiveStrategy extends Strategy {
-  constructor(protected config: Config) {
+  constructor(
+    protected config: Config,
+    protected command: CommandConfig,
+    protected compilation: CompilationConfig
+  ) {
     super();
   }
 
   public readonly name = "new_controller";
   public async apply(cliPluginPackageName: string) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = Texts.load();
 
-    const newControllerStoryboard = new NewControllerStoryboard(texts, config);
+    const newControllerStoryboard = new NewControllerStoryboard(
+      texts,
+      config,
+      command
+    );
     const { content: json, failure } = await newControllerStoryboard.run();
 
     if (failure) {
@@ -30,9 +43,10 @@ export class NewControllerInteractiveStrategy extends Strategy {
       process.exit(1);
     }
 
-    const schema = new ApiJsonParser(config, texts).build(json);
+    const schema = new ApiJsonParser(config, command, texts).build(json);
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

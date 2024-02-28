@@ -1,17 +1,13 @@
-import { nanoid } from "nanoid";
 import {
   Config,
   Component,
-  ClassData,
-  ClassSchema,
+  LauncherElement,
   LauncherType,
-} from "../../../../core";
-import { LauncherElement } from "./types";
-import { WriteMethod } from "@soapjs/soap-cli-common";
-import {
+  WriteMethod,
   EmptyFileData,
   EmptyFileSchema,
-} from "../../../../core/components/schemas/empty-file.schema";
+} from "@soapjs/soap-cli-common";
+import { nanoid } from "nanoid";
 
 export class LauncherFactory {
   public static create(config: Config): Component<LauncherElement> {

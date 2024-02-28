@@ -4,11 +4,10 @@ import {
   StoryboardSession,
   TimelineFrame,
 } from "@soapjs/soap-cli-interactive";
-import { Config } from "../../../../core";
-import { ApiJson } from "../../common/api.types";
 import { CreateEntityFrame } from "./frames";
-import { Texts } from "@soapjs/soap-cli-common";
+import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import { localSessionPath } from "../../common/consts";
+import { CommandConfig } from "../../../../core";
 
 export class NewEntityStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -26,7 +25,12 @@ export class NewEntityStoryResolver extends StoryResolver<ApiJson> {
 }
 
 export class NewEntityStoryboard extends Storyboard<ApiJson> {
-  constructor(texts: Texts, config: Config, session?: StoryboardSession) {
+  constructor(
+    texts: Texts,
+    config: Config,
+    command: CommandConfig,
+    session?: StoryboardSession
+  ) {
     super(
       "new_entity_storyboard",
       session ||
@@ -34,6 +38,6 @@ export class NewEntityStoryboard extends Storyboard<ApiJson> {
       new NewEntityStoryResolver()
     );
 
-    this.addFrame(new CreateEntityFrame(config, texts));
+    this.addFrame(new CreateEntityFrame(config, command, texts));
   }
 }

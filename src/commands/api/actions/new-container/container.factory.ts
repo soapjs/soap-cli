@@ -1,13 +1,14 @@
 import { nanoid } from "nanoid";
 import {
-  Config,
   ClassData,
   ClassSchema,
+  Config,
+  Container,
+  ContainerAddons,
+  ContainerElement,
   ContainerType,
-} from "../../../../core";
-import { ContainerAddons, ContainerElement } from "./types";
-import { WriteMethod } from "@soapjs/soap-cli-common";
-import { Container } from "./container";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class ContainerFactory {
   public static create(config: Config): Container {

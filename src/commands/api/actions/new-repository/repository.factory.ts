@@ -1,13 +1,14 @@
-import { RepositoryData, RepositoryElement } from "./types";
-import { Entity } from "../new-entity";
 import {
   ClassData,
   ClassSchema,
   Component,
   Config,
+  Entity,
+  RepositoryData,
+  RepositoryElement,
   RepositoryType,
-} from "../../../../core";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class RepositoryFactory {
   static create(

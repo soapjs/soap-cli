@@ -1,21 +1,27 @@
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
 import {
   Config,
+  Entity,
+  Mapper,
+  MapperJson,
   MethodTools,
+  Model,
   PropTools,
   TestCaseSchema,
-} from "../../../../core";
-import { Entity, EntityFactory } from "../new-entity";
-import { Model, ModelFactory } from "../new-model";
-import { TestSuite, TestSuiteFactory } from "../new-test-suite";
-import { MapperFactory } from "./mapper.factory";
-import { Mapper, MapperJson } from "./types";
+  TestSuite,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import chalk from "chalk";
+import { EntityFactory } from "../new-entity";
+import { ModelFactory } from "../new-model";
+import { TestSuiteFactory } from "../new-test-suite";
+import { MapperFactory } from "./mapper.factory";
+import { CommandConfig } from "../../../../core";
 
 export class MapperJsonParser {
   constructor(
     private config: Config,
-
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
@@ -30,7 +36,7 @@ export class MapperJsonParser {
     entities: Entity[];
     test_suites: TestSuite[];
   } {
-    const { config, texts, writeMethod } = this;
+    const { config, texts, writeMethod, command } = this;
     const mappers: Mapper[] = [];
     const models: Model[] = [];
     const entities: Entity[] = [];
@@ -116,7 +122,7 @@ export class MapperJsonParser {
           config
         );
 
-        if (!config.command.skip_tests && mapper.element.methods.length > 0) {
+        if (!command.skip_tests && mapper.element.methods.length > 0) {
           //
           const suite = TestSuiteFactory.create(
             { name, endpoint, type: "unit_tests" },

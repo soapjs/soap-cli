@@ -1,21 +1,19 @@
 import { existsSync } from "fs";
-import { Config } from "../../../../../core";
-import {
-  ApiJson,
-  SelectComponentWriteMethodInteraction,
-} from "../../../common";
 import { RouteNameAndEndpoint } from "./define-route-name-and-endpoint.frame";
 import { RequestBodyType } from "./select-request-body-type.frame";
 import { ResponseBodyType } from "./select-response-body-type.frame";
 import { RouteDescription } from "./interactions/describe-route.interaction";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { ApiJson, Config, Texts, WriteMethod } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
+import { SelectComponentWriteMethodInteraction } from "../../../common";
+import { CommandConfig } from "../../../../../core";
 
 export class CreateRouteFrame extends Frame<ApiJson> {
   public static NAME = "create_route_frame";
 
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(CreateRouteFrame.NAME);
@@ -27,7 +25,7 @@ export class CreateRouteFrame extends Frame<ApiJson> {
       RequestBodyType &
       ResponseBodyType
   ) {
-    const { texts, config } = this;
+    const { texts, config, command } = this;
     const {
       name,
       endpoint,
@@ -50,7 +48,7 @@ export class CreateRouteFrame extends Frame<ApiJson> {
     }).path;
     let writeMethod = WriteMethod.Write;
 
-    if (config.command.force === false) {
+    if (command.force === false) {
       if (existsSync(componentPath)) {
         writeMethod = await new SelectComponentWriteMethodInteraction(
           texts

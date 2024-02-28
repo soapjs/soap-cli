@@ -1,12 +1,13 @@
-import { WriteMethod } from "@soapjs/soap-cli-common";
 import {
-  Component,
   ClassData,
   ClassSchema,
+  Component,
   Config,
+  ControllerData,
+  ControllerElement,
   ControllerType,
-} from "../../../../core";
-import { ControllerData, ControllerElement } from "./types";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class ControllerFactory {
   public static create(

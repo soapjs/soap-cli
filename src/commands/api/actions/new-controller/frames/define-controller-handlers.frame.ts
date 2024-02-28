@@ -1,10 +1,15 @@
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
-import { Config, TypeInfo } from "../../../../../core";
-import { EntityJson } from "../../new-entity";
-import { ModelJson } from "../../new-model";
-import { HandlerJson } from "../types";
+import {
+  EntityJson,
+  HandlerJson,
+  ModelJson,
+  Texts,
+  TypeInfo,
+  WriteMethod,
+  Config,
+} from "@soapjs/soap-cli-common";
 import { DefineHandlerInteraction } from "./interactions/define-handler.interaction";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { CommandConfig } from "../../../../../core";
 
 export type ControllerHandlers = {
   handlers: HandlerJson[];
@@ -17,13 +22,14 @@ export class DefineControllerHandlersFrame extends Frame<ControllerHandlers> {
 
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(DefineControllerHandlersFrame.NAME);
   }
 
   public async run(context: { endpoint: string; name: string }) {
-    const { texts, config } = this;
+    const { texts, config, command } = this;
     const result = { handlers: [], models: [], entities: [] };
 
     if (
@@ -38,7 +44,7 @@ export class DefineControllerHandlersFrame extends Frame<ControllerHandlers> {
         handler = await new DefineHandlerInteraction(texts).run();
         result.handlers.push(handler);
 
-        if (config.command.dependencies_write_method !== WriteMethod.Skip) {
+        if (command.dependencies_write_method !== WriteMethod.Skip) {
           let hasComponentType = false;
 
           const types = [];

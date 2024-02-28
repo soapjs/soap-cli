@@ -1,20 +1,30 @@
-import { Model, ModelFactory } from "../new-model";
-import { Toolset, ToolsetJson } from "./types";
 import chalk from "chalk";
-import { Config, TestCaseSchema } from "../../../../core";
+import {
+  Config,
+  Entity,
+  Model,
+  TestCaseSchema,
+  TestSuite,
+  Texts,
+  Toolset,
+  ToolsetJson,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { EntityFactory } from "../new-entity";
+import { ModelFactory } from "../new-model";
+import { TestSuiteFactory } from "../new-test-suite";
 import { ToolsetFactory } from "./toolset.factory";
-import { Entity, EntityFactory } from "../new-entity";
-import { TestSuite, TestSuiteFactory } from "../new-test-suite";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../../core";
 
 export class ToolsetJsonParser {
   constructor(
     private config: Config,
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
 
-  build(
+  parse(
     list: ToolsetJson[],
     modelsRef: Model[],
     entitiesRef: Entity[]
@@ -24,7 +34,7 @@ export class ToolsetJsonParser {
     toolsets: Toolset[];
     test_suites: TestSuite[];
   } {
-    const { config, texts, writeMethod } = this;
+    const { config, texts, writeMethod, command } = this;
     const models: Model[] = [];
     const entities: Entity[] = [];
     const toolsets: Toolset[] = [];
@@ -52,7 +62,7 @@ export class ToolsetJsonParser {
         []
       );
 
-      if (!config.command.skip_tests && toolset.element.methods.length > 0) {
+      if (!command.skip_tests && toolset.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests" },

@@ -1,7 +1,10 @@
-import { Transport, TransportOptions, TransportStatus } from "./transport";
 import fs from "fs";
-import { ensurePathExists, fileOrDirExists } from "../tools/files.tools";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  WriteMethod,
+  ensurePathExists,
+  fileOrDirExists,
+} from "@soapjs/soap-cli-common";
+import { Transport, TransportOptions, TransportStatus } from "./transport";
 
 export class FileTransport implements Transport {
   writeOutput(data: string, options: FileTransportOptions): TransportStatus {

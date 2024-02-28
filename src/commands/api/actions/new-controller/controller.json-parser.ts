@@ -1,27 +1,34 @@
 import chalk from "chalk";
-import { Model, ModelFactory } from "../new-model";
-import { Controller, ControllerJson, HandlerJson } from "./types";
-import {
-  Config,
-  PrimitiveType,
-  TypeInfo,
-  TestCaseSchema,
-} from "../../../../core";
+import { ModelFactory } from "../new-model";
 import { ControllerFactory } from "./controller.factory";
-import { Entity } from "../new-entity/types";
 import { EntityFactory } from "../new-entity";
 import { pascalCase } from "change-case";
-import { TestSuite, TestSuiteFactory } from "../new-test-suite";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { TestSuiteFactory } from "../new-test-suite";
+import {
+  Config,
+  Controller,
+  ControllerJson,
+  Entity,
+  HandlerJson,
+  Model,
+  PrimitiveType,
+  TestCaseSchema,
+  TestSuite,
+  Texts,
+  TypeInfo,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../../core";
 
 export class ControllerInputJsonParser {
   constructor(
     private config: Config,
+    private command: CommandConfig,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
 
-  build(handler: HandlerJson, endpoint: string) {
-    const { config, writeMethod } = this;
+  parse(handler: HandlerJson, endpoint: string) {
+    const { config, writeMethod, command } = this;
     let entity: Entity;
     let type: TypeInfo;
 
@@ -99,15 +106,19 @@ export class ControllerJsonParser {
 
   constructor(
     private config: Config,
-
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {
-    this.inputParser = new ControllerInputJsonParser(config, writeMethod);
+    this.inputParser = new ControllerInputJsonParser(
+      config,
+      command,
+      writeMethod
+    );
     this.outputParser = new ControllerOutputJsonParser(config, writeMethod);
   }
 
-  build(
+  parse(
     list: ControllerJson[],
     modelsRef: Model[],
     entitiesRef: Entity[]
@@ -117,7 +128,7 @@ export class ControllerJsonParser {
     controllers: Controller[];
     test_suites: TestSuite[];
   } {
-    const { config, texts, writeMethod } = this;
+    const { config, texts, writeMethod, command } = this;
     const models: Model[] = [];
     const entities: Entity[] = [];
     const controllers: Controller[] = [];
@@ -141,7 +152,7 @@ export class ControllerJsonParser {
       if (Array.isArray(handlers)) {
         handlers.forEach((handler) => {
           if (typeof handler === "object") {
-            const i = this.inputParser.build(handler, endpoint);
+            const i = this.inputParser.parse(handler, endpoint);
             if (i.type) {
               handler.input = i.type.tag;
               if (i.entity) {
@@ -167,7 +178,7 @@ export class ControllerJsonParser {
         []
       );
 
-      if (!config.command.skip_tests && controller.element.methods.length > 0) {
+      if (!command.skip_tests && controller.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests" },

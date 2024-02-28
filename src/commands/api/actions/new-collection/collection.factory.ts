@@ -1,9 +1,16 @@
-import { CollectionAddons, CollectionData, CollectionElement } from "./types";
-import { Model } from "../new-model";
-import { CollectionType } from "../../../../core/type.info";
-import { ClassData, ClassSchema, Component, Config } from "../../../../core";
 import { nanoid } from "nanoid";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  ClassData,
+  ClassSchema,
+  CollectionAddons,
+  CollectionData,
+  CollectionElement,
+  CollectionType,
+  Component,
+  Config,
+  Model,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class CollectionFactory {
   public static create(

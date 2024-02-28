@@ -1,25 +1,37 @@
-import { MapperJson } from "../actions/new-mapper";
-import { RepositoryContainer, RepositoryJson } from "../actions/new-repository";
-import { RouteJsonParser, RouteJson } from "../actions/new-route";
-import { ModelJson } from "../actions/new-model";
 import {
-  CollectionJsonParser,
+  ApiJson,
+  ApiSchema,
   CollectionJson,
-} from "../actions/new-collection";
-import { UseCaseJsonParse, UseCaseJson } from "../actions/new-use-case";
-import { Config } from "../../../core";
-import { ApiSchema } from "./api.schema";
-import { ControllerJsonParser } from "../actions/new-controller/controller.json-parser";
-import { EntityJsonParser } from "../actions/new-entity/entity.json-parser";
-import { MapperJsonParser } from "../actions/new-mapper/mapper.json-parser";
-import { ModelJsonParser } from "../actions/new-model/model.json-parser";
-import { RepositoryJsonParser } from "../actions/new-repository/repository.json-parser";
-import { ApiJson } from "./api.types";
-import { ControllerJson } from "../actions/new-controller/types";
-import { EntityJson } from "../actions/new-entity/types";
-import { ToolsetJson, ToolsetJsonParser } from "../actions/new-toolset";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
-import { ServiceJson, ServiceJsonParser } from "../actions";
+  Config,
+  ControllerJson,
+  EntityJson,
+  MapperJson,
+  ModelJson,
+  RepositoryContainer,
+  RepositoryJson,
+  RouteJson,
+  ServiceJson,
+  Texts,
+  ToolsetJson,
+  UseCaseJson,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../core";
+import {
+  ModelJsonParser,
+  EntityJsonParser,
+  ToolsetJsonParser,
+  ServiceJsonParser,
+  MapperJsonParser,
+  CollectionJsonParser,
+  UseCaseJsonParse,
+  RepositoryJsonParser,
+  ControllerJsonParser,
+  RouteJsonParser,
+  RouterFactory,
+  ContainerFactory,
+  LauncherFactory,
+} from "../actions";
 
 export class ApiJsonParser {
   private apiSchema: ApiSchema;
@@ -28,12 +40,18 @@ export class ApiJsonParser {
 
   constructor(
     private config: Config,
+    private command: CommandConfig,
     private texts: Texts
   ) {
-    this.apiSchema = new ApiSchema(config);
+    this.apiSchema = new ApiSchema(
+      config,
+      RouterFactory.create(config),
+      ContainerFactory.create(config),
+      LauncherFactory.create(config)
+    );
     this.writeMethod = {
-      component: config.command.write_method,
-      dependency: config.command.dependencies_write_method,
+      component: command.write_method,
+      dependency: command.dependencies_write_method,
     };
   }
 
@@ -47,11 +65,13 @@ export class ApiJsonParser {
   }
 
   parseEntities(list: EntityJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new EntityJsonParser(config, texts, writeMethod).build(
-      list,
-      apiSchema.models.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new EntityJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).build(list, apiSchema.models.toArray());
 
     result.entities.forEach((e) => {
       apiSchema.entities.add(e);
@@ -67,12 +87,13 @@ export class ApiJsonParser {
   }
 
   parseTools(list: ToolsetJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new ToolsetJsonParser(config, texts, writeMethod).build(
-      list,
-      apiSchema.models.toArray(),
-      apiSchema.entities.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new ToolsetJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).parse(list, apiSchema.models.toArray(), apiSchema.entities.toArray());
 
     result.toolsets.forEach((t) => {
       apiSchema.toolsets.add(t);
@@ -92,12 +113,13 @@ export class ApiJsonParser {
   }
 
   parseServices(list: ServiceJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new ServiceJsonParser(config, texts, writeMethod).build(
-      list,
-      apiSchema.models.toArray(),
-      apiSchema.entities.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new ServiceJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).parse(list, apiSchema.models.toArray(), apiSchema.entities.toArray());
 
     result.services.forEach((t) => {
       apiSchema.services.add(t);
@@ -117,12 +139,13 @@ export class ApiJsonParser {
   }
 
   parseMappers(list: MapperJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new MapperJsonParser(config, texts, writeMethod).build(
-      list,
-      apiSchema.entities.toArray(),
-      apiSchema.models.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new MapperJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).build(list, apiSchema.entities.toArray(), apiSchema.models.toArray());
 
     result.mappers.forEach((m) => {
       apiSchema.mappers.add(m);
@@ -142,11 +165,13 @@ export class ApiJsonParser {
   }
 
   parseCollections(list: CollectionJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new CollectionJsonParser(config, texts, writeMethod).build(
-      list,
-      apiSchema.models.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new CollectionJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).build(list, apiSchema.models.toArray());
 
     result.collections.forEach((s) => {
       apiSchema.collections.add(s);
@@ -166,12 +191,13 @@ export class ApiJsonParser {
   }
 
   parseUseCases(list: UseCaseJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new UseCaseJsonParse(config, texts, writeMethod).build(
-      list,
-      apiSchema.models.toArray(),
-      apiSchema.entities.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new UseCaseJsonParse(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).parse(list, apiSchema.models.toArray(), apiSchema.entities.toArray());
 
     result.use_cases.forEach((u) => {
       apiSchema.use_cases.add(u);
@@ -191,8 +217,13 @@ export class ApiJsonParser {
   }
 
   parseRepositories(list: RepositoryJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new RepositoryJsonParser(config, texts, writeMethod).parse(
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new RepositoryJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).parse(
       list,
       apiSchema.entities.toArray(),
       apiSchema.models.toArray(),
@@ -232,12 +263,13 @@ export class ApiJsonParser {
   }
 
   parseControllers(list: ControllerJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new ControllerJsonParser(config, texts, writeMethod).build(
-      list,
-      apiSchema.models.toArray(),
-      apiSchema.entities.toArray()
-    );
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new ControllerJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).parse(list, apiSchema.models.toArray(), apiSchema.entities.toArray());
 
     result.controllers.forEach((c) => {
       apiSchema.controllers.add(c);
@@ -257,8 +289,13 @@ export class ApiJsonParser {
   }
 
   parseRoutes(list: RouteJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
-    const result = new RouteJsonParser(config, texts, writeMethod).build(
+    const { apiSchema, config, texts, writeMethod, command } = this;
+    const result = new RouteJsonParser(
+      config,
+      command,
+      texts,
+      writeMethod
+    ).build(
       list,
       apiSchema.models.toArray(),
       apiSchema.entities.toArray(),

@@ -1,7 +1,7 @@
 import { NewProjectOptions } from "./types";
 import { NewProjectInteractiveStrategy } from "./new-project.interactive-strategy";
 import { NewProjectOptionsStrategy } from "./new-project.options-strategy";
-import { PluginMapService } from "../../../../core/config/tools/plugin-map.service";
+import { PluginMapService } from "../../../../core/config/plugin-map.service";
 import Config from "../../../../defaults/root.config.json";
 import chalk from "chalk";
 import { Texts } from "@soapjs/soap-cli-common";

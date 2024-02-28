@@ -1,15 +1,18 @@
 import chalk from "chalk";
-import { Config } from "../../../../../core";
-import { ApiJson, InputNameAndEndpointInteraction } from "../../../common";
+import {
+  InputNameAndEndpointInteraction,
+} from "../../../common";
 import { CreateModelsFrame } from "./create-models.frame";
-import { PropJson, Texts } from "@soapjs/soap-cli-common";
+import { ApiJson, Config, PropJson, Texts } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
+import { CommandConfig } from "../../../../../core";
 
 export class CreateModelsAsDependenciesFrame extends Frame<ApiJson> {
   public static NAME = "create_models_as_dependencies_frame";
 
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(CreateModelsAsDependenciesFrame.NAME);
@@ -22,7 +25,7 @@ export class CreateModelsAsDependenciesFrame extends Frame<ApiJson> {
     endpoint?: string;
     props?: PropJson[];
   }) {
-    const { texts, config } = this;
+    const { texts, config, command } = this;
     const { dependencyOf, ...rest } = context;
 
     console.log(
@@ -33,8 +36,8 @@ export class CreateModelsAsDependenciesFrame extends Frame<ApiJson> {
       )
     );
 
-    if (config.command.with_dependencies) {
-      return new CreateModelsFrame(config, texts).run(rest);
+    if (command.with_dependencies) {
+      return new CreateModelsFrame(config, command, texts).run(rest);
     }
 
     const { name, endpoint } = await new InputNameAndEndpointInteraction({

@@ -1,5 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { HandlerJson } from "../../types";
+import { HandlerJson, Texts } from "@soapjs/soap-cli-common";
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 
 export class DefineHandlerInteraction extends Interaction<HandlerJson> {

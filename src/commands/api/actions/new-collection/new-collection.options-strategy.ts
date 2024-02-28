@@ -1,19 +1,32 @@
 import chalk from "chalk";
-import { CollectionJson, NewCollectionOptions } from "./types";
+import { NewCollectionOptions } from "./types";
 import { ApiJsonParser } from "../../common/api-json.parser";
 import { ApiGenerator } from "../../common";
-import { CliOptionsTools, Config } from "../../../../core";
-import { Strategy, Texts } from "@soapjs/soap-cli-common";
+import {
+  CliOptionsTools,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
+import {
+  Strategy,
+  Texts,
+  Config,
+  CollectionJson,
+} from "@soapjs/soap-cli-common";
 
 export class NewCollectionOptionsStrategy extends Strategy {
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    private command: CommandConfig,
+    private compilation: CompilationConfig
+  ) {
     super();
   }
   public async apply(
     options: NewCollectionOptions,
     cliPluginPackageName: string
   ) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = await Texts.load();
 
     if (
@@ -33,13 +46,14 @@ export class NewCollectionOptionsStrategy extends Strategy {
       storages,
       model,
     };
-    const schema = new ApiJsonParser(config, texts).build({
+    const schema = new ApiJsonParser(config, command, texts).build({
       models: [],
       entities: [],
       collections: [collection],
     });
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

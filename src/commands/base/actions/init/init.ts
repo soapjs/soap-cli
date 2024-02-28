@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "fs";
 import { InitOptions } from "./types";
 import { InitInteractiveStrategy } from "./init.interactive-strategy";
 import { InitOptionsStrategy } from "./init.options-strategy";
-import { PluginMapService } from "../../../../core/config/tools/plugin-map.service";
+import { PluginMapService } from "../../../../core/config/plugin-map.service";
 import Config from "../../../../defaults/root.config.json";
 import { readdir, unlink } from "fs/promises";
 import { Texts } from "@soapjs/soap-cli-common";

@@ -1,5 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../../core";
+import { Texts, Config } from "@soapjs/soap-cli-common";
 import { InputNameAndEndpointInteraction } from "../../../common";
 import { Frame } from "@soapjs/soap-cli-interactive";
 

@@ -1,19 +1,18 @@
-import { Texts } from "@soapjs/soap-cli-common";
+import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import {
   StoryResolver,
   Storyboard,
   StoryboardSession,
   TimelineFrame,
 } from "@soapjs/soap-cli-interactive";
-import { ApiJson } from "../../common/api.types";
 import {
   CreateControllerFrame,
   CreateRoutesForHandlersFrame,
   DefineControllerHandlersFrame,
   DefineControllerNameAndEndpointFrame,
 } from "./frames";
-import { Config } from "../../../../core";
 import { localSessionPath } from "../../common/consts";
+import { CommandConfig } from "../../../../core";
 
 export class NewControllerResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -44,7 +43,12 @@ export class NewControllerResolver extends StoryResolver<ApiJson> {
 }
 
 export class NewControllerStoryboard extends Storyboard<ApiJson> {
-  constructor(texts: Texts, config: Config, session?: StoryboardSession) {
+  constructor(
+    texts: Texts,
+    config: Config,
+    command: CommandConfig,
+    session?: StoryboardSession
+  ) {
     super(
       "new_controller_storyboard",
       session ||
@@ -53,10 +57,13 @@ export class NewControllerStoryboard extends Storyboard<ApiJson> {
     );
 
     this.addFrame(new DefineControllerNameAndEndpointFrame(config, texts))
-      .addFrame(new DefineControllerHandlersFrame(config, texts), (t) => {
-        const { name, endpoint } = t.getFrame(0).output;
-        return { name, endpoint };
-      })
+      .addFrame(
+        new DefineControllerHandlersFrame(config, command, texts),
+        (t) => {
+          const { name, endpoint } = t.getFrame(0).output;
+          return { name, endpoint };
+        }
+      )
       .addFrame(
         new CreateRoutesForHandlersFrame(config, texts),
         (t) => {
@@ -76,7 +83,7 @@ export class NewControllerStoryboard extends Storyboard<ApiJson> {
           return handlers.length > 0;
         }
       )
-      .addFrame(new CreateControllerFrame(config, texts), (t) => {
+      .addFrame(new CreateControllerFrame(config, command, texts), (t) => {
         const { name, endpoint } = t.getFrame(0).output;
         const { handlers, models, entities } = t.getFrame(1).output;
 

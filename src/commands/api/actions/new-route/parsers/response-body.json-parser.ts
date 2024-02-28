@@ -1,9 +1,17 @@
-import { Config, PropSchema, TypeInfo, UnknownType } from "../../../../../core";
-import { Model, ModelFactory } from "../../new-model";
+import {
+  Config,
+  Entity,
+  Model,
+  PropSchema,
+  RouteJson,
+  RouteModelLabel,
+  TypeInfo,
+  UnknownType,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { EntityFactory } from "../../new-entity";
+import { ModelFactory } from "../../new-model";
 import { RouteModelFactory } from "../route-model.factory";
-import { RouteJson } from "../types";
-import { Entity, EntityFactory } from "../../new-entity";
-import { RouteModelLabel, WriteMethod } from "@soapjs/soap-cli-common";
 
 export class ResponseBodyJsonParser {
   constructor(

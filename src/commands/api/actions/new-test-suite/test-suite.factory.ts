@@ -1,13 +1,14 @@
 import { nanoid } from "nanoid";
 import {
-  Config,
   Component,
+  Config,
+  TestSuite,
+  TestSuiteData,
+  TestSuiteElement,
   TestSuiteSchema,
   TestSuiteType,
-  TestSuiteData,
-} from "../../../../core";
-import { TestSuite, TestSuiteElement } from "./types";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class TestSuiteFactory {
   static create(

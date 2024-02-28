@@ -1,9 +1,9 @@
 import { Result } from "@soapjs/soap-cli-common";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
-import { CliConfig } from "../cli.config";
-import DefaultCliConfig from "../../../defaults/cli.config.json";
-import DefaultRootConfig from "../../../defaults/root.config.json";
+import { CliConfig } from "./cli.config";
+import DefaultCliConfig from "../../defaults/cli.config.json";
+import DefaultRootConfig from "../../defaults/root.config.json";
 
 export class CliConfigService {
   private localPath = path.join(

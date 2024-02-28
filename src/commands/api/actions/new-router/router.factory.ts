@@ -1,13 +1,13 @@
 import { nanoid } from "nanoid";
 import {
-  Config,
-  Component,
   ClassData,
   ClassSchema,
+  Component,
+  Config,
+  RouterElement,
   RouterType,
-} from "../../../../core";
-import { RouterElement } from "./types";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class RouterFactory {
   public static create(config: Config): Component<

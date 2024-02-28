@@ -1,13 +1,15 @@
 import { nanoid } from "nanoid";
-import { RouteModelAddons, RouteModelData, RouteModelElement } from "./types";
 import {
-  Config,
   Component,
-  TypeSchema,
-  TypeJson,
+  Config,
+  RouteModelAddons,
+  RouteModelData,
+  RouteModelElement,
   RouteModelType,
-} from "../../../../core";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  TypeJson,
+  TypeSchema,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class RouteModelFactory {
   static create(

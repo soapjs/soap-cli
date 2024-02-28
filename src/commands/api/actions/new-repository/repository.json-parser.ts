@@ -1,33 +1,38 @@
 import { paramCase } from "change-case";
+import chalk from "chalk";
 import {
+  Collection,
   Component,
   Config,
-  DependenciesTools,
-  MethodTools,
-  PropTools,
-  TestCaseSchema,
-} from "../../../../core";
-import chalk from "chalk";
-import { Entity, EntityFactory } from "../new-entity";
-import { Mapper, MapperFactory } from "../new-mapper";
-import { Model, ModelFactory } from "../new-model";
-import { Collection, CollectionFactory } from "../new-collection";
-import { RepositoryImplFactory } from "./repository-impl.factory";
-import {
-  RepositoryJson,
   DataContext,
+  Entity,
+  Mapper,
+  MethodTools,
+  Model,
+  PropTools,
   Repository,
-  RepositoryImpl,
   RepositoryContainer,
   RepositoryElement,
-} from "./types";
-import { TestSuite, TestSuiteFactory } from "../new-test-suite";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+  RepositoryImpl,
+  RepositoryJson,
+  TestCaseSchema,
+  TestSuite,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { CollectionFactory } from "../new-collection";
+import { EntityFactory } from "../new-entity";
+import { MapperFactory } from "../new-mapper";
+import { ModelFactory } from "../new-model";
+import { TestSuiteFactory } from "../new-test-suite";
+import { RepositoryImplFactory } from "./repository-impl.factory";
 import { RepositoryFactory } from "./repository.factory";
+import { CommandConfig, DependenciesTools } from "../../../../core";
 
 export class RepositoryJsonParser {
   constructor(
     private config: Config,
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
@@ -39,7 +44,7 @@ export class RepositoryJsonParser {
     entitiesRef: Entity[],
     modelsRef: Model[]
   ) {
-    const { config, writeMethod, texts } = this;
+    const { config, writeMethod, texts, command } = this;
     const { name, endpoint, props, methods } = data;
 
     if (!endpoint && config.components.repository.isEndpointRequired()) {
@@ -260,7 +265,7 @@ export class RepositoryJsonParser {
     collections: Collection[];
     test_suites: TestSuite[];
   } {
-    const { config, writeMethod } = this;
+    const { config, writeMethod, command } = this;
     const repositories: Repository[] = [];
     const repository_impls: RepositoryImpl[] = [];
     const models: Model[] = [];
@@ -324,7 +329,7 @@ export class RepositoryJsonParser {
         models.push(...result.models);
       }
 
-      if (repositoryImpl && !config.command.skip_tests) {
+      if (repositoryImpl && !command.skip_tests) {
         const suite = this.buildTestSuite(data, repositoryImpl);
         test_suites.push(suite);
       }

@@ -1,24 +1,34 @@
 import chalk from "chalk";
 import { pascalCase } from "change-case";
-import { Config, TypeInfo, TestCaseSchema } from "../../../../../core";
 import {
+  Config,
   Controller,
-  ControllerFactory,
+  Entity,
+  Model,
+  Route,
+  RouteIO,
+  RouteJson,
+  TestCaseSchema,
+  TestSuite,
+  Texts,
+  TypeInfo,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import {
   ControllerInputJsonParser,
   ControllerOutputJsonParser,
+  ControllerFactory,
 } from "../../new-controller";
-import { Entity } from "../../new-entity";
-import { Model, ModelFactory } from "../../new-model";
+import { ModelFactory } from "../../new-model";
+import { TestSuiteFactory } from "../../new-test-suite";
 import { RouteIOFactory } from "../route-io.factory";
 import { RouteFactory } from "../route.factory";
-import { RouteJson, Route, RouteIO } from "../types";
-import { hasBody, hasParams } from "../utils";
+import { hasParams, hasBody } from "../utils";
 import { PathParamsJsonParser } from "./path-params.json-parser";
 import { QueryParamsJsonParser } from "./query-params.json-parser";
 import { RequestBodyJsonParser } from "./request-body.json-parser";
 import { ResponseBodyJsonParser } from "./response-body.json-parser";
-import { TestSuite, TestSuiteFactory } from "../../new-test-suite";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../../../core";
 
 export class RouteJsonParser {
   private inputParser: ControllerInputJsonParser;
@@ -34,11 +44,15 @@ export class RouteJsonParser {
 
   constructor(
     private config: Config,
-
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {
-    this.inputParser = new ControllerInputJsonParser(config, writeMethod);
+    this.inputParser = new ControllerInputJsonParser(
+      config,
+      command,
+      writeMethod
+    );
     this.outputParser = new ControllerOutputJsonParser(config, writeMethod);
     this.pathParamsParser = new PathParamsJsonParser(
       config,
@@ -130,7 +144,7 @@ export class RouteJsonParser {
     }
 
     if (Object.keys(inputProps).length > 0) {
-      const { entity } = inputParser.build(
+      const { entity } = inputParser.parse(
         { name: handlerName, input: inputProps },
         endpoint
       );
@@ -230,8 +244,16 @@ export class RouteJsonParser {
     route_ios: RouteIO[];
     test_suites: TestSuite[];
   } {
-    const { config, texts, writeMethod, models, entities, routes, route_ios } =
-      this;
+    const {
+      config,
+      texts,
+      writeMethod,
+      models,
+      entities,
+      routes,
+      route_ios,
+      command,
+    } = this;
     const test_suites: TestSuite[] = [];
 
     models.length = 0;
@@ -345,7 +367,7 @@ export class RouteJsonParser {
         );
         route_ios.push(io);
 
-        if (!config.command.skip_tests && io.element.methods.length > 0) {
+        if (!command.skip_tests && io.element.methods.length > 0) {
           //
           const suite = TestSuiteFactory.create(
             { name, endpoint, type: "unit_tests" },

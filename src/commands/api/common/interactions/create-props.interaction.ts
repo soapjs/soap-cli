@@ -1,9 +1,14 @@
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { TypeInfo } from "../../../../core";
-import { Config } from "../../../../core/config";
-import { EntityJson, ModelJson } from "../../actions";
 import { CreatePropInteraction } from "./create-prop.interaction";
-import { PropJson, Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  Config,
+  EntityJson,
+  ModelJson,
+  PropJson,
+  Texts,
+  TypeInfo,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 type InteractionResult = {
   props: PropJson[];

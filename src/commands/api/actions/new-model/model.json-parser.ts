@@ -1,8 +1,12 @@
-import { Model, ModelFactory } from ".";
-import { ModelJson } from "./types";
 import chalk from "chalk";
-import { Config } from "../../../../core";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  Config,
+  Model,
+  ModelJson,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { ModelFactory } from "./model.factory";
 
 export class ModelJsonParser {
   constructor(

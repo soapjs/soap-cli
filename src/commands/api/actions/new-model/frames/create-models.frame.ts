@@ -1,19 +1,25 @@
 import { existsSync } from "fs";
-import { Config } from "../../../../../core";
 import {
-  ApiJson,
   CreatePropsInteraction,
   InputNameAndEndpointInteraction,
   SelectComponentWriteMethodInteraction,
 } from "../../../common";
-import { PropJson, Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  ApiJson,
+  Config,
+  PropJson,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
+import { CommandConfig } from "../../../../../core";
 
 export class CreateModelsFrame extends Frame<ApiJson> {
   public static NAME = "create_models_frame";
 
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(CreateModelsFrame.NAME);
@@ -25,7 +31,7 @@ export class CreateModelsFrame extends Frame<ApiJson> {
     endpoint?: string;
     props?: PropJson[];
   }) {
-    const { texts, config } = this;
+    const { texts, config, command } = this;
     const result: ApiJson = { models: [], entities: [] };
     const types = context.types ? [...context.types] : [];
     const passedProps = context?.props || [];
@@ -48,7 +54,7 @@ export class CreateModelsFrame extends Frame<ApiJson> {
     const newPropsResult = await new CreatePropsInteraction(
       texts,
       config,
-      config.command.dependencies_write_method
+      command.dependencies_write_method
     ).run({
       endpoint,
       target: "model",
@@ -66,7 +72,7 @@ export class CreateModelsFrame extends Frame<ApiJson> {
         endpoint,
       }).path;
 
-      if (config.command.force === false) {
+      if (command.force === false) {
         if (existsSync(componentPath)) {
           writeMethod = await new SelectComponentWriteMethodInteraction(
             texts

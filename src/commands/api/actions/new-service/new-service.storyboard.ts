@@ -1,6 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../core";
-import { ApiJson } from "../../common/api.types";
+import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import { CreateServiceFrame } from "./frames";
 import {
   StoryResolver,
@@ -9,6 +7,7 @@ import {
   StoryboardSession,
 } from "@soapjs/soap-cli-interactive";
 import { localSessionPath } from "../../common/consts";
+import { CommandConfig } from "../../../../core";
 
 export class NewServiceStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -27,7 +26,12 @@ export class NewServiceStoryResolver extends StoryResolver<ApiJson> {
 }
 
 export class NewServiceStoryboard extends Storyboard<ApiJson> {
-  constructor(texts: Texts, config: Config, session?: StoryboardSession) {
+  constructor(
+    texts: Texts,
+    config: Config,
+    command: CommandConfig,
+    session?: StoryboardSession
+  ) {
     super(
       "new_service_storyboard",
       session ||
@@ -35,6 +39,6 @@ export class NewServiceStoryboard extends Storyboard<ApiJson> {
       new NewServiceStoryResolver()
     );
 
-    this.addFrame(new CreateServiceFrame(config, texts));
+    this.addFrame(new CreateServiceFrame(config, command, texts));
   }
 }

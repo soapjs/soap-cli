@@ -8,7 +8,7 @@ import axios from "axios";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 
-import DefaultPluginMap from "../../../defaults/plugin-map.json";
+import DefaultPluginMap from "../../defaults/plugin-map.json";
 
 export class PluginMapService {
   private localPath: string;

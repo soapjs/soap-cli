@@ -1,21 +1,24 @@
 import { NewControllerOptions } from "./types";
 import { NewControllerOptionsStrategy } from "./new-controller.options-strategy";
 import { NewControllerInteractiveStrategy } from "./new-controller.interactive-strategy";
-import { Config } from "../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../core";
 import chalk from "chalk";
+import { Config } from "@soapjs/soap-cli-common";
 
 export const newController = async (
   options: NewControllerOptions,
   config: Config,
+  command: CommandConfig,
+  compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
   if (Object.keys(options).includes("name")) {
-    new NewControllerOptionsStrategy(config).apply(
+    new NewControllerOptionsStrategy(config, command, compilation).apply(
       options,
       cliPluginPackageName
     );
   } else {
-    new NewControllerInteractiveStrategy(config)
+    new NewControllerInteractiveStrategy(config, command, compilation)
       .apply(cliPluginPackageName)
       .catch((error) => {
         if (error) {

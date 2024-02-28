@@ -1,9 +1,14 @@
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { TypeInfo } from "../../../../core";
-import { Config } from "../../../../core/config";
-import { EntityJson, ModelJson } from "../../actions";
 import { CreateParamInteraction } from "./create-param.interaction";
-import { ParamJson, Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  Config,
+  EntityJson,
+  ModelJson,
+  ParamJson,
+  Texts,
+  TypeInfo,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 type InteractionResult = {
   params: ParamJson[];

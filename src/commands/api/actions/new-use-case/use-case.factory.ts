@@ -1,13 +1,14 @@
-import { UseCaseData, UseCaseElement } from "./types";
 import {
   ClassData,
   ClassSchema,
   Component,
   Config,
   TypeInfo,
+  UseCaseData,
+  UseCaseElement,
   UseCaseType,
-} from "../../../../core";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class UseCaseFactory {
   public static create(

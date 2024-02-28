@@ -1,7 +1,13 @@
-import { MethodJson, Texts, WriteMethod } from "@soapjs/soap-cli-common";
-import { Config, TypeInfo } from "../../../../core";
-import { ParamSchema } from "../../../../core/components";
-import { EntityJson, ModelJson } from "../../actions";
+import {
+  Config,
+  EntityJson,
+  MethodJson,
+  ModelJson,
+  ParamSchema,
+  Texts,
+  TypeInfo,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import { DefineMethodInteraction } from "./define-method.interaction";
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 

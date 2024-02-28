@@ -1,8 +1,11 @@
-import { RouteModelLabel, WriteMethod } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../../core";
-import { Model } from "../../new-model";
+import {
+  Config,
+  Model,
+  RouteJson,
+  RouteModelLabel,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import { RouteModelFactory } from "../route-model.factory";
-import { RouteJson } from "../types";
 
 export class PathParamsTools {
   static extractFromString(value: string) {

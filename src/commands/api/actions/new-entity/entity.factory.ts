@@ -1,8 +1,17 @@
 import { nanoid } from "nanoid";
-import { Config, Component, ClassSchema, EntityType } from "../../../../core";
-import { EntityData, Entity, EntityElement, EntityAddons } from "./types";
-import { Model } from "../new-model";
-import { ClassJson, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  ClassJson,
+  ClassSchema,
+  Component,
+  Config,
+  Entity,
+  EntityAddons,
+  EntityData,
+  EntityElement,
+  EntityType,
+  Model,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class EntityFactory {
   static create(

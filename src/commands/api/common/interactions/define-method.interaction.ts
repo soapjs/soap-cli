@@ -1,5 +1,4 @@
-import { MethodJson, Texts } from "@soapjs/soap-cli-common";
-import { SchemaTools } from "../../../../core/components";
+import { MethodJson, SchemaTools, Texts } from "@soapjs/soap-cli-common";
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 
 export class DefineMethodInteraction extends Interaction<MethodJson> {

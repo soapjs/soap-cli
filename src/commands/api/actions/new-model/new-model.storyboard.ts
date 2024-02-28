@@ -1,6 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../core";
-import { ApiJson } from "../../common/api.types";
+import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import { CreateModelsFrame } from "./frames";
 import { SelectModelTypesFrame } from "./frames/select-model-types.frame";
 import {
@@ -10,6 +8,7 @@ import {
   TimelineFrame,
 } from "@soapjs/soap-cli-interactive";
 import { localSessionPath } from "../../common/consts";
+import { CommandConfig } from "../../../../core";
 
 export class NewModelStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -26,7 +25,12 @@ export class NewModelStoryResolver extends StoryResolver<ApiJson> {
 }
 
 export class NewModelStoryboard extends Storyboard<ApiJson> {
-  constructor(texts: Texts, config: Config, session?: StoryboardSession) {
+  constructor(
+    texts: Texts,
+    config: Config,
+    command: CommandConfig,
+    session?: StoryboardSession
+  ) {
     super(
       "new_model_storyboard",
       session ||
@@ -35,7 +39,7 @@ export class NewModelStoryboard extends Storyboard<ApiJson> {
     );
 
     this.addFrame(new SelectModelTypesFrame(config, texts)).addFrame(
-      new CreateModelsFrame(config, texts),
+      new CreateModelsFrame(config, command, texts),
       (t) => ({ types: t.prevFrame.output })
     );
   }

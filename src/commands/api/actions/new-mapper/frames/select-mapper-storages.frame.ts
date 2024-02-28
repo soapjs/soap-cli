@@ -1,5 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../../core";
+import { Texts, Config } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 
 export class SelectMapperStoragesFrame extends Frame<string[]> {

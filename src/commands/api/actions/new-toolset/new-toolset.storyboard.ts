@@ -1,6 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../core";
-import { ApiJson } from "../../common/api.types";
+import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import { CreateToolsetFrame, SelectToolsetlayerFrame } from "./frames";
 import {
   StoryResolver,
@@ -9,6 +7,7 @@ import {
   StoryboardSession,
 } from "@soapjs/soap-cli-interactive";
 import { localSessionPath } from "../../common/consts";
+import { CommandConfig } from "../../../../core";
 
 export class NewToolsetStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -27,7 +26,12 @@ export class NewToolsetStoryResolver extends StoryResolver<ApiJson> {
 }
 
 export class NewToolsetStoryboard extends Storyboard<ApiJson> {
-  constructor(texts: Texts, config: Config, session?: StoryboardSession) {
+  constructor(
+    texts: Texts,
+    config: Config,
+    command: CommandConfig,
+    session?: StoryboardSession
+  ) {
     super(
       "new_toolset_storyboard",
       session ||
@@ -36,7 +40,7 @@ export class NewToolsetStoryboard extends Storyboard<ApiJson> {
     );
 
     this.addFrame(new SelectToolsetlayerFrame(config, texts)).addFrame(
-      new CreateToolsetFrame(config, texts),
+      new CreateToolsetFrame(config, command, texts),
       (t) => ({ layer: t.prevFrame.output })
     );
   }

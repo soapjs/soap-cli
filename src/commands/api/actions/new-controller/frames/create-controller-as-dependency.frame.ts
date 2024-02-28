@@ -1,6 +1,4 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../../core";
-import { ApiJson } from "../../../common";
+import { Texts, Config, ApiJson } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
 
 export class CreateControllerAsDependencyFrame extends Frame<ApiJson> {

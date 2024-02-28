@@ -1,20 +1,26 @@
 import { existsSync } from "fs";
-import { Config } from "../../../../../core";
 import {
-  ApiJson,
   InputNameAndEndpointInteraction,
   InputTextInteraction,
   SelectComponentWriteMethodInteraction,
 } from "../../../common";
 import { CreateModelsFrame } from "../../new-model";
-import { PropJson, Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  ApiJson,
+  Config,
+  PropJson,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { CommandConfig } from "../../../../../core";
 
 export class CreateCollectionFrame extends Frame<ApiJson> {
   public static NAME = "create_collection_frame";
 
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(CreateCollectionFrame.NAME);
@@ -26,8 +32,8 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
     endpoint?: string;
     props?: PropJson[];
   }) {
-    const { texts, config } = this;
-    const createModelsFrame = new CreateModelsFrame(config, texts);
+    const { texts, config, command } = this;
+    const createModelsFrame = new CreateModelsFrame(config, command, texts);
     const result: ApiJson = { models: [], entities: [], collections: [] };
     const storages = context.storages ? [...context.storages] : [];
     const { name, endpoint } = await new InputNameAndEndpointInteraction({
@@ -47,7 +53,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
         endpoint,
       }).path;
 
-      if (config.command.force === false) {
+      if (command.force === false) {
         if (existsSync(componentPath)) {
           writeMethod = await new SelectComponentWriteMethodInteraction(
             texts
@@ -66,7 +72,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
         hint: texts.get("hint___please_enter_storage_model_name"),
       });
 
-      if (config.command.dependencies_write_method !== WriteMethod.Skip) {
+      if (command.dependencies_write_method !== WriteMethod.Skip) {
         if (
           await InteractionPrompts.confirm(
             texts

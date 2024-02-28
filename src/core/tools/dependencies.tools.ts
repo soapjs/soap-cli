@@ -1,12 +1,11 @@
-import { WriteMethod } from "@soapjs/soap-cli-common";
 import {
+  Component,
+  Config,
   Entity,
-  EntityFactory,
   Model,
-  ModelFactory,
-} from "../../commands/api/actions";
-import { Config } from "../config";
-import { Component } from "./../components/component";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { ModelFactory, EntityFactory } from "../../commands/api/actions";
 
 export class DependenciesTools {
   static resolveMissingDependnecies(

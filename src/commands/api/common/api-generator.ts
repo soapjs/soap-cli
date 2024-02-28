@@ -1,21 +1,23 @@
+import chalk from "chalk";
 import {
+  ApiSchema,
   CliPackageManager,
+  Config,
   LanguageStrategyProvider,
   Result,
 } from "@soapjs/soap-cli-common";
-import { ApiSchema } from "./api.schema";
 import { COMPILER_WORKER_PATH } from "../../../core/workers/worker";
-import { Config, WorkerPool } from "../../../core";
-import chalk from "chalk";
+import { CompilationConfig, WorkerPool } from "../../../core";
 
 export class ApiGenerator {
   constructor(
     protected config: Config,
+    protected compilation: CompilationConfig,
     protected cliPluginPackageName: string
   ) {}
 
   public async generate(api: ApiSchema): Promise<Result> {
-    const { config, cliPluginPackageName } = this;
+    const { config, compilation, cliPluginPackageName } = this;
     const obj = api.toObject();
     const packageManager = new CliPackageManager();
     const languageModule: LanguageStrategyProvider =
@@ -32,9 +34,7 @@ export class ApiGenerator {
     // console.log("MODELS:", JSON.stringify(models, null, 2));
 
     const promises = [];
-    const {
-      compilation: { threadCount, batchSize },
-    } = this.config;
+    const { threadCount, batchSize } = compilation;
     const operationsCount = Math.ceil(models.length / batchSize);
     const usefulThreadCount =
       operationsCount < threadCount ? operationsCount : threadCount;
@@ -79,7 +79,7 @@ export class ApiGenerator {
       promises.push(
         workerPool.executeTask({
           code_module: cliPluginPackageName,
-          transport: config.compilation.transport,
+          transport: compilation.transport,
           models: batch,
         })
       );

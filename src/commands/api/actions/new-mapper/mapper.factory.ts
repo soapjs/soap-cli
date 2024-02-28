@@ -1,15 +1,17 @@
-import { MapperAddons, MapperData, MapperElement } from "./types";
-import { Entity } from "../new-entity";
-import { Model } from "../new-model";
+import { nanoid } from "nanoid";
 import {
-  Component,
   ClassData,
   ClassSchema,
+  Component,
   Config,
+  Entity,
+  MapperAddons,
+  MapperData,
+  MapperElement,
   MapperType,
-} from "../../../../core";
-import { nanoid } from "nanoid";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  Model,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class MapperFactory {
   static create(

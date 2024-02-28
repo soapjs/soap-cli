@@ -1,16 +1,26 @@
 import chalk from "chalk";
-import { Config, TypeInfo, TestCaseSchema } from "../../../../core";
-import { Entity, EntityFactory } from "../new-entity";
-import { Model, ModelFactory } from "../new-model";
-import { UseCaseJson, UseCase } from "./types";
+import {
+  Config,
+  Entity,
+  Model,
+  TestCaseSchema,
+  TestSuite,
+  Texts,
+  TypeInfo,
+  UseCase,
+  UseCaseJson,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { EntityFactory } from "../new-entity";
+import { ModelFactory } from "../new-model";
+import { TestSuiteFactory } from "../new-test-suite";
 import { UseCaseFactory } from "./use-case.factory";
-import { TestSuite, TestSuiteFactory } from "../new-test-suite";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../../core";
 
 export class UseCaseJsonParse {
   constructor(
     private config: Config,
-
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
@@ -63,7 +73,7 @@ export class UseCaseJsonParse {
     }
   }
 
-  build(
+  parse(
     list: UseCaseJson[],
     modelsRef: Model[],
     entitiesRef: Entity[]
@@ -73,7 +83,7 @@ export class UseCaseJsonParse {
     entities: Entity[];
     test_suites: TestSuite[];
   } {
-    const { config, texts, writeMethod } = this;
+    const { config, texts, writeMethod, command } = this;
     const use_cases: UseCase[] = [];
     const models: Model[] = [];
     const entities: Entity[] = [];
@@ -99,7 +109,7 @@ export class UseCaseJsonParse {
         config
       );
 
-      if (!config.command.skip_tests && useCase.element.methods.length > 0) {
+      if (!command.skip_tests && useCase.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests" },

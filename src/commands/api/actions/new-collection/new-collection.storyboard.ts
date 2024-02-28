@@ -4,11 +4,10 @@ import {
   StoryboardSession,
   TimelineFrame,
 } from "@soapjs/soap-cli-interactive";
-import { Config } from "../../../../core";
-import { ApiJson } from "../../common/api.types";
 import { CreateCollectionFrame, SelectCollectionStoragesFrame } from "./frames";
-import { Texts } from "@soapjs/soap-cli-common";
+import { Texts, ApiJson, Config } from "@soapjs/soap-cli-common";
 import { localSessionPath } from "../../common/consts";
+import { CommandConfig } from "../../../../core";
 
 export class NewCollectionStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -30,7 +29,7 @@ export class NewCollectionStoryboard extends Storyboard<ApiJson> {
   constructor(
     texts: Texts,
     config: Config,
-
+    command: CommandConfig,
     session?: StoryboardSession
   ) {
     super(
@@ -41,7 +40,7 @@ export class NewCollectionStoryboard extends Storyboard<ApiJson> {
     );
 
     this.addFrame(new SelectCollectionStoragesFrame(config, texts)).addFrame(
-      new CreateCollectionFrame(config, texts),
+      new CreateCollectionFrame(config, command, texts),
       (t) => ({ storages: t.prevFrame.output })
     );
   }

@@ -1,7 +1,15 @@
 import { nanoid } from "nanoid";
-import { Config, Component, ClassSchema, ToolsetType } from "../../../../core";
-import { ToolsetData, Toolset, ToolsetElement } from "./types";
-import { ClassJson, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  ClassJson,
+  ClassSchema,
+  Component,
+  Config,
+  Toolset,
+  ToolsetData,
+  ToolsetElement,
+  ToolsetType,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class ToolsetFactory {
   static create(

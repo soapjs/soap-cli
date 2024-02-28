@@ -1,20 +1,30 @@
 import chalk from "chalk";
-import { Model, ModelFactory } from "../new-model";
-import { Service, ServiceJson } from "./types";
-import { Config, TestCaseSchema } from "../../../../core";
+import {
+  Config,
+  Entity,
+  Model,
+  Service,
+  ServiceJson,
+  TestCaseSchema,
+  TestSuite,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
+import { EntityFactory } from "../new-entity";
+import { ModelFactory } from "../new-model";
+import { TestSuiteFactory } from "../new-test-suite";
 import { ServiceFactory } from "./service.factory";
-import { Entity, EntityFactory } from "../new-entity";
-import { TestSuite, TestSuiteFactory } from "../new-test-suite";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../../core";
 
 export class ServiceJsonParser {
   constructor(
     private config: Config,
+    private command: CommandConfig,
     private texts: Texts,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
 
-  build(
+  parse(
     list: ServiceJson[],
     modelsRef: Model[],
     entitiesRef: Entity[]
@@ -24,7 +34,7 @@ export class ServiceJsonParser {
     services: Service[];
     test_suites: TestSuite[];
   } {
-    const { config, texts, writeMethod } = this;
+    const { config, texts, writeMethod, command } = this;
     const models: Model[] = [];
     const entities: Entity[] = [];
     const services: Service[] = [];
@@ -52,7 +62,7 @@ export class ServiceJsonParser {
         []
       );
 
-      if (!config.command.skip_tests && service.element.methods.length > 0) {
+      if (!command.skip_tests && service.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests" },

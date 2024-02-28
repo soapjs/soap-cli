@@ -1,8 +1,7 @@
 import { Texts, ensurePathExists } from "@soapjs/soap-cli-common";
 import { writeFile } from "fs/promises";
 import path from "path";
-import TextsJson from "../../../defaults/texts.json";
-import { existsSync } from "fs";
+import TextsJson from "../../defaults/texts.json";
 
 export class TextsService {
   private localPath: string;

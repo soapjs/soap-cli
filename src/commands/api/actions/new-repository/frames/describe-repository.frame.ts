@@ -1,8 +1,6 @@
-import { Texts } from "@soapjs/soap-cli-common";
-import { Config } from "../../../../../core";
+import { Config, DataContextJson, Texts } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 import { paramCase } from "change-case";
-import { DataContextJson } from "../types";
 
 export type RepositoryDescription = {
   createImplementation: boolean;

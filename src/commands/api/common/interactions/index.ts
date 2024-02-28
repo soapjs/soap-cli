@@ -4,8 +4,6 @@ export * from "./create-props.interaction";
 export * from "./input-name-and-endpoint.interaction";
 export * from "./input-name-and-endpoint.predefined-interaction";
 export * from "./input-text.interaction";
-export * from "../../../../core";
-export * from "../../../../core";
 export * from "./select-component-write-method.interaction";
 export * from "./define-method.interaction";
 export * from "./define-methods.interaction";

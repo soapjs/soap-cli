@@ -1,14 +1,19 @@
 import chalk from "chalk";
-import { Texts } from "@soapjs/soap-cli-common";
-import { DefaultCliOptions } from "../../common/api.types";
+import { Config, Texts } from "@soapjs/soap-cli-common";
 import { existsSync, readFileSync } from "fs";
 import { ApiJsonParser } from "../../common/api-json.parser";
 import { ApiGenerator } from "../../common/api-generator";
-import { Config } from "../../../../core";
+import {
+  CommandConfig,
+  CompilationConfig,
+  DefaultCliOptions,
+} from "../../../../core";
 
 export const fromJson = async (
   options: DefaultCliOptions,
   config: Config,
+  command: CommandConfig,
+  compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
   const texts = await Texts.load();
@@ -25,8 +30,12 @@ export const fromJson = async (
   try {
     const data = readFileSync(options.json, "utf-8");
     const json = JSON.parse(data);
-    const schema = new ApiJsonParser(config, texts).build(json);
-    const apiGenerator = new ApiGenerator(config, cliPluginPackageName);
+    const schema = new ApiJsonParser(config, command, texts).build(json);
+    const apiGenerator = new ApiGenerator(
+      config,
+      compilation,
+      cliPluginPackageName
+    );
     const result = await apiGenerator.generate(schema);
 
     if (result.isFailure) {

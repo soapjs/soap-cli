@@ -4,8 +4,6 @@ import {
   Storyboard,
   StoryboardSession,
 } from "@soapjs/soap-cli-interactive";
-import { Config } from "../../../../core";
-import { ApiJson } from "../../common/api.types";
 import { localSessionPath } from "../../common/consts";
 import { CreateEntityAsDependencyFrame } from "../new-entity";
 import { CreateModelsAsDependenciesFrame } from "../new-model";
@@ -14,7 +12,8 @@ import {
   DefineRepositoryNameAndEndpointFrame,
   DescribeRepositoryFrame,
 } from "./frames";
-import { Texts } from "@soapjs/soap-cli-common";
+import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
+import { CommandConfig } from "../../../../core";
 
 export class NewRepositoryStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -33,7 +32,12 @@ export class NewRepositoryStoryResolver extends StoryResolver<ApiJson> {
 }
 
 export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
-  constructor(texts: Texts, config: Config, session?: StoryboardSession) {
+  constructor(
+    texts: Texts,
+    config: Config,
+    command: CommandConfig,
+    session?: StoryboardSession
+  ) {
     super(
       "new_repository_storyboard",
       session ||
@@ -46,12 +50,15 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
         const { name } = t.getFrame(0).output;
         return { name };
       })
-      .addFrame(new CreateEntityAsDependencyFrame(config, texts), (t) => {
-        const { name, endpoint } = t.getFrame(0).output;
-        return { name, endpoint, dependencyOf: "repository" };
-      })
       .addFrame(
-        new CreateModelsAsDependenciesFrame(config, texts),
+        new CreateEntityAsDependencyFrame(config, command, texts),
+        (t) => {
+          const { name, endpoint } = t.getFrame(0).output;
+          return { name, endpoint, dependencyOf: "repository" };
+        }
+      )
+      .addFrame(
+        new CreateModelsAsDependenciesFrame(config, command, texts),
         (t) => {
           const { name, endpoint } = t.getFrame(0).output;
           const { contexts } = t.getFrame(1).output;
@@ -71,7 +78,7 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
           return databases.length > 0;
         }
       )
-      .addFrame(new CreateRepositoryFrame(config, texts), (t) => {
+      .addFrame(new CreateRepositoryFrame(config, command, texts), (t) => {
         const { name, endpoint } = t.getFrame(0).output;
         const { entities } = t.getFrame(2).output;
         const { models } = t.getFrame(3).output;

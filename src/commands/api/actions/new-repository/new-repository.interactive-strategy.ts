@@ -1,18 +1,26 @@
-import { Strategy, Texts } from "@soapjs/soap-cli-common";
+import { Config, Strategy, Texts } from "@soapjs/soap-cli-common";
 import { ApiGenerator, ApiJsonParser } from "../../common";
 import { NewRepositoryStoryboard } from "./new-repository.storyboard";
-import { Config } from "../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../core";
 
 export class NewRepositoryInteractiveStrategy extends Strategy {
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    private command: CommandConfig,
+    private compilation: CompilationConfig
+  ) {
     super();
   }
   public readonly name = "new_repository_interactive_strategy";
   public async apply(cliPluginPackageName: string) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = Texts.load();
 
-    const newRepositoryStoryboard = new NewRepositoryStoryboard(texts, config);
+    const newRepositoryStoryboard = new NewRepositoryStoryboard(
+      texts,
+      config,
+      command
+    );
     const { content: json, failure } = await newRepositoryStoryboard.run();
 
     if (failure) {
@@ -20,9 +28,10 @@ export class NewRepositoryInteractiveStrategy extends Strategy {
       process.exit(1);
     }
 
-    const schema = new ApiJsonParser(config, texts).build(json);
+    const schema = new ApiJsonParser(config, command, texts).build(json);
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

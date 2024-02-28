@@ -1,14 +1,16 @@
 import { nanoid } from "nanoid";
 import {
-  Config,
-  Component,
   ClassData,
   ClassSchema,
+  Component,
+  Config,
+  Controller,
+  RouteData,
+  RouteElement,
+  RouteIO,
   RouteType,
-} from "../../../../core";
-import { RouteData, RouteIO, RouteElement } from "./types";
-import { WriteMethod } from "@soapjs/soap-cli-common";
-import { Controller } from "../new-controller";
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class RouteFactory {
   public static create(

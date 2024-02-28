@@ -1,13 +1,16 @@
 import { nanoid } from "nanoid";
 import {
   Component,
-  TypeSchema,
-  TypeJson,
   Config,
+  Model,
+  ModelAddons,
+  ModelData,
+  ModelElement,
   ModelType,
-} from "../../../../core";
-import { ModelData, ModelElement, ModelAddons, Model } from "./types";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  TypeJson,
+  TypeSchema,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class ModelFactory {
   static create(

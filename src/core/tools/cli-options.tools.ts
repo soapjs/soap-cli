@@ -1,4 +1,4 @@
-import { SchemaTools } from "../components/schema.tools";
+import { SchemaTools } from "@soapjs/soap-cli-common";
 
 export class CliOptionsTools {
   public static splitArrayOption(value: string[]): string[] {

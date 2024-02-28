@@ -1,6 +1,6 @@
 import { CliConfig } from "./cli.config";
-import { DefaultCliOptions } from "../../commands/api/common/api.types";
 import { WriteMethod } from "@soapjs/soap-cli-common";
+import { DefaultCliOptions } from "./cli.types";
 
 export class CommandConfig {
   static create(options: DefaultCliOptions, cliConfig: CliConfig) {

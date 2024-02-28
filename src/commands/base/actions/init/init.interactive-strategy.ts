@@ -1,4 +1,4 @@
-import { PluginConfigService } from "../../../../core/config/tools/plugin.config.service";
+import { PluginConfigService } from "../../../../core/config/plugin.config.service";
 import { InitStoryboard } from "./init.storyboard";
 import {
   CliPackageManager,

@@ -1,7 +1,10 @@
-import { ProjectDescription, Result } from "@soapjs/soap-cli-common";
+import {
+  ProjectConfig,
+  ProjectDescription,
+  Result,
+} from "@soapjs/soap-cli-common";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
-import { ProjectConfig } from "../project.config";
 
 export class ProjectConfigService {
   private localPath: string;

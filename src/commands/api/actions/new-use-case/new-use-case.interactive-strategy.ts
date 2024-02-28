@@ -1,20 +1,28 @@
-import { Strategy, Texts } from "@soapjs/soap-cli-common";
+import { Strategy, Texts, Config } from "@soapjs/soap-cli-common";
 import { ApiGenerator, ApiJsonParser } from "../../common";
 import { NewUseCaseStoryboard } from "./new-use-case.storyboard";
-import { Config } from "../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../core";
 
 export class NewUseCaseInteractiveStrategy extends Strategy {
   public readonly name = "new_use_case_interactive_strategy";
 
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    private command: CommandConfig,
+    private compilation: CompilationConfig
+  ) {
     super();
   }
 
   public async apply(cliPluginPackageName: string) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = Texts.load();
 
-    const newUseCaseStoryboard = new NewUseCaseStoryboard(texts, config);
+    const newUseCaseStoryboard = new NewUseCaseStoryboard(
+      texts,
+      config,
+      command
+    );
     const { content: json, failure } = await newUseCaseStoryboard.run();
 
     if (failure) {
@@ -22,9 +30,10 @@ export class NewUseCaseInteractiveStrategy extends Strategy {
       process.exit(1);
     }
 
-    const schema = new ApiJsonParser(config, texts).build(json);
+    const schema = new ApiJsonParser(config, command, texts).build(json);
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

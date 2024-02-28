@@ -1,15 +1,17 @@
 import chalk from "chalk";
-import { Config } from "../../../../../core";
-import { EntityJson } from "../../new-entity";
-import { ModelJson } from "../../new-model";
 import {
   DescribeRouteInteraction,
-  RouteJson,
   SelectRequestBodyTypeFrame,
   SelectResponseBodyTypeFrame,
 } from "../../new-route";
-import { HandlerJson } from "../types";
-import { Texts } from "@soapjs/soap-cli-common";
+import {
+  Texts,
+  Config,
+  HandlerJson,
+  ModelJson,
+  RouteJson,
+  EntityJson,
+} from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 
 export type HandlerRoutes = {

@@ -1,21 +1,28 @@
 import { existsSync } from "fs";
-import { Config } from "../../../../../core";
 import {
-  ApiJson,
   InputNameAndEndpointInteraction,
   InputTextInteraction,
   SelectComponentWriteMethodInteraction,
 } from "../../../common";
 import { CreateModelsAsDependenciesFrame } from "../../new-model";
-import { CreateEntityAsDependencyFrame, EntityJson } from "../../new-entity";
-import { PropJson, Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { CreateEntityAsDependencyFrame } from "../../new-entity";
+import {
+  ApiJson,
+  Config,
+  EntityJson,
+  PropJson,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { CommandConfig } from "../../../../../core";
 
 export class CreateMappersFrame extends Frame<ApiJson> {
   public static NAME = "create_mappers_frame";
 
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(CreateMappersFrame.NAME);
@@ -27,9 +34,10 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     endpoint?: string;
     props?: PropJson[];
   }) {
-    const { texts, config } = this;
+    const { texts, config, command } = this;
     const createModelDependenciesFrame = new CreateModelsAsDependenciesFrame(
       config,
+      command,
       texts
     );
     const result: ApiJson = { models: [], entities: [], mappers: [] };
@@ -55,7 +63,7 @@ export class CreateMappersFrame extends Frame<ApiJson> {
         endpoint,
       }).path;
 
-      if (config.command.force === false) {
+      if (command.force === false) {
         if (existsSync(componentPath)) {
           writeMethod = await new SelectComponentWriteMethodInteraction(
             texts
@@ -64,10 +72,11 @@ export class CreateMappersFrame extends Frame<ApiJson> {
       }
 
       if (writeMethod !== WriteMethod.Skip) {
-        if (config.command.dependencies_write_method !== WriteMethod.Skip) {
+        if (command.dependencies_write_method !== WriteMethod.Skip) {
           if (!entityName) {
             const createEntityResult = await new CreateEntityAsDependencyFrame(
               config,
+              command,
               texts
             ).run({
               dependencyOf: "mapper",

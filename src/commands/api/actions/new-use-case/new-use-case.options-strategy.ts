@@ -1,17 +1,24 @@
 import chalk from "chalk";
-import { UseCaseJson, NewUseCaseOptions } from "./types";
-import { ApiJsonParser } from "../../common/api-json.parser";
-import { CliOptionsTools, Config } from "../../../../core";
-import { ApiGenerator } from "../../common";
-import { Strategy, Texts } from "@soapjs/soap-cli-common";
+import { Config, Strategy, Texts, UseCaseJson } from "@soapjs/soap-cli-common";
+import { ApiJsonParser, ApiGenerator } from "../../common";
+import { NewUseCaseOptions } from "./types";
+import {
+  CliOptionsTools,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 
 export class NewUseCaseOptionsStrategy extends Strategy {
-  constructor(private config: Config) {
+  constructor(
+    private config: Config,
+    private command: CommandConfig,
+    private compilation: CompilationConfig
+  ) {
     super();
   }
 
   public async apply(options: NewUseCaseOptions, cliPluginPackageName: string) {
-    const { config } = this;
+    const { config, command, compilation } = this;
     const texts = await Texts.load();
 
     if (!options.endpoint && config.components.use_case.isEndpointRequired()) {
@@ -26,13 +33,14 @@ export class NewUseCaseOptionsStrategy extends Strategy {
       input,
       output,
     };
-    const schema = new ApiJsonParser(config, texts).build({
+    const schema = new ApiJsonParser(config, command, texts).build({
       models: [],
       entities: [],
       use_cases: [use_case],
     });
     const result = await new ApiGenerator(
       config,
+      compilation,
       cliPluginPackageName
     ).generate(schema);
 

@@ -1,16 +1,23 @@
 import { existsSync } from "fs";
-import { Config, EntityType } from "../../../../../core";
-import { ApiJson } from "../../../common";
-import { ControllerJson, HandlerJson } from "../../new-controller";
-import { EntityJson } from "../../new-entity";
 import { PathParamsTools, QueryParamsTools } from "../parsers";
-import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import {
+  ApiJson,
+  Config,
+  ControllerJson,
+  EntityJson,
+  EntityType,
+  HandlerJson,
+  Texts,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { CommandConfig } from "../../../../../core";
 
 export class DescribeControllerFrame extends Frame<ApiJson> {
   public static NAME = "describe_controller_frame";
   constructor(
     protected config: Config,
+    protected command: CommandConfig,
     protected texts: Texts
   ) {
     super(DescribeControllerFrame.NAME);
@@ -24,7 +31,7 @@ export class DescribeControllerFrame extends Frame<ApiJson> {
     response_body: any;
     path: string;
   }) {
-    const { texts, config } = this;
+    const { texts, config, command } = this;
     const { endpoint, controller, handler, request_body, response_body, path } =
       context;
     const controllers: ControllerJson[] = [];
@@ -37,7 +44,7 @@ export class DescribeControllerFrame extends Frame<ApiJson> {
     let input: EntityJson = { name: `${handler}Input`, endpoint, props: [] };
     let output: EntityJson = { name: `${handler}Output`, endpoint, props: [] };
     let h: HandlerJson = { name: handler };
-    let writeMethod = config.command.dependencies_write_method;
+    let writeMethod = command.dependencies_write_method;
 
     if (writeMethod !== WriteMethod.Skip) {
       const message = existsSync(cPath)

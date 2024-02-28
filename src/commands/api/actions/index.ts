@@ -1,7 +1,8 @@
-import { CliPackageManager, Texts } from "@soapjs/soap-cli-common";
+import { CliPackageManager, Config, Texts } from "@soapjs/soap-cli-common";
 import chalk from "chalk";
 import {
-  Config,
+  CommandConfig,
+  CompilationConfig,
   PluginConfigService,
   PluginMapService,
   ProjectConfigService,
@@ -16,7 +17,7 @@ import { newCollection } from "./new-collection";
 import { newService } from "./new-service";
 import { newToolset } from "./new-toolset";
 import { newUseCase } from "./new-use-case";
-import { CliConfigService } from "../../../core/config/tools/cli.config.service";
+import { CliConfigService } from "../../../core/config/cli.config.service";
 import { fromJson } from "./new-from-json";
 import RootConfig from "../../../defaults/root.config.json";
 
@@ -38,7 +39,8 @@ export * from "./new-container";
 export const newComponent = async (options: any, type?: string) => {
   const texts = Texts.load();
   const cliConfig = await new CliConfigService().sync();
-
+  const command = CommandConfig.create(options, cliConfig);
+  const compilation = CompilationConfig.create(cliConfig);
   const { content: projectConfig, failure } = await new ProjectConfigService(
     RootConfig.local_project_config_path
   ).get();
@@ -63,7 +65,7 @@ export const newComponent = async (options: any, type?: string) => {
 
   const pluginMap = await pluginMapService.sync();
 
-  const config = Config.create(cliConfig, pluginConfig, projectConfig, options);
+  const config = Config.create(pluginConfig, projectConfig);
   const cliPluginPackageName = pluginMap.getLanguage(
     config.code.alias
   ).cli_plugin;
@@ -76,26 +78,92 @@ export const newComponent = async (options: any, type?: string) => {
 
   switch (type) {
     case "controller":
-      return newController(options, config, cliPluginPackageName);
+      return newController(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "entity":
-      return newEntity(options, config, cliPluginPackageName);
+      return newEntity(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "mapper":
-      return newMapper(options, config, cliPluginPackageName);
+      return newMapper(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "model":
-      return newModel(options, config, cliPluginPackageName);
+      return newModel(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "repository":
-      return newRepository(options, config, cliPluginPackageName);
+      return newRepository(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "service":
-      return newService(options, config, cliPluginPackageName);
+      return newService(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "route":
-      return newRoute(options, config, cliPluginPackageName);
+      return newRoute(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "collection":
-      return newCollection(options, config, cliPluginPackageName);
+      return newCollection(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "toolset":
-      return newToolset(options, config, cliPluginPackageName);
+      return newToolset(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     case "use-case":
-      return newUseCase(options, config, cliPluginPackageName);
+      return newUseCase(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
     default:
-      return fromJson(options, config, cliPluginPackageName);
+      return fromJson(
+        options,
+        config,
+        command,
+        compilation,
+        cliPluginPackageName
+      );
   }
 };

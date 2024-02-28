@@ -1,13 +1,16 @@
 import {
+  ClassData,
+  ClassSchema,
+  Component,
+  Config,
   DataContext,
+  Entity,
   Repository,
   RepositoryData,
   RepositoryElement,
-} from "./types";
-import { Entity } from "../new-entity";
-import { RepositoryImplType } from "../../../../core/type.info";
-import { ClassData, ClassSchema, Component, Config } from "../../../../core";
-import { WriteMethod } from "@soapjs/soap-cli-common";
+  RepositoryImplType,
+  WriteMethod,
+} from "@soapjs/soap-cli-common";
 
 export class RepositoryImplFactory {
   static create(
