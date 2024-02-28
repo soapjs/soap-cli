@@ -166,9 +166,7 @@ export const runProgram = (texts: Texts) => {
       texts.get("option_repository_storages")
     )
     .option("-w, --with-deps", texts.get("option_with_deps"))
-    .option("-a, --no-interface", texts.get("option_repository_no_interface"))
-    .option("-i, --no-impl", texts.get("option_repository_no_impl"))
-    .option("-t, --no-factory", texts.get("option_repository_no_factory"))
+    .option("-i, --impl", texts.get("option_repository_impl"))
     .option("--skip-tests", texts.get("option_skip_tests"))
     .description(texts.get("description_new_repository"))
     .action((options) => {

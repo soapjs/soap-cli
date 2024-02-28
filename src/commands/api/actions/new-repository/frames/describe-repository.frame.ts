@@ -1,13 +1,13 @@
 import { Texts } from "@soapjs/soap-cli-common";
 import { Config } from "../../../../../core";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { paramCase } from "change-case";
+import { DataContextJson } from "../types";
 
 export type RepositoryDescription = {
-  createInterface: boolean;
   createImplementation: boolean;
-  createFactory: boolean;
   willHaveAdditionalContent: boolean;
-  databases: string[];
+  contexts: DataContextJson[];
 };
 
 export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
@@ -40,7 +40,37 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
     return typeof result === "string" ? [result] : result;
   }
 
-  public async run() {
+  private async createContexts(
+    dbs: string[],
+    availableDBs: any[],
+    name: string
+  ): Promise<DataContextJson[]> {
+    const { texts } = this;
+
+    const inputs = dbs.map((db) => {
+      const dbDesc = availableDBs.find((adb) => adb.alias === db);
+      return {
+        name: db,
+        message: dbDesc.name,
+        initial: paramCase(`${name}.collection`),
+      };
+    });
+
+    const tables: { [key: string]: string } = await InteractionPrompts.form(
+      texts.get("tables_form_title"),
+      inputs
+    );
+
+    return Object.keys(tables).map((alias) => ({
+      type: alias,
+      collection: {
+        name,
+        table: tables[alias],
+      },
+    }));
+  }
+
+  public async run(context: { name: string }) {
     const { texts, config } = this;
     const availableDBs = config.databases.map((db) => ({
       message: db.name,
@@ -49,54 +79,49 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
     }));
     const choices = [
       {
-        message: texts.get("the_interface_and_the_implementation"),
-        name: "interface_and_implementation",
+        message: texts.get("default_repository_implementation"),
+        name: "default_impl",
       },
       {
-        message: texts.get("only_the_interface"),
-        name: "only_interface",
-      },
-      {
-        message: texts.get("only_the_implementation"),
-        name: "only_implementation",
+        message: texts.get("custom_repository_implementation"),
+        name: "custom_impl",
       },
     ];
 
-    let selectedComponents = "";
-    let createInterface = false;
+    let selectedRepoImplType = "";
     let createImplementation = false;
-    let createFactory = false;
     let willHaveAdditionalContent = false;
     let databases = [];
 
-    do {
-      selectedComponents = await InteractionPrompts.select<string>(
-        texts.get("what_repository_components_do_you_want_to_create"),
-        choices,
-        [],
-        texts.get("hint___please_select_repository_components_to_create")
-      );
-    } while (selectedComponents === "");
-
-    createInterface = selectedComponents.includes("interface");
-    createImplementation = selectedComponents.includes("implementation");
-
-    if (createImplementation && createInterface) {
-      createFactory = await InteractionPrompts.confirm(
-        texts.get("do_you_also_want_to_create_factory_for_these_components")
-      );
+    if (
+      await InteractionPrompts.confirm(
+        texts.get("will_your_repository_use_multiple_databases")
+      )
+    ) {
+      databases = await this.selectDatabases(availableDBs, true);
+    } else {
+      databases = await this.selectDatabases(availableDBs, false);
     }
 
-    if (createImplementation) {
-      if (
-        await InteractionPrompts.confirm(
-          texts.get("will_your_repository_use_multiple_databases")
-        )
-      ) {
-        databases = await this.selectDatabases(availableDBs, true);
-      } else {
-        databases = await this.selectDatabases(availableDBs, false);
-      }
+    const contexts = await this.createContexts(
+      databases,
+      availableDBs,
+      context.name
+    );
+
+    if (databases.length > 1) {
+      createImplementation = true;
+    } else {
+      do {
+        selectedRepoImplType = await InteractionPrompts.select<string>(
+          texts.get("what_repository_implementation_type"),
+          choices,
+          [],
+          texts.get("hint___what_repository_implementation_type")
+        );
+      } while (selectedRepoImplType === "");
+
+      createImplementation = selectedRepoImplType === "custom_impl";
     }
 
     willHaveAdditionalContent = await InteractionPrompts.confirm(
@@ -104,11 +129,9 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
     );
 
     return {
-      createInterface,
       createImplementation,
-      createFactory,
       willHaveAdditionalContent,
-      databases,
+      contexts,
     };
   }
 }

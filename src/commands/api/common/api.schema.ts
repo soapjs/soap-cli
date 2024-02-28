@@ -3,11 +3,7 @@ import { Controller } from "../actions/new-controller";
 import { Entity } from "../actions/new-entity";
 import { Mapper } from "../actions/new-mapper";
 import { Model } from "../actions/new-model";
-import {
-  Repository,
-  RepositoryImpl,
-  RepositoryFactory,
-} from "../actions/new-repository";
+import { Repository, RepositoryImpl } from "../actions/new-repository";
 import { Route, RouteIO } from "../actions/new-route";
 import { Collection } from "../actions/new-collection";
 import { Toolset } from "../actions/new-toolset";
@@ -38,8 +34,6 @@ export class ApiSchema {
   public readonly repositories = new ApiComponentCollection<Repository>();
   public readonly repository_impls =
     new ApiComponentCollection<RepositoryImpl>();
-  public readonly repository_factories =
-    new ApiComponentCollection<RepositoryFactory>();
   public readonly test_suites = new ApiComponentCollection<TestSuite>();
 
   private _router: Router;
@@ -78,7 +72,6 @@ export class ApiSchema {
       use_cases,
       repositories,
       repository_impls,
-      repository_factories,
       test_suites,
       router,
       launcher,
@@ -98,9 +91,6 @@ export class ApiSchema {
       use_cases: use_cases.toArray().map((i) => i.toObject()),
       repositories: repositories.toArray().map((i) => i.toObject()),
       repository_impls: repository_impls.toArray().map((i) => i.toObject()),
-      repository_factories: repository_factories
-        .toArray()
-        .map((i) => i.toObject()),
       test_suites: test_suites.toArray().map((i) => i.toObject()),
       launcher: launcher.toObject(),
       router: router.toObject(),

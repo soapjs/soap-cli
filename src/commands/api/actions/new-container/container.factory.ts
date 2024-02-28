@@ -1,16 +1,16 @@
 import { nanoid } from "nanoid";
 import {
   Config,
-  Component,
   ClassData,
   ClassSchema,
   ContainerType,
 } from "../../../../core";
-import { ContainerElement } from "./types";
+import { ContainerAddons, ContainerElement } from "./types";
 import { WriteMethod } from "@soapjs/soap-cli-common";
+import { Container } from "./container";
 
 export class ContainerFactory {
-  public static create(config: Config): Component<ContainerElement> {
+  public static create(config: Config): Container {
     const { defaults } = config.components.container;
     const interfaces = [];
     const methods = [];
@@ -74,20 +74,25 @@ export class ContainerFactory {
       exp,
       is_abstract: false,
     };
-
+    const addons: ContainerAddons = {
+      repositories: [],
+      use_cases: [],
+      controllers: [],
+      toolsets: [],
+      services: [],
+    };
     const element = ClassSchema.create<ContainerElement>(classData, config, {
-      addons: {},
+      addons,
       dependencies: [],
     });
 
-    const component = Component.create<ContainerElement>(config, {
-      id: nanoid(),
-      type: ContainerType.create(componentName, "dependencies"),
-      path: componentPath,
-      writeMethod: WriteMethod.Write,
-      element,
-    });
-
-    return component;
+    return new Container(
+      nanoid(),
+      ContainerType.create(componentName, "dependencies"),
+      componentPath,
+      WriteMethod.Write,
+      addons,
+      element
+    );
   }
 }

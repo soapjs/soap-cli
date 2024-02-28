@@ -19,9 +19,9 @@ export class RepositoryImplFactory {
     config: Config
   ): Component<RepositoryElement> {
     const dependencies: Component[] = [entity, repository];
-    const { id, name, endpoint } = data;
+    const { id, name, endpoint, is_custom } = data;
     const { defaults } = config.components.repository_impl;
-    const addons = {};
+    const addons = { is_custom };
     const interfaces = [];
     const methods = [];
     const props = [];

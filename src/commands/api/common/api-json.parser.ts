@@ -1,5 +1,5 @@
 import { MapperJson } from "../actions/new-mapper";
-import { RepositoryJson } from "../actions/new-repository";
+import { RepositoryContainer, RepositoryJson } from "../actions/new-repository";
 import { RouteJsonParser, RouteJson } from "../actions/new-route";
 import { ModelJson } from "../actions/new-model";
 import {
@@ -24,6 +24,7 @@ import { ServiceJson, ServiceJsonParser } from "../actions";
 export class ApiJsonParser {
   private apiSchema: ApiSchema;
   private writeMethod: { component: WriteMethod; dependency: WriteMethod };
+  private repositoryContainer: RepositoryContainer[] = [];
 
   constructor(
     private config: Config,
@@ -191,7 +192,7 @@ export class ApiJsonParser {
 
   parseRepositories(list: RepositoryJson[]) {
     const { apiSchema, config, texts, writeMethod } = this;
-    const result = new RepositoryJsonParser(config, texts, writeMethod).build(
+    const result = new RepositoryJsonParser(config, texts, writeMethod).parse(
       list,
       apiSchema.entities.toArray(),
       apiSchema.models.toArray(),
@@ -207,10 +208,6 @@ export class ApiJsonParser {
       apiSchema.repository_impls.add(u);
     });
 
-    result.repository_factories.forEach((f) => {
-      apiSchema.repository_factories.add(f);
-    });
-
     result.entities.forEach((e) => {
       apiSchema.entities.add(e);
     });
@@ -223,13 +220,15 @@ export class ApiJsonParser {
       apiSchema.mappers.add(m);
     });
 
-    result.sources.forEach((s) => {
+    result.collections.forEach((s) => {
       apiSchema.collections.add(s);
     });
 
     result.test_suites.forEach((t) => {
       apiSchema.test_suites.add(t);
     });
+
+    this.repositoryContainer.push(...result.containers);
   }
 
   parseControllers(list: ControllerJson[]) {
@@ -303,7 +302,7 @@ export class ApiJsonParser {
     this.parseServices(json.services || []);
 
     this.apiSchema.controllers.forEach((controller) => {
-      this.apiSchema.container.addDependency(controller, config);
+      this.apiSchema.container.addControllerBindings(controller, config);
     });
 
     this.apiSchema.routes.forEach((route) => {
@@ -313,32 +312,32 @@ export class ApiJsonParser {
         ...route.addons,
       });
 
-      route.dependencies.forEach((dep) => {
-        if (dep.type.isController) {
-          const ctrl = this.apiSchema.controllers.find(
-            (c) => c.type.name === dep.type.name
-          );
-          if (ctrl) {
-            this.apiSchema.router.addDependency(ctrl, config);
-          }
-        }
-      });
+      // route.dependencies.forEach((dep) => {
+      //   if (dep.type.isController) {
+      //     const ctrl = this.apiSchema.controllers.find(
+      //       (c) => c.type.name === dep.type.name
+      //     );
+      //     if (ctrl) {
+      //       this.apiSchema.container.addControllerBindings(ctrl, config);
+      //     }
+      //   }
+      // });
     });
 
     this.apiSchema.use_cases.forEach((use_case) => {
-      this.apiSchema.container.addDependency(use_case, config);
-    });
-
-    this.apiSchema.repositories.forEach((repository) => {
-      this.apiSchema.container.addDependency(repository, config);
+      this.apiSchema.container.addUseCaseBindings(use_case, config);
     });
 
     this.apiSchema.toolsets.forEach((toolset) => {
-      this.apiSchema.container.addDependency(toolset, config);
+      this.apiSchema.container.addToolsetBindings(toolset, config);
     });
-    
+
     this.apiSchema.services.forEach((service) => {
-      this.apiSchema.container.addDependency(service, config);
+      this.apiSchema.container.addServiceBindings(service, config);
+    });
+
+    this.repositoryContainer.forEach((container) => {
+      this.apiSchema.container.addRepositoryBindings(container, config);
     });
 
     return this.apiSchema;

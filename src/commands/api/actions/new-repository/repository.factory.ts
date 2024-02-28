@@ -9,7 +9,7 @@ import {
 } from "../../../../core";
 import { WriteMethod } from "@soapjs/soap-cli-common";
 
-export class RepositoryComponentFactory {
+export class RepositoryFactory {
   static create(
     data: RepositoryData,
     entity: Entity,

@@ -32,11 +32,13 @@ export type CollectionData = ClassData & {
   table: string;
   storage: string;
   endpoint?: string;
+  is_custom?: boolean;
 };
 
 export type CollectionAddons = {
   storage: string;
   table: string;
+  is_custom: boolean;
 };
 
 export type CollectionElement = ElementWithImports &

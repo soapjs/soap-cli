@@ -140,42 +140,48 @@ export class Component<
   addDependency(dependency: Component | Dependency, config: Config) {
     const { id, path, type } = dependency;
 
-    if (dependency && this.hasDependency(dependency) === false) {
-      if (dependency["element"]) {
-        const { element } = dependency as Component;
-        this.__dependencies.push({ id, path, type, name: element.name });
+    if (dependency) {
+      if (this.hasDependency(dependency) === false) {
+        if (dependency["element"]) {
+          const { element } = dependency as Component;
+          this.__dependencies.push({ id, path, type, name: element.name });
 
-        if (Array.isArray(this.element.imports) && this.path !== path) {
-          const relativePath = ImportTools.createRelativeImportPath(
-            this.path,
-            path
-          );
-          const impt = this.element.findImport({ path: relativePath });
+          if (Array.isArray(this.element.imports) && this.path !== path) {
+            const relativePath = ImportTools.createRelativeImportPath(
+              this.path,
+              path
+            );
+            const impt = this.element.findImport({ path: relativePath });
 
-          if (impt) {
-            if (element.exp?.is_default && !impt.dflt) {
-              impt.dflt["dflt"] = element.name;
+            if (impt) {
+              if (element.exp?.is_default && !impt.dflt) {
+                impt.dflt["dflt"] = element.name;
+              } else {
+                impt.list.push(element.name);
+              }
             } else {
-              impt.list.push(element.name);
-            }
-          } else {
-            let impt = { path, ref_path: this.path };
-            if (element.exp?.is_default) {
-              impt["dflt"] = element.name;
-            } else {
-              impt["list"] = [element.name];
-            }
+              let impt = { path, ref_path: this.path };
+              if (element.exp?.is_default) {
+                impt["dflt"] = element.name;
+              } else {
+                impt["list"] = [element.name];
+              }
 
-            this.element.addImport(ImportSchema.create(impt, config));
+              this.element.addImport(ImportSchema.create(impt, config));
+            }
           }
+        } else {
+          this.__dependencies.push(dependency as Dependency);
         }
-      } else {
-        this.__dependencies.push(dependency as Dependency);
       }
     }
   }
 
   hasDependency(dependency: Component | Dependency) {
+    if (!dependency) {
+      return false;
+    }
+
     return (
       this.__dependencies.findIndex((d) => {
         const name = dependency["element"]?.name || dependency["name"];

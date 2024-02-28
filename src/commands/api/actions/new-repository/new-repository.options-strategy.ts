@@ -3,6 +3,7 @@ import { NewRepositoryOptions, RepositoryJson } from "./types";
 import { ApiGenerator, ApiJsonParser } from "../../common";
 import { Strategy, Texts } from "@soapjs/soap-cli-common";
 import { CliOptionsTools, Config } from "../../../../core";
+import { paramCase } from "change-case";
 
 export class NewRepositoryOptionsStrategy extends Strategy {
   constructor(private config: Config) {
@@ -23,8 +24,7 @@ export class NewRepositoryOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    const { endpoint, name, entity, model, noFactory, noImpl, noInterface } =
-      options;
+    const { endpoint, name, entity, model, impl } = options;
     const storages = CliOptionsTools.splitArrayOption(options.storage);
 
     const repository: RepositoryJson = {
@@ -32,14 +32,20 @@ export class NewRepositoryOptionsStrategy extends Strategy {
       endpoint,
       entity: entity || name,
       contexts: [],
-      build_factory: !noFactory,
-      build_interface: !noInterface,
-      use_default_impl: storages.length === 1 || noImpl === true,
+      impl: storages.length > 1 || impl,
     };
 
     if (model) {
       storages.forEach((type) => {
-        repository.contexts.push({ type, model });
+        repository.contexts.push({
+          type,
+          model,
+          collection: {
+            name,
+            impl: false,
+            table: paramCase(`${name}.collection`),
+          },
+        });
       });
     } else {
       repository.contexts.push(...storages);

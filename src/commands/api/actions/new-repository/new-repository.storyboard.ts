@@ -42,7 +42,10 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
     );
 
     this.addFrame(new DefineRepositoryNameAndEndpointFrame(config, texts))
-      .addFrame(new DescribeRepositoryFrame(config, texts))
+      .addFrame(new DescribeRepositoryFrame(config, texts), (t) => {
+        const { name } = t.getFrame(0).output;
+        return { name };
+      })
       .addFrame(new CreateEntityAsDependencyFrame(config, texts), (t) => {
         const { name, endpoint } = t.getFrame(0).output;
         return { name, endpoint, dependencyOf: "repository" };
@@ -51,7 +54,7 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
         new CreateModelsAsDependenciesFrame(config, texts),
         (t) => {
           const { name, endpoint } = t.getFrame(0).output;
-          const { databases } = t.getFrame(1).output;
+          const { contexts } = t.getFrame(1).output;
           const { entities } = t.getFrame(2).output;
           const props = entities.at(-1)?.props || [];
 
@@ -59,7 +62,7 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
             name,
             endpoint,
             dependencyOf: "repository",
-            types: databases,
+            types: contexts.map((c) => c.type),
             props,
           };
         },
@@ -68,38 +71,24 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
           return databases.length > 0;
         }
       )
-      .addFrame(
-        new CreateRepositoryFrame(config, texts),
-        (t) => {
-          const { name, endpoint } = t.getFrame(0).output;
-          const { entities } = t.getFrame(2).output;
-          const { models } = t.getFrame(3).output;
-          const {
-            createInterface,
-            createImplementation,
-            createFactory,
-            willHaveAdditionalContent,
-            databases,
-          } = t.getFrame(1).output;
+      .addFrame(new CreateRepositoryFrame(config, texts), (t) => {
+        const { name, endpoint } = t.getFrame(0).output;
+        const { entities } = t.getFrame(2).output;
+        const { models } = t.getFrame(3).output;
+        const { createImplementation, willHaveAdditionalContent, contexts } =
+          t.getFrame(1).output;
 
-          const entity = entities.at(-1);
+        const entity = entities.at(-1);
 
-          return {
-            name,
-            endpoint,
-            entity,
-            models,
-            createInterface,
-            createImplementation,
-            createFactory,
-            willHaveAdditionalContent,
-            databases,
-          };
-        },
-        (t) => {
-          const { createInterface } = t.getFrame(1).output;
-          return createInterface;
-        }
-      );
+        return {
+          name,
+          endpoint,
+          entity,
+          models,
+          createImplementation,
+          willHaveAdditionalContent,
+          contexts,
+        };
+      });
   }
 }

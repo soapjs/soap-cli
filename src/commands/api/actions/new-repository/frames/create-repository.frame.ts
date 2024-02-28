@@ -33,9 +33,7 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
       entity,
       models,
       willHaveAdditionalContent,
-      databases,
-      createInterface: build_interface,
-      createFactory: build_factory,
+      createImplementation,
     } = context;
     const result: ApiJson = { models: [], entities: [], repositories: [] };
     const componentName = config.components.repository.generateName(name);
@@ -54,7 +52,7 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
     }
 
     if (writeMethod !== WriteMethod.Skip) {
-      const contexts = [];
+      const contexts = [...context.contexts];
       let defineMethodsResult = { methods: [], entities: [], models: [] };
 
       if (willHaveAdditionalContent) {
@@ -73,11 +71,9 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
         result.models.push(...defineMethodsResult.models);
       }
 
-      models.forEach((model) => {
-        contexts.push({
-          type: model.types[0],
-          model: model.name,
-        });
+      contexts.forEach((ctx) => {
+        const model = models.find((m) => m.types.includes(ctx.type));
+        ctx.model = model.name;
       });
 
       result.repositories.push({
@@ -85,10 +81,7 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
         methods: defineMethodsResult.methods,
         entity: entity.name,
         endpoint,
-        build_interface,
-        use_default_impl:
-          willHaveAdditionalContent === false && databases.length === 1,
-        build_factory,
+        impl: createImplementation,
         contexts,
       });
     }

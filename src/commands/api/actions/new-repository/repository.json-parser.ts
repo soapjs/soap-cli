@@ -1,6 +1,8 @@
 import { paramCase } from "change-case";
 import {
+  Component,
   Config,
+  DependenciesTools,
   MethodTools,
   PropTools,
   TestCaseSchema,
@@ -11,17 +13,17 @@ import { Mapper, MapperFactory } from "../new-mapper";
 import { Model, ModelFactory } from "../new-model";
 import { Collection, CollectionFactory } from "../new-collection";
 import { RepositoryImplFactory } from "./repository-impl.factory";
-import { RepositoryComponentFactory } from "./repository.factory";
 import {
   RepositoryJson,
   DataContext,
   Repository,
   RepositoryImpl,
-  RepositoryFactory,
+  RepositoryContainer,
+  RepositoryElement,
 } from "./types";
-import { RepositoryFactoryFactory } from "./repository.factory.factory";
 import { TestSuite, TestSuiteFactory } from "../new-test-suite";
 import { Texts, WriteMethod } from "@soapjs/soap-cli-common";
+import { RepositoryFactory } from "./repository.factory";
 
 export class RepositoryJsonParser {
   constructor(
@@ -30,16 +32,15 @@ export class RepositoryJsonParser {
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
 
-  buildAbstract(
+  buildRepository(
     data: RepositoryJson,
     entity: Entity,
+    contexts: DataContext[],
     entitiesRef: Entity[],
     modelsRef: Model[]
   ) {
     const { config, writeMethod, texts } = this;
     const { name, endpoint, props, methods } = data;
-    const entities = [];
-    const models = [];
 
     if (!endpoint && config.components.repository.isEndpointRequired()) {
       console.log(chalk.red(texts.get("missing_endpoint")));
@@ -49,7 +50,7 @@ export class RepositoryJsonParser {
       return;
     }
 
-    const repository = RepositoryComponentFactory.create(
+    const repository = RepositoryFactory.create(
       {
         name,
         endpoint,
@@ -67,45 +68,18 @@ export class RepositoryJsonParser {
       config
     );
 
-    repository.unresolvedDependencies.forEach((type) => {
-      if (type.isModel) {
-        let model;
-        model = modelsRef.find((m) => {
-          return m.type.ref === type.ref && m.type.type === type.type;
-        });
+    const { models, entities } = DependenciesTools.resolveMissingDependnecies(
+      repository,
+      config,
+      writeMethod.dependency,
+      modelsRef,
+      entitiesRef
+    );
 
-        if (!model) {
-          model = ModelFactory.create(
-            { name: type.ref, endpoint: repository.endpoint, type: type.type },
-            writeMethod.dependency,
-            config,
-            []
-          );
-          models.push(model);
-        }
-        repository.addDependency(model, config);
-      } else if (type.isEntity && type.ref !== entity.type.ref) {
-        let e;
-        e = entitiesRef.find((m) => m.type.ref === type.ref);
-        if (!e) {
-          e = EntityFactory.create(
-            { name: type.ref, endpoint: repository.endpoint },
-            null,
-            writeMethod.dependency,
-            config,
-            []
-          );
-          entities.push(e);
-        }
-
-        repository.addDependency(e, config);
-      }
-    });
-
-    return { repository, entities, models };
+    return { repository, models, entities };
   }
 
-  buildImpl(
+  buildRepositoryImpl(
     data: RepositoryJson,
     entity: Entity,
     repository: Repository,
@@ -114,9 +88,7 @@ export class RepositoryJsonParser {
     modelsRef: Model[]
   ) {
     const { config, writeMethod, texts } = this;
-    const { name, endpoint, props, methods } = data;
-    const entities = [];
-    const models = [];
+    const { name, endpoint, props, methods, impl } = data;
 
     if (!endpoint && config.components.repository_impl.isEndpointRequired()) {
       console.log(chalk.red(texts.get("missing_endpoint")));
@@ -126,7 +98,7 @@ export class RepositoryJsonParser {
       return;
     }
 
-    const impl = RepositoryImplFactory.create(
+    const repositoryImpl = RepositoryImplFactory.create(
       {
         name,
         endpoint,
@@ -138,6 +110,7 @@ export class RepositoryJsonParser {
           dependencies: [],
           addons: {},
         }),
+        is_custom: impl,
       },
       entity,
       repository,
@@ -146,123 +119,162 @@ export class RepositoryJsonParser {
       config
     );
 
-    impl.unresolvedDependencies.forEach((type) => {
-      if (type.isModel) {
-        let model;
-        model = modelsRef.find(
-          (m) => m.type.ref === type.ref && m.type.type === type.type
-        );
+    const { models, entities } = DependenciesTools.resolveMissingDependnecies(
+      repositoryImpl,
+      config,
+      writeMethod.dependency,
+      modelsRef,
+      entitiesRef
+    );
 
+    return { repositoryImpl, models, entities };
+  }
+
+  buildDataContexts(
+    data: RepositoryJson,
+    entity: Entity,
+    modelsRef: Model[],
+    mappersRef: Mapper[],
+    collectionsRef: Collection[]
+  ) {
+    const { config, writeMethod } = this;
+    const { endpoint } = data;
+    const contexts = [];
+    const models: Model[] = [];
+    const mappers: Mapper[] = [];
+    const collections: Collection[] = [];
+
+    if (Array.isArray(data.contexts)) {
+      for (const context of data.contexts) {
+        let type;
+        let collection;
+        let collectionName;
+        let mapper;
+        let mapperName;
+        let model;
+        let modelName;
+        let table;
+        let isCustomCollection = false;
+
+        if (typeof context === "string") {
+          type = context;
+          collectionName = data.name;
+          mapperName = data.name;
+          modelName = data.name;
+          table = paramCase(data.name);
+        } else {
+          type = context.type;
+          collectionName = context.collection.name || data.name;
+          mapperName = context.mapper || data.name;
+          modelName = context.model || data.name;
+          isCustomCollection = context.collection.impl;
+          table = context.collection.table;
+        }
+
+        model = modelsRef.find((s) => {
+          return s.type.ref === modelName;
+        });
         if (!model) {
           model = ModelFactory.create(
-            { name: type.ref, endpoint: impl.endpoint, type: type.type },
+            { name: modelName, endpoint, type },
             writeMethod.dependency,
             config,
             []
           );
           models.push(model);
         }
-        impl.addDependency(model, config);
-      } else if (type.isEntity && type.ref !== entity.type.ref) {
-        let e;
-        e = entitiesRef.find((m) => m.type.ref === type.ref);
-        if (!e) {
-          e = EntityFactory.create(
-            { name: type.ref, endpoint: impl.endpoint },
-            null,
-            writeMethod.dependency,
-            config,
-            []
-          );
-          entities.push(e);
-        }
-        impl.addDependency(e, config);
-      }
-    });
 
-    return { impl, models, entities };
+        collection = collectionsRef.find((s) => s.type.ref === collectionName);
+        if (!collection) {
+          collection = CollectionFactory.create(
+            {
+              name: collectionName,
+              endpoint,
+              storage: type,
+              table: paramCase(collectionName),
+              is_custom: isCustomCollection,
+            },
+            model,
+            writeMethod.dependency,
+            config
+          );
+          collections.push(collection);
+        }
+
+        mapper = mappersRef.find((s) => s.type.ref === mapperName);
+        if (!mapper) {
+          mapper = MapperFactory.create(
+            { name: mapperName, endpoint, storage: type },
+            entity,
+            model,
+            writeMethod.dependency,
+            config
+          );
+          mappers.push(mapper);
+        }
+
+        contexts.push({ model, mapper, collection });
+      }
+    }
+
+    return { mappers, collections, models, contexts };
   }
 
-  buildFactory(
-    data: RepositoryJson,
-    entity: Entity,
-    repository: Repository,
-    impl: RepositoryImpl,
-    contexts: DataContext[]
-  ): RepositoryFactory {
-    const { config, writeMethod, texts } = this;
+  buildTestSuite(data: RepositoryJson, repository: RepositoryImpl) {
+    const { config, writeMethod } = this;
     const { name, endpoint } = data;
-
-    if (!endpoint && config.components.repository_impl.isEndpointRequired()) {
-      console.log(chalk.red(texts.get("missing_endpoint")));
-      console.log(
-        chalk.yellow(texts.get("component_###_skipped").replace("###", name))
-      );
-      return;
-    }
-    const factory = RepositoryFactoryFactory.create(
-      {
-        name,
-        endpoint,
-      },
-      entity,
+    const suite = TestSuiteFactory.create(
+      { name, endpoint, type: "unit_tests" },
       repository,
-      impl,
-      contexts,
       writeMethod.component,
       config
     );
 
-    return factory;
+    repository.element.methods.forEach((method) => {
+      suite.element.addTest(
+        TestCaseSchema.create({
+          group: { name: suite.element.name, is_async: false },
+          is_async: method.isAsync,
+          name: method.name,
+          methods: [method],
+        })
+      );
+    });
+
+    return suite;
   }
 
-  build(
+  parse(
     list: RepositoryJson[],
     entitiesRef: Entity[],
     modelsRef: Model[],
     mappersRef: Mapper[],
-    sourcesRef: Collection[]
+    collectionsRef: Collection[]
   ): {
     repositories: Repository[];
     repository_impls: RepositoryImpl[];
-    repository_factories: RepositoryFactory[];
+    containers: RepositoryContainer[];
     models: Model[];
     entities: Entity[];
     mappers: Mapper[];
-    sources: Collection[];
+    collections: Collection[];
     test_suites: TestSuite[];
   } {
     const { config, writeMethod } = this;
     const repositories: Repository[] = [];
     const repository_impls: RepositoryImpl[] = [];
-    const repository_factories: RepositoryFactory[] = [];
     const models: Model[] = [];
+    const containers: RepositoryContainer[] = [];
     const mappers: Mapper[] = [];
-    const sources: Collection[] = [];
+    const collections: Collection[] = [];
     const entities: Entity[] = [];
     const test_suites: TestSuite[] = [];
 
     for (const data of list) {
-      const ctxs = [];
-      let repository;
-      let impl;
-
-      const { endpoint, contexts } = data;
-
-      const build_interface =
-        typeof data.build_interface === "boolean" ? data.build_interface : true;
-      const use_default_impl =
-        typeof data.use_default_impl === "boolean"
-          ? data.use_default_impl
-          : Array.isArray(data.methods) &&
-            data.methods.length === 0 &&
-            Array.isArray(data.contexts) &&
-            data.contexts.length === 1;
-      const build_factory =
-        typeof data.build_factory === "boolean" ? data.build_factory : false;
-
+      const { endpoint, impl } = data;
       const entityName = data.entity || data.name;
       let entity = entitiesRef.find((e) => e.type.ref === entityName);
+      let repositoryImpl: Component<RepositoryElement, any>;
 
       if (!entity) {
         entity = EntityFactory.create(
@@ -275,142 +287,64 @@ export class RepositoryJsonParser {
         entities.push(entity);
       }
 
-      if (build_interface) {
-        const interface_result = this.buildAbstract(
+      const { contexts, ...contextsRest } = this.buildDataContexts(
+        data,
+        entity,
+        modelsRef,
+        mappersRef,
+        collectionsRef
+      );
+      collections.push(...contextsRest.collections);
+      mappers.push(...contextsRest.mappers);
+      models.push(...contextsRest.models);
+
+      const { repository, ...repositoryRest } = this.buildRepository(
+        data,
+        entity,
+        contexts,
+        [...entities, ...entitiesRef],
+        [...models, ...modelsRef]
+      );
+      repositories.push(repository);
+      entities.push(...repositoryRest.entities);
+      models.push(...repositoryRest.models);
+
+      if (impl) {
+        const result = this.buildRepositoryImpl(
           data,
           entity,
-          entitiesRef,
-          modelsRef
+          repository,
+          contexts,
+          [...entities, ...entitiesRef],
+          [...models, ...modelsRef]
         );
-
-        if (!interface_result) {
-          continue;
-        }
-
-        repository = interface_result.repository;
-        interface_result.models.forEach((m) => models.push(m));
-        interface_result.entities.forEach((e) => entities.push(e));
-        repositories.push(repository);
+        repositoryImpl = result.repositoryImpl;
+        repository_impls.push(repositoryImpl);
+        entities.push(...result.entities);
+        models.push(...result.models);
       }
 
-      if (Array.isArray(contexts)) {
-        for (const context of contexts) {
-          let type;
-          let source;
-          let sourceName;
-          let mapper;
-          let mapperName;
-          let model;
-          let modelName;
-
-          if (typeof context === "string") {
-            type = context;
-            sourceName = data.name;
-            mapperName = data.name;
-            modelName = data.name;
-          } else {
-            type = context.type;
-            sourceName = context.source || data.name;
-            mapperName = context.mapper || data.name;
-            modelName = context.model || data.name;
-          }
-
-          model = modelsRef.find((s) => {
-            return s.type.ref === modelName;
-          });
-          if (!model) {
-            model = ModelFactory.create(
-              { name: modelName, endpoint, type },
-              writeMethod.dependency,
-              config,
-              []
-            );
-            models.push(model);
-          }
-
-          source = sourcesRef.find((s) => s.type.ref === sourceName);
-          if (!source) {
-            source = CollectionFactory.create(
-              {
-                name: sourceName,
-                endpoint,
-                storage: type,
-                table: paramCase(sourceName),
-              },
-              model,
-              writeMethod.dependency,
-              config
-            );
-            sources.push(source);
-          }
-
-          mapper = mappersRef.find((s) => s.type.ref === mapperName);
-          if (!mapper) {
-            mapper = MapperFactory.create(
-              { name: mapperName, endpoint, storage: type },
-              entity,
-              model,
-              writeMethod.dependency,
-              config
-            );
-            mappers.push(mapper);
-          }
-
-          ctxs.push({ model, mapper, source });
-        }
-
-        if (use_default_impl === false) {
-          const impl_result = this.buildImpl(
-            data,
-            entity,
-            repository,
-            ctxs,
-            entitiesRef,
-            modelsRef
-          );
-          impl = impl_result.impl;
-          impl_result.models.forEach((m) => models.push(m));
-          impl_result.entities.forEach((e) => entities.push(e));
-          repository_impls.push(impl);
-
-          if (!config.command.skip_tests && impl.element.methods.length > 0) {
-            //
-            const suite = TestSuiteFactory.create(
-              { name: data.name, endpoint, type: "unit_tests" },
-              impl,
-              writeMethod.component,
-              config
-            );
-
-            impl.element.methods.forEach((method) => {
-              suite.element.addTest(
-                TestCaseSchema.create({
-                  group: { name: suite.element.name, is_async: false },
-                  is_async: method.isAsync,
-                  name: method.name,
-                  methods: [method],
-                })
-              );
-            });
-            test_suites.push(suite);
-          }
-        }
+      if (repositoryImpl && !config.command.skip_tests) {
+        const suite = this.buildTestSuite(data, repositoryImpl);
+        test_suites.push(suite);
       }
 
-      if (build_factory) {
-        const factory = this.buildFactory(data, entity, repository, impl, ctxs);
-        repository_factories.push(factory);
-      }
+      containers.push({
+        repository,
+        impl: repositoryImpl,
+        contexts,
+        entity,
+      });
     }
 
     return {
       repositories,
       repository_impls,
-      repository_factories,
+      containers,
       models,
       entities,
       mappers,
-      sources,
+      collections,
       test_suites,
     };
   }

@@ -13,9 +13,9 @@ export class CollectionFactory {
     config: Config
   ): Component<CollectionElement, CollectionAddons> {
     const dependencies = [model];
-    const { id, name, storage, table, endpoint } = data;
+    const { id, name, storage, table, endpoint, is_custom } = data;
     const { defaults } = config.components.collection;
-    const addons = { storage, table };
+    const addons = { storage, table, is_custom };
     const interfaces = [];
     const methods = [];
     const props = [];
