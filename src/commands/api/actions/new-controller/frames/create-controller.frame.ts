@@ -26,7 +26,6 @@ export class CreateControllerFrame extends Frame<ApiJson> {
   ) {
     super(CreateControllerFrame.NAME);
   }
-  2;
 
   public async run(
     context: ControllerNameAndEndpoint & {
@@ -65,7 +64,11 @@ export class CreateControllerFrame extends Frame<ApiJson> {
         config,
         command.dependencies_write_method,
         result
-      ).run({ endpoint: endpoint, component: "controller" });
+      ).run({
+        endpoint: endpoint,
+        component: "controller",
+        title: texts.get("do_you_want_to_add_controller_methods"),
+      });
 
       result.entities.push(...rest.entities);
       result.models.push(...rest.models);

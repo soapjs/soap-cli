@@ -3,16 +3,19 @@ import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 
 export class SelectMapperStoragesFrame extends Frame<string[]> {
   public static NAME = "select_mapper_storages_frame";
-  constructor(
-    protected config: Config,
-    protected texts: Texts
-  ) {
+  constructor(protected config: Config, protected texts: Texts) {
     super(SelectMapperStoragesFrame.NAME);
   }
 
   public async run() {
     const { texts, config } = this;
-    const choices: {}[] = [];
+    const choices: {}[] = [
+      {
+        message: texts.get("in-memory"),
+        name: "memory",
+        value: true,
+      },
+    ];
     let list: string[];
 
     config.databases.forEach((db) => {
@@ -27,7 +30,7 @@ export class SelectMapperStoragesFrame extends Frame<string[]> {
       list = await InteractionPrompts.multiSelect<string[]>(
         texts.get("please_select_mapper_storages"),
         choices,
-        ["cache"],
+        ["memory"],
         texts.get("hint___please_select_mapper_storages")
       );
     } while (list.length === 0);

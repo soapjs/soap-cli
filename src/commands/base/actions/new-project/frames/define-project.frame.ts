@@ -4,10 +4,7 @@ import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 export class DefineProjectFrame extends Frame<ProjectDescription> {
   public static NAME = "define_project_frame";
 
-  constructor(
-    protected pluginMap: PluginMap,
-    protected texts: Texts
-  ) {
+  constructor(protected pluginMap: PluginMap, protected texts: Texts) {
     super(DefineProjectFrame.NAME);
   }
 
@@ -80,8 +77,8 @@ export class DefineProjectFrame extends Frame<ProjectDescription> {
       },
       [
         {
-          message: texts.get("cache"),
-          name: "cache",
+          message: texts.get("in-memory"),
+          name: "memory",
         },
       ]
     );
@@ -90,7 +87,7 @@ export class DefineProjectFrame extends Frame<ProjectDescription> {
       database = await InteractionPrompts.multiSelect(
         texts.get("please_select_databases"),
         databases,
-        ["cache"],
+        ["memory"],
         texts.get("hint___please_select_databases")
       );
     } while (database.length === 0);
@@ -138,37 +135,34 @@ export class DefineProjectFrame extends Frame<ProjectDescription> {
         },
       ]
     );
+    if (platforms.length > 1) {
+      do {
+        platform = await InteractionPrompts.select(
+          texts.get("please_select_platform"),
+          platforms,
+          ["none"]
+        );
+      } while (platform.length === 0);
+    }
 
-    do {
-      platform = await InteractionPrompts.select(
-        texts.get("please_select_platform"),
-        platforms,
-        ["none"]
-      );
-    } while (platform.length === 0);
-
-    let description;
-
-    do {
-      description = await InteractionPrompts.form(
-        texts.get("project_form_title"),
-        [
-          {
-            name: "author",
-            message: texts.get("author"),
-          },
-          {
-            name: "description",
-            message: texts.get("description"),
-          },
-          {
-            name: "license",
-            message: texts.get("license"),
-            initial: "MIT",
-          },
-        ]
-      );
-    } while (!description.source);
+    const description: any = await InteractionPrompts.form(
+      texts.get("project_form_title"),
+      [
+        {
+          name: "author",
+          message: texts.get("author"),
+        },
+        {
+          name: "description",
+          message: texts.get("description"),
+        },
+        {
+          name: "license",
+          message: texts.get("license"),
+          initial: "MIT",
+        },
+      ]
+    );
 
     const result = {
       source: "",

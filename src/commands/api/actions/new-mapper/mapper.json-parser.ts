@@ -16,7 +16,8 @@ import { EntityFactory } from "../new-entity";
 import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { MapperFactory } from "./mapper.factory";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, DependenciesTools } from "../../../../core";
+import { pascalCase } from "change-case";
 
 export class MapperJsonParser {
   constructor(
@@ -125,7 +126,11 @@ export class MapperJsonParser {
         if (!command.skip_tests && mapper.element.methods.length > 0) {
           //
           const suite = TestSuiteFactory.create(
-            { name, endpoint, type: "unit_tests" },
+            {
+              name: pascalCase(`${name} ${storage}`),
+              endpoint,
+              type: "unit_tests",
+            },
             mapper,
             writeMethod.component,
             config
@@ -144,40 +149,16 @@ export class MapperJsonParser {
           test_suites.push(suite);
         }
 
-        mapper.unresolvedDependencies.forEach((type) => {
-          // MODEL DEPENDENCY
-          if (type.isModel) {
-            let model;
-            model = modelsRef.find(
-              (m) => m.type.ref === type.ref && m.type.type === type.type
-            );
-
-            if (!model) {
-              model = ModelFactory.create(
-                { name: type.ref, endpoint: mapper.endpoint, type: type.type },
-                writeMethod.dependency,
-                config,
-                []
-              );
-              models.push(model);
-            }
-            mapper.addDependency(model, config);
-          } else if (type.isEntity) {
-            let e;
-            e = entities.find((m) => m.type.ref === type.ref);
-            if (!e) {
-              e = EntityFactory.create(
-                { name: type.ref, endpoint: mapper.endpoint },
-                null,
-                writeMethod.dependency,
-                config,
-                []
-              );
-              entities.push(e);
-            }
-            mapper.addDependency(e, config);
-          }
-        });
+        const missingDependnecies =
+          DependenciesTools.resolveMissingDependnecies(
+            mapper,
+            config,
+            writeMethod.dependency,
+            [...models, ...modelsRef],
+            [...entities, ...entitiesRef]
+          );
+        models.push(...missingDependnecies.models);
+        entities.push(...missingDependnecies.entities);
 
         mappers.push(mapper);
       }

@@ -17,6 +17,7 @@ import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { CollectionFactory } from "./collection.factory";
 import { CommandConfig } from "../../../../core";
+import { pascalCase } from "change-case";
 
 export class CollectionJsonParser {
   constructor(
@@ -105,7 +106,11 @@ export class CollectionJsonParser {
         if (!command.skip_tests && collection.element.methods.length > 0) {
           //
           const suite = TestSuiteFactory.create(
-            { name, endpoint, type: "unit_tests" },
+            {
+              name: pascalCase(`${name} ${storage}`),
+              endpoint,
+              type: "unit_tests",
+            },
             collection,
             writeMethod.component,
             config

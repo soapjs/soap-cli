@@ -117,7 +117,7 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
         message: texts.get("route_handler"),
         hint: texts.get("hint___route_handler"),
         initial:
-          context.handler || context.name ? camelCase(`${context.name}`) : "",
+          context.handler || context.name ? camelCase(`get ${context.name}`) : "",
       });
       validation.mustContainHandler = true;
     }

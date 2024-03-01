@@ -26,7 +26,7 @@ export class InitOptionsStrategy extends Strategy {
     const texts = await Texts.load();
     const description: ProjectDescription = {
       name: "",
-      database: ["cache"],
+      database: ["memory"],
       language: "",
       source: "",
       ioc: "",

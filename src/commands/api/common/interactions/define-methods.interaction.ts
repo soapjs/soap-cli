@@ -50,16 +50,18 @@ export class DefineMethodsInteraction extends Interaction<InteractionResult> {
     endpoint: string;
     areAdditional?: boolean;
     component?: string;
+    title?: string;
   }): Promise<InteractionResult> {
     const { texts, config, dependencies_write_method, references } = this;
     const result = { methods: [], models: [], entities: [] };
 
     if (
       await InteractionPrompts.confirm(
-        (context?.areAdditional
-          ? texts.get("do_you_want_to_add_more_methods_to_###")
-          : texts.get("do_you_want_to_add_methods_to_###")
-        ).replace("###", context?.component || "")
+        context?.title ||
+          (context?.areAdditional
+            ? texts.get("do_you_want_to_add_more_methods_to_###")
+            : texts.get("do_you_want_to_add_methods_to_###")
+          ).replace("###", context?.component || "")
       )
     ) {
       let method: MethodJson;

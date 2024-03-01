@@ -157,7 +157,7 @@ const start = async () => {
         "-s, --storage [values...]",
         texts.get("option_collection_storages")
       )
-      .option("-b, --table <value>", texts.get("option_collection_table"))
+      .option("-t, --table <value>", texts.get("option_collection_table"))
       .option("-m, --model <value>", texts.get("option_collection_model_name"))
       .option("--skip-tests", texts.get("option_skip_tests"))
       .option("-w, --with-deps", texts.get("option_with_deps"))

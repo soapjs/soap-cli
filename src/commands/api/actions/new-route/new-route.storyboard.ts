@@ -27,10 +27,16 @@ export class NewRouteStoryResolver extends StoryResolver<ApiJson> {
 
     for (const frame of timeline) {
       if (frame.name === DescribeControllerFrame.NAME) {
-        result.entities.push(...frame.output.entities);
-        result.controllers.push(...frame.output.controllers);
+        if (frame.output?.entities) {
+          result.entities.push(...frame.output.entities);
+        }
+        if (frame.output?.controllers) {
+          result.controllers.push(...frame.output.controllers);
+        }
       } else if (frame.name === CreateRouteFrame.NAME) {
-        result.routes.push(...frame.output.routes);
+        if (frame.output?.routes) {
+          result.routes.push(...frame.output.routes);
+        }
       }
     }
 

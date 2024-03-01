@@ -4,6 +4,7 @@ import {
   Entity,
   Model,
   Service,
+  ServiceImpl,
   ServiceJson,
   TestCaseSchema,
   TestSuite,
@@ -14,7 +15,8 @@ import { EntityFactory } from "../new-entity";
 import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { ServiceFactory } from "./service.factory";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, DependenciesTools } from "../../../../core";
+import { ServiceImplFactory } from "./service-impl.factory";
 
 export class ServiceJsonParser {
   constructor(
@@ -24,6 +26,30 @@ export class ServiceJsonParser {
     private writeMethod: { component: WriteMethod; dependency: WriteMethod }
   ) {}
 
+  buildTestSuite(data: ServiceJson, service: ServiceImpl) {
+    const { config, writeMethod } = this;
+    const { name, endpoint } = data;
+    const suite = TestSuiteFactory.create(
+      { name, endpoint, type: "unit_tests" },
+      service,
+      writeMethod.component,
+      config
+    );
+
+    service.element.methods.forEach((method) => {
+      suite.element.addTest(
+        TestCaseSchema.create({
+          group: { name: suite.element.name, is_async: false },
+          is_async: method.isAsync,
+          name: method.name,
+          methods: [method],
+        })
+      );
+    });
+
+    return suite;
+  }
+
   parse(
     list: ServiceJson[],
     modelsRef: Model[],
@@ -32,12 +58,14 @@ export class ServiceJsonParser {
     models: Model[];
     entities: Entity[];
     services: Service[];
+    service_impls: ServiceImpl[];
     test_suites: TestSuite[];
   } {
     const { config, texts, writeMethod, command } = this;
     const models: Model[] = [];
     const entities: Entity[] = [];
     const services: Service[] = [];
+    const service_impls: ServiceImpl[] = [];
     const test_suites: TestSuite[] = [];
 
     for (const data of list) {
@@ -62,68 +90,32 @@ export class ServiceJsonParser {
         []
       );
 
-      if (!command.skip_tests && service.element.methods.length > 0) {
-        //
-        const suite = TestSuiteFactory.create(
-          { name, endpoint, type: "unit_tests" },
-          service,
-          writeMethod.component,
-          config
-        );
+      const serviceImpl = ServiceImplFactory.create(
+        data,
+        service,
+        writeMethod.component,
+        config
+      );
+      service_impls.push(serviceImpl);
 
-        service.element.methods.forEach((method) => {
-          suite.element.addTest(
-            TestCaseSchema.create({
-              group: { name: suite.element.name, is_async: false },
-              is_async: method.isAsync,
-              name: method.name,
-              methods: [method],
-            })
-          );
-        });
+      if (!command.skip_tests) {
+        const suite = this.buildTestSuite(data, serviceImpl);
         test_suites.push(suite);
       }
+
+      const missingDependencies = DependenciesTools.resolveMissingDependnecies(
+        service,
+        config,
+        writeMethod.dependency,
+        modelsRef,
+        entitiesRef
+      );
+      models.push(...missingDependencies.models);
+      entities.push(...missingDependencies.entities);
 
       services.push(service);
     }
 
-    services.forEach((service) => {
-      service.unresolvedDependencies.forEach((type) => {
-        // MODEL DEPENDENCY
-        if (type.isModel) {
-          let model;
-          model = modelsRef.find(
-            (m) => m.type.ref === type.ref && m.type.type === type.type
-          );
-
-          if (!model) {
-            model = ModelFactory.create(
-              { name: type.ref, endpoint: service.endpoint, type: type.type },
-              writeMethod.dependency,
-              config,
-              []
-            );
-            models.push(model);
-          }
-          service.addDependency(model, config);
-        } else if (type.isEntity) {
-          let e;
-          e = entitiesRef.find((m) => m.type.ref === type.ref);
-          if (!e) {
-            e = EntityFactory.create(
-              { name: type.ref, endpoint: service.endpoint },
-              null,
-              writeMethod.dependency,
-              config,
-              []
-            );
-            entities.push(e);
-          }
-          service.addDependency(e, config);
-        }
-      });
-    });
-
-    return { entities, services, models, test_suites };
+    return { entities, services, service_impls, models, test_suites };
   }
 }

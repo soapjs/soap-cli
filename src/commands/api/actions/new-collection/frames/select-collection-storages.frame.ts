@@ -12,7 +12,13 @@ export class SelectCollectionStoragesFrame extends Frame<string[]> {
 
   public async run() {
     const { texts, config } = this;
-    const choices: {}[] = [];
+    const choices: {}[] = [
+      {
+        message: texts.get('in-memory'),
+        name: 'memory',
+        value: true,
+      },
+    ];
     let list: string[];
 
     config.databases.forEach((db) => {
@@ -27,7 +33,7 @@ export class SelectCollectionStoragesFrame extends Frame<string[]> {
       list = await InteractionPrompts.multiSelect<string[]>(
         texts.get("please_select_collection_storages"),
         choices,
-        ["cache"],
+        ["memory"],
         texts.get("hint___please_select_collection_storages")
       );
     } while (list.length === 0);

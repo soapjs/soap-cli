@@ -17,13 +17,14 @@ export class TestSuiteFactory {
     writeMethod: WriteMethod,
     config: Config
   ): TestSuite {
-    const { id, name, endpoint, is_async } = data;
+    const { id, name, endpoint, is_async, layer } = data;
     const testType = `${testedElement.type.component}_${data.type}`;
     const { defaults } = config.components[testType];
     const componentName = config.components[testType].generateName(name);
     const componentPath = config.components[testType].generatePath({
       name,
       endpoint,
+      layer,
     }).path;
     const tests = [];
     const imports = [];

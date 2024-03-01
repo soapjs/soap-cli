@@ -12,7 +12,7 @@ import { CommandConfig } from "../../../../core";
 export class NewMapperStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
     for (const frame of timeline) {
-      if (frame.name === CreateMappersFrame.NAME) {
+      if (frame.name === CreateMappersFrame.NAME && frame.output) {
         return frame.output;
       }
     }

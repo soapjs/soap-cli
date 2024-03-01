@@ -10,27 +10,28 @@ export type RepositoryDescription = {
 
 export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
   public static NAME = "describe_repository_frame";
-  constructor(
-    protected config: Config,
-    protected texts: Texts
-  ) {
+  constructor(protected config: Config, protected texts: Texts) {
     super(DescribeRepositoryFrame.NAME);
   }
 
-  private async selectDatabases(availableDBs: any[], multiple: boolean) {
-    const { texts } = this;
-
+  private async selectDatabases(multiple: boolean) {
+    const { texts, config } = this;
+    const choices = config.databases.map((db) => ({
+      message: db.name,
+      name: db.alias,
+      value: true,
+    }));
     let result: string | string[];
     do {
       if (multiple) {
         result = await InteractionPrompts.multiSelect<string[]>(
           texts.get("please_select_the_databases_you_want_to_use"),
-          availableDBs
+          choices
         );
       } else {
         result = await InteractionPrompts.select<string>(
           texts.get("please_select_the_database_you_want_to_use"),
-          availableDBs
+          choices
         );
       }
     } while (result.length === 0);
@@ -40,13 +41,12 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
 
   private async createContexts(
     dbs: string[],
-    availableDBs: any[],
     name: string
   ): Promise<DataContextJson[]> {
-    const { texts } = this;
+    const { texts, config } = this;
 
     const inputs = dbs.map((db) => {
-      const dbDesc = availableDBs.find((adb) => adb.alias === db);
+      const dbDesc = config.databases.find((adb) => adb.alias === db);
       return {
         name: db,
         message: dbDesc.name,
@@ -63,18 +63,14 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
       type: alias,
       collection: {
         name,
+        impl: false,
         table: tables[alias],
       },
     }));
   }
 
   public async run(context: { name: string }) {
-    const { texts, config } = this;
-    const availableDBs = config.databases.map((db) => ({
-      message: db.name,
-      name: db.alias,
-      value: true,
-    }));
+    const { texts } = this;
     const choices = [
       {
         message: texts.get("default_repository_implementation"),
@@ -86,7 +82,6 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
       },
     ];
 
-    let selectedRepoImplType = "";
     let createImplementation = false;
     let willHaveAdditionalContent = false;
     let databases = [];
@@ -96,35 +91,18 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
         texts.get("will_your_repository_use_multiple_databases")
       )
     ) {
-      databases = await this.selectDatabases(availableDBs, true);
+      databases = await this.selectDatabases(true);
     } else {
-      databases = await this.selectDatabases(availableDBs, false);
+      databases = await this.selectDatabases(false);
     }
 
-    const contexts = await this.createContexts(
-      databases,
-      availableDBs,
-      context.name
-    );
-
-    if (databases.length > 1) {
-      createImplementation = true;
-    } else {
-      do {
-        selectedRepoImplType = await InteractionPrompts.select<string>(
-          texts.get("what_repository_implementation_type"),
-          choices,
-          [],
-          texts.get("hint___what_repository_implementation_type")
-        );
-      } while (selectedRepoImplType === "");
-
-      createImplementation = selectedRepoImplType === "custom_impl";
-    }
+    const contexts = await this.createContexts(databases, context.name);
 
     willHaveAdditionalContent = await InteractionPrompts.confirm(
       texts.get("will_your_repository_contain_additional_properties_or_methods")
     );
+
+    createImplementation = willHaveAdditionalContent || databases.length > 1;
 
     return {
       createImplementation,

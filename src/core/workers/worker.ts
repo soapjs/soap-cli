@@ -3,6 +3,7 @@ import { SourceCodeWriter } from "./source-code-writer";
 import { FileTransport } from "../transport/file.transport";
 import { ConsoleTransport } from "../transport/console.transport";
 import {
+  CliPackageManager,
   FileTemplateModel,
   LanguageStrategyProvider,
 } from "@soapjs/soap-cli-common";
@@ -21,7 +22,13 @@ const writeFiles = async (payload: Payload) => {
     payload.transport === "file" ? new FileTransport() : new ConsoleTransport();
 
   const codeWriter = new SourceCodeWriter(transport);
-  const languageModule: LanguageStrategyProvider = require(code_module);
+  const packageManager = new CliPackageManager();
+
+  if (packageManager.hasPackage(code_module) === false) {
+    await packageManager.installPackage(code_module);
+  }
+  const languageModule: LanguageStrategyProvider =
+    packageManager.requirePackage(code_module);
 
   const { content: outputs, failure } = await languageModule
     .createFileOutputStrategy()

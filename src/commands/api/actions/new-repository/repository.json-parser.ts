@@ -166,7 +166,7 @@ export class RepositoryJsonParser {
           collectionName = data.name;
           mapperName = data.name;
           modelName = data.name;
-          table = paramCase(data.name);
+          table = paramCase(`${data.name}.collection`);
         } else {
           type = context.type;
           collectionName = context.collection.name || data.name;
@@ -196,7 +196,7 @@ export class RepositoryJsonParser {
               name: collectionName,
               endpoint,
               storage: type,
-              table: paramCase(collectionName),
+              table,
               is_custom: isCustomCollection,
             },
             model,

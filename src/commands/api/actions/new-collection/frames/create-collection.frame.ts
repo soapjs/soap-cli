@@ -1,19 +1,20 @@
 import { existsSync } from "fs";
 import {
   InputNameAndEndpointInteraction,
-  InputTextInteraction,
+  ResolveDependneciesInteraction,
   SelectComponentWriteMethodInteraction,
 } from "../../../common";
-import { CreateModelsFrame } from "../../new-model";
 import {
   ApiJson,
   Config,
   PropJson,
+  PropTools,
   Texts,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 import { CommandConfig } from "../../../../../core";
+import { paramCase } from "change-case";
 
 export class CreateCollectionFrame extends Frame<ApiJson> {
   public static NAME = "create_collection_frame";
@@ -33,7 +34,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
     props?: PropJson[];
   }) {
     const { texts, config, command } = this;
-    const createModelsFrame = new CreateModelsFrame(config, command, texts);
+    const resolveDependencies = new ResolveDependneciesInteraction(texts);
     const result: ApiJson = { models: [], entities: [], collections: [] };
     const storages = context.storages ? [...context.storages] : [];
     const { name, endpoint } = await new InputNameAndEndpointInteraction({
@@ -45,7 +46,11 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
     });
     let writeMethod = WriteMethod.Write;
 
+    let storedPropsStr = "";
+    let storedProps = [];
+
     for (const storage of storages) {
+      const db = config.databases.find((db) => db.alias === storage);
       const componentName = config.components.collection.generateName(name);
       const componentPath = config.components.collection.generatePath({
         name,
@@ -60,42 +65,65 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
           ).run(componentName);
         }
       }
+      const model: { [key: string]: string } = await InteractionPrompts.form(
+        texts.get("models_form_title_###").replace("###", db?.name || ''),
+        [
+          {
+            name: "name",
+            message: texts.get("name"),
+            initial: name,
+          },
+          {
+            name: "endpoint",
+            message: texts.get("endpoint"),
+            initial: endpoint,
+          },
+          {
+            name: "table",
+            message: texts.get("table"),
+            initial: paramCase(`${name}.collection`),
+          },
+          {
+            name: "storage",
+            message: texts.get("type"),
+            initial: storage,
+          },
+          {
+            name: "props",
+            message: texts.get("props"),
+            initial: storedPropsStr,
+            hint: "e.g. prop1:string,prop2:Model<User>",
+          },
+        ]
+      );
 
-      const table = await new InputTextInteraction(
-        texts.get("please_enter_storage_###_table_name").replace("###", storage)
-      ).run();
+      if (model.props != storedPropsStr) {
+        storedPropsStr = model.props;
+        storedProps = PropTools.arrayToData(model.props.split(","), config);
+      }
 
-      const model = await new InputTextInteraction(
-        texts.get("please_enter_storage_###_model_name").replace("###", storage)
-      ).run({
-        value: name,
-        hint: texts.get("hint___please_enter_storage_model_name"),
+      result.models.push({
+        name: model.name,
+        types: [storage],
+        endpoint: model.endpoint,
+        props: storedProps,
       });
 
       if (command.dependencies_write_method !== WriteMethod.Skip) {
-        if (
-          await InteractionPrompts.confirm(
-            texts
-              .get("do_you_want_to_define_the_contents_of_storage_model_###")
-              .replace("###", storage)
-          )
-        ) {
-          const createModelsResult = await createModelsFrame.run({
-            types: [storage],
-            name: model,
-            endpoint,
-          });
-
-          result.entities.push(...createModelsResult.entities);
-          result.models.push(...createModelsResult.models);
-        }
+        storedProps.forEach(async (prop) => {
+          const dependencies = await resolveDependencies.run(
+            prop.type,
+            endpoint
+          );
+          result.entities.push(...dependencies.entities);
+          result.models.push(...dependencies.models);
+        });
       }
-
       if (writeMethod !== WriteMethod.Skip) {
         result.collections.push({
           name,
-          table,
-          model,
+          table: model.table,
+          model: model.name,
           storages: [storage],
           endpoint,
         });

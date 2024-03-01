@@ -18,7 +18,7 @@ import { CommandConfig } from "../../../../core";
 export class NewRepositoryStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
     for (const frame of timeline) {
-      if (frame.name === CreateRepositoryFrame.NAME) {
+      if (frame.name === CreateRepositoryFrame.NAME && frame.output) {
         return frame.output;
       }
     }
@@ -74,8 +74,8 @@ export class NewRepositoryStoryboard extends Storyboard<ApiJson> {
           };
         },
         (t) => {
-          const { databases } = t.getFrame(1).output;
-          return databases.length > 0;
+          const { contexts } = t.getFrame(1).output;
+          return contexts.length > 0;
         }
       )
       .addFrame(new CreateRepositoryFrame(config, command, texts), (t) => {

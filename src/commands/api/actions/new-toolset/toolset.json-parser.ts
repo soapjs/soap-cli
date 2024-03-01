@@ -41,7 +41,7 @@ export class ToolsetJsonParser {
     const test_suites: TestSuite[] = [];
 
     for (const data of list) {
-      const { name, endpoint } = data;
+      const { name, endpoint, layer } = data;
 
       if (!endpoint && config.components.toolset.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
@@ -65,7 +65,7 @@ export class ToolsetJsonParser {
       if (!command.skip_tests && toolset.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
-          { name, endpoint, type: "unit_tests" },
+          { name, endpoint, type: "unit_tests", layer },
           toolset,
           writeMethod.component,
           config

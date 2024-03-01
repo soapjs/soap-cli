@@ -23,7 +23,7 @@ export class NewProjectOptionsStrategy extends Strategy {
     const texts = Texts.load();
     const description: ProjectDescription = {
       name: "",
-      database: ["cache"],
+      database: ["memory"],
       language: "",
       source: "",
       ioc: "",

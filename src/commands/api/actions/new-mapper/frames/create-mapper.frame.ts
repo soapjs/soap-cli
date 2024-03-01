@@ -1,21 +1,21 @@
 import { existsSync } from "fs";
 import {
   InputNameAndEndpointInteraction,
-  InputTextInteraction,
   SelectComponentWriteMethodInteraction,
 } from "../../../common";
-import { CreateModelsAsDependenciesFrame } from "../../new-model";
-import { CreateEntityAsDependencyFrame } from "../../new-entity";
+import { CreateEntityFrame } from "../../new-entity";
 import {
   ApiJson,
   Config,
   EntityJson,
+  ModelJson,
   PropJson,
   Texts,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 import { CommandConfig } from "../../../../../core";
+import chalk from "chalk";
 
 export class CreateMappersFrame extends Frame<ApiJson> {
   public static NAME = "create_mappers_frame";
@@ -28,6 +28,40 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     super(CreateMappersFrame.NAME);
   }
 
+  private async defineModels(
+    dbs: string[],
+    name: string,
+    entity: EntityJson,
+    passProps: boolean
+  ): Promise<ModelJson[]> {
+    const { texts, config } = this;
+
+    const inputs = dbs.map((db) => {
+      const dbDesc = config.databases.find((adb) => adb.alias === db);
+      return {
+        name: db,
+        message: dbDesc?.name || texts.get(db),
+        initial: name,
+      };
+    });
+
+    const names: { [key: string]: string } = await InteractionPrompts.form(
+      texts.get("mapper_models_form_title"),
+      inputs
+    );
+
+    const models: ModelJson[] = Object.keys(names).map((db) => {
+      return {
+        name: names[db],
+        types: [db],
+        props: passProps ? entity.props : [],
+        endpoint: entity.endpoint,
+      };
+    });
+
+    return models;
+  }
+
   public async run(context?: {
     storages: string[];
     name?: string;
@@ -35,11 +69,6 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     props?: PropJson[];
   }) {
     const { texts, config, command } = this;
-    const createModelDependenciesFrame = new CreateModelsAsDependenciesFrame(
-      config,
-      command,
-      texts
-    );
     const result: ApiJson = { models: [], entities: [], mappers: [] };
     const storages = context.storages ? [...context.storages] : [];
     const { name, endpoint } = await new InputNameAndEndpointInteraction({
@@ -51,9 +80,37 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     });
     let writeMethod = WriteMethod.Write;
     let entity: EntityJson;
-    let entityName: string;
-    let modelName: string;
-    let entityProps = [];
+    let passProps = false;
+
+    console.log(
+      chalk.gray(
+        texts.get("setup_entity_as_dependency_of_###").replace("###", "mapper")
+      )
+    );
+
+    const createEntityResult = await new CreateEntityFrame(
+      config,
+      command,
+      texts
+    ).run({
+      name,
+      endpoint,
+    });
+    entity = createEntityResult.entities.at(-1);
+
+    if (entity.props.length > 0) {
+      passProps = await InteractionPrompts.confirm(
+        texts.get("do_you_want_to_use_pass_entity_props_to_models")
+      );
+    }
+
+    const models = await this.defineModels(storages, name, entity, passProps);
+
+    if (command.dependencies_write_method !== WriteMethod.Skip) {
+      result.entities.push(...createEntityResult.entities);
+      result.models.push(...createEntityResult.models);
+      result.models.push(...models);
+    }
 
     for (const storage of storages) {
       const componentName = config.components.mapper.generateName(name);
@@ -72,69 +129,11 @@ export class CreateMappersFrame extends Frame<ApiJson> {
       }
 
       if (writeMethod !== WriteMethod.Skip) {
-        if (command.dependencies_write_method !== WriteMethod.Skip) {
-          if (!entityName) {
-            const createEntityResult = await new CreateEntityAsDependencyFrame(
-              config,
-              command,
-              texts
-            ).run({
-              dependencyOf: "mapper",
-              name,
-              endpoint,
-            });
-            entity = createEntityResult.entities.at(-1);
-            entityName = entity.name;
-            result.entities.push(...createEntityResult.entities);
-            result.models.push(...createEntityResult.models);
-
-            if (entity.props.length > 0) {
-              if (
-                await InteractionPrompts.confirm(
-                  texts.get("do_you_want_to_use_pass_entity_props_to_models")
-                )
-              ) {
-                entityProps.push(...entity.props);
-              }
-            }
-          }
-
-          const createModelsResult = await createModelDependenciesFrame.run({
-            dependencyOf: "mapper",
-            types: [storage],
-            name: modelName || name,
-            endpoint,
-            props: entityProps,
-          });
-          modelName = createModelsResult.models.at(-1).name;
-          result.entities.push(...createModelsResult.entities);
-          result.models.push(...createModelsResult.models);
-        } else {
-          if (!entityName) {
-            entityName = await new InputTextInteraction(
-              texts
-                .get("please_enter_mapper_###_entity_name")
-                .replace("###", storage)
-            ).run({
-              value: name,
-              hint: texts.get("hint___please_enter_mapper_entity_name"),
-            });
-          }
-
-          modelName = await new InputTextInteraction(
-            texts
-              .get("please_enter_mapper_###_model_name")
-              .replace("###", storage)
-          ).run({
-            value: modelName || name,
-            hint: texts.get("hint___please_enter_mapper_model_name"),
-          });
-        }
-
+        const model = models.find((m) => m.types.includes(storage));
         result.mappers.push({
           name,
-          entity: entityName,
-          model: modelName,
+          entity: entity.name,
+          model: model.name,
           storages: [storage],
           endpoint,
         });

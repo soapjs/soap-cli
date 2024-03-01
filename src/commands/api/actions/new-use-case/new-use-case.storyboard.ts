@@ -12,7 +12,7 @@ import { CommandConfig } from "../../../../core";
 export class NewUseCaseStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
     for (const frame of timeline) {
-      if (frame.name === CreateUseCaseFrame.NAME) {
+      if (frame.name === CreateUseCaseFrame.NAME && frame.output) {
         return frame.output;
       }
     }

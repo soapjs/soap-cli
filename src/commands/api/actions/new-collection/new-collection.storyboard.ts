@@ -12,7 +12,7 @@ import { CommandConfig } from "../../../../core";
 export class NewCollectionStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
     for (const frame of timeline) {
-      if (frame.name === CreateCollectionFrame.NAME) {
+      if (frame.name === CreateCollectionFrame.NAME && frame.output) {
         return frame.output;
       }
     }

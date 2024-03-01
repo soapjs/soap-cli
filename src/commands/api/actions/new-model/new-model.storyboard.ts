@@ -13,7 +13,7 @@ import { CommandConfig } from "../../../../core";
 export class NewModelStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
     for (const frame of timeline) {
-      if (frame.name === CreateModelsFrame.NAME) {
+      if (frame.name === CreateModelsFrame.NAME && frame.output) {
         return frame.output;
       }
     }

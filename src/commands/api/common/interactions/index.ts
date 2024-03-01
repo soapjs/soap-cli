@@ -7,3 +7,4 @@ export * from "./input-text.interaction";
 export * from "./select-component-write-method.interaction";
 export * from "./define-method.interaction";
 export * from "./define-methods.interaction";
+export * from "./resolve-dependencies.interaction";

@@ -26,12 +26,7 @@ export class NewServiceOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    if (!options.layer) {
-      console.log(chalk.red(texts.get("missing_layer")));
-      process.exit(1);
-    }
-
-    const { endpoint, name, layer } = options;
+    const { endpoint, name } = options;
     const methods = CliOptionsTools.splitArrayOption(options.methods);
     const service: ServiceJson = {
       name,

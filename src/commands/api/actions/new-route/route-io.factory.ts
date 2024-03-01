@@ -42,13 +42,28 @@ export class RouteIOFactory {
       endpoint,
     } = data;
     const { defaults } = config.components.route_io;
-    //temporary
+    const requestTypes = [
+      requestBody?.element?.name,
+      pathParams?.element?.name,
+      queryParams?.element?.name,
+    ].reduce((acc, c, i) => {
+      if (c || acc[i - 1]) {
+        acc.unshift(c);
+      }
+      return acc;
+    }, []);
+    if (queryParams?.element?.name) {
+      requestTypes;
+    }
+    const requestName = `Request${
+      requestTypes.length > 0 ? "<" + requestTypes.join(", ") + ">" : ""
+    }`;
     const request = {
       element: {
-        name: `Request<${queryParams?.element?.name}, ${pathParams?.element?.name}, ${requestBody?.element?.name}>`,
+        name: requestName,
       },
       type: {
-        name: `Request<${queryParams?.element?.name}, ${pathParams?.element?.name}, ${requestBody?.element?.name}>`,
+        name: requestName,
         ref: "Request",
         tag: "Request",
         isFrameworkDefaultType: true,

@@ -12,7 +12,7 @@ import { CommandConfig } from "../../../../core";
 export class NewToolsetStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
     for (const frame of timeline) {
-      if (frame.name === CreateToolsetFrame.NAME) {
+      if (frame.name === CreateToolsetFrame.NAME && frame.output) {
         return frame.output;
       }
     }

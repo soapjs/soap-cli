@@ -81,8 +81,8 @@ export class DefineResourcesFrame extends Frame<ProjectDescription> {
       },
       [
         {
-          message: texts.get("cache"),
-          name: "cache",
+          message: texts.get("in-memory"),
+          name: "memory",
         },
       ]
     );
@@ -91,7 +91,7 @@ export class DefineResourcesFrame extends Frame<ProjectDescription> {
       database = await InteractionPrompts.multiSelect(
         texts.get("please_select_databases"),
         databases,
-        ["cache"],
+        ["memory"],
         texts.get("hint___please_select_databases")
       );
     } while (database.length === 0);

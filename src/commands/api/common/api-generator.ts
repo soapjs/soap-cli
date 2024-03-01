@@ -30,8 +30,8 @@ export class ApiGenerator {
     if (failure) {
       return Result.withFailure(failure);
     }
-    // console.log("OBJ:", JSON.stringify(obj, null, 2));
-    // console.log("MODELS:", JSON.stringify(models, null, 2));
+    console.log("OBJ:", JSON.stringify(obj, null, 2));
+    console.log("MODELS:", JSON.stringify(models, null, 2));
 
     const promises = [];
     const { threadCount, batchSize } = compilation;

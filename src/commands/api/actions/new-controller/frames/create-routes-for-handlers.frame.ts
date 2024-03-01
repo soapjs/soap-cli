@@ -27,10 +27,7 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
   private selectRequestBodyFrame: SelectRequestBodyTypeFrame;
   private selectResponseBodyFrame: SelectResponseBodyTypeFrame;
 
-  constructor(
-    protected config: Config,
-    protected texts: Texts
-  ) {
+  constructor(protected config: Config, protected texts: Texts) {
     super(CreateRoutesForHandlersFrame.NAME);
 
     this.interaction = new DescribeRouteInteraction(texts);
@@ -70,6 +67,7 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
             name,
             controller: name,
             handler: handler.name,
+            endpoint,
           },
           { skip: ["controller", "handler"] }
         );
@@ -97,7 +95,7 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
         i++;
       } while (i < handlers.length);
     }
-
+    console.log("???????", result);
     return result;
   }
 }
