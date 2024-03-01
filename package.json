@@ -1,7 +1,7 @@
 {
   "name": "@soapjs/soap-cli",
   "version": "0.0.1",
-  "description": "",
+  "description": "An extensible command-line interface for streamlined project setup, configuration, and management, supporting interactive sessions and a variety of development environments.",
   "homepage": "https://docs.soapjs.com",
   "repository": "https://github.com/soapjs/soap-cli",
   "bin": {
