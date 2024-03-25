@@ -1,27 +1,24 @@
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 import { CreateParamInteraction } from "./create-param.interaction";
 import {
+  ComponentJsonFactory,
+  ComponentTools,
   Config,
   EntityJson,
   ModelJson,
   ParamJson,
   Texts,
   TypeInfo,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 
-type InteractionResult = {
+export type CreateParamsInteractionResult = {
   params: ParamJson[];
   models: ModelJson[];
   entities: EntityJson[];
 };
 
-export class CreateParamsInteraction extends Interaction<InteractionResult> {
-  constructor(
-    protected texts: Texts,
-    protected config: Config,
-    protected dependencies_write_method: WriteMethod
-  ) {
+export class CreateParamsInteraction extends Interaction<CreateParamsInteractionResult> {
+  constructor(protected texts: Texts, protected config: Config) {
     super();
   }
   public async run(
@@ -31,8 +28,8 @@ export class CreateParamsInteraction extends Interaction<InteractionResult> {
       target?: string;
     },
     options?: { skipQuestion?: boolean }
-  ): Promise<InteractionResult> {
-    const { texts, config, dependencies_write_method } = this;
+  ): Promise<CreateParamsInteractionResult> {
+    const { texts, config } = this;
     const result = { params: [], models: [], entities: [] };
     const skipQuestion = options?.skipQuestion || false;
 
@@ -51,31 +48,24 @@ export class CreateParamsInteraction extends Interaction<InteractionResult> {
         result.params.push(param);
 
         const type = TypeInfo.create(param.type, config);
+        const types = ComponentTools.filterComponentTypes(type);
 
-        if (dependencies_write_method !== WriteMethod.Skip) {
-          if (
-            type.isModel &&
-            (await InteractionPrompts.confirm(
-              texts.get("non_standard_type_detected__create_one")
-            ))
-          ) {
-            result.models.push({
-              name: type.ref,
-              types: ["json"],
-              endpoint: context.endpoint,
-            });
-          } else if (
-            type.isEntity &&
-            (await InteractionPrompts.confirm(
-              texts.get("non_standard_type_detected__create_one")
-            ))
-          ) {
-            result.entities.push({
-              name: type.ref,
-              endpoint: context.endpoint,
-            });
+        // if (dependencies_write_method !== WriteMethod.Skip) {
+
+        types.forEach((componentType) => {
+          const json = ComponentJsonFactory.create(componentType, {
+            name: componentType.ref,
+            types: ["json"],
+            endpoint: context.endpoint,
+          });
+
+          if (type.isModel) {
+            result.models.push(json);
+          } else if (type.isEntity) {
+            result.entities.push(json);
           }
-        }
+        });
+        // }
       } while (
         await InteractionPrompts.confirm(
           texts

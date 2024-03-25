@@ -7,8 +7,8 @@ import Config from "../../../defaults/root.config.json";
 export const printConfig = (options: PrintConfigOptions) => {
   const { key } = options;
 
-  const storedConfig = existsSync(Config.local_plugin_config_path)
-    ? readFileSync(Config.local_plugin_config_path, "utf-8")
+  const storedConfig = existsSync(Config.local_config_path)
+    ? readFileSync(Config.local_config_path, "utf-8")
     : null;
 
   if (storedConfig && key) {

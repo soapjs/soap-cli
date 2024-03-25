@@ -1,31 +1,29 @@
 import { nanoid } from "nanoid";
 import {
-  ClassJson,
   ClassSchema,
   Component,
   Config,
   Entity,
   EntityAddons,
-  EntityData,
   EntityElement,
   EntityType,
   Model,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
+import { EntityFactoryInput } from "./types";
 
 export class EntityFactory {
   static create(
-    data: EntityData,
+    data: EntityFactoryInput,
     model: Model,
-    writeMethod: WriteMethod,
     config: Config,
-    dependencies: Component[]
+    dependencies?: Component[]
   ): Entity {
-    const { id, name, endpoint } = data;
+    const _dependencies = dependencies || [];
+    const { id, name, endpoint, write_method } = data;
     const addons = { hasModel: !!model };
-    const { defaults } = config.components.entity;
-    const componentName = config.components.entity.generateName(name);
-    const componentPath = config.components.entity.generatePath({
+    const { defaults } = config.presets.entity;
+    const componentName = config.presets.entity.generateName(name);
+    const componentPath = config.presets.entity.generatePath({
       name,
       endpoint,
     }).path;
@@ -86,12 +84,13 @@ export class EntityFactory {
         ctor,
         inheritance,
         exp,
-        is_abstract: config.components.entity.elementType === "abstract_class",
-      } as ClassJson,
+        is_abstract: config.presets.entity.elementType === "abstract_class",
+      },
+      write_method,
       config,
       {
         addons,
-        dependencies: [model, ...dependencies],
+        dependencies: [model, ..._dependencies],
       }
     );
 
@@ -100,10 +99,10 @@ export class EntityFactory {
       type: EntityType.create(componentName, name),
       endpoint,
       path: componentPath,
-      writeMethod,
+      writeMethod: write_method,
       addons,
       element,
-      dependencies,
+      dependencies: _dependencies,
     });
 
     if (model) {

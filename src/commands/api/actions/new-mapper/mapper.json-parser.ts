@@ -1,12 +1,12 @@
 import {
+  ApiSchema,
+  Component,
+  ComponentRegistry,
   Config,
   Entity,
   Mapper,
   MapperJson,
-  MethodTools,
   Model,
-  PropTools,
-  TestCaseSchema,
   TestSuite,
   Texts,
   WriteMethod,
@@ -16,7 +16,7 @@ import { EntityFactory } from "../new-entity";
 import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { MapperFactory } from "./mapper.factory";
-import { CommandConfig, DependenciesTools } from "../../../../core";
+import { CommandConfig, DependencyTools } from "../../../../core";
 import { pascalCase } from "change-case";
 
 export class MapperJsonParser {
@@ -24,102 +24,88 @@ export class MapperJsonParser {
     private config: Config,
     private command: CommandConfig,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod }
+    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
+    private apiSchema: ApiSchema
   ) {}
 
-  build(
+  parse(
     list: MapperJson[],
-    entitiesRef: Entity[],
-    modelsRef: Model[]
+    writeMethod?: WriteMethod
   ): {
-    mappers: Mapper[];
-    models: Model[];
-    entities: Entity[];
-    test_suites: TestSuite[];
+    components: Component[];
   } {
-    const { config, texts, writeMethod, command } = this;
-    const mappers: Mapper[] = [];
-    const models: Model[] = [];
-    const entities: Entity[] = [];
-    const test_suites: TestSuite[] = [];
+    const { config, texts, command, apiSchema } = this;
+    const registry = new ComponentRegistry();
 
     for (const data of list) {
       let entity;
-      const { name, endpoint, storages, props, methods } = data;
+      const { name, endpoint, types, props, methods } = data;
 
-      if (!endpoint && config.components.mapper.isEndpointRequired()) {
+      if (!endpoint && config.presets.mapper.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
         console.log(
           chalk.yellow(texts.get("component_###_skipped").replace("###", name))
         );
         continue;
       }
-
-      entity = entitiesRef.find(
-        (e) => e.type.ref === data.entity || e.type.ref === name
-      );
+      const entityName = data.entity || name;
+      entity = apiSchema.get({ component: "entity", ref: entityName });
 
       if (!entity) {
         entity = EntityFactory.create(
           {
-            name: data.entity || name,
+            name: entityName,
             endpoint,
+            write_method: this.writeMethod.dependency,
           },
           null,
-          writeMethod.dependency,
           config,
           []
         );
-        entities.push(entity);
+        registry.add(entity);
       }
 
-      for (const storage of storages) {
+      for (const type of types) {
         let model;
         if (
-          mappers.find(
-            (m) => m.type.ref === data.name && m.type.type === storage
+          registry.mappers.find(
+            (m) => m.type.ref === data.name && m.type.type === type
           )
         ) {
           continue;
         }
 
-        model = modelsRef.find(
-          (m) =>
-            (m.type.ref === data.model || m.type.ref === name) &&
-            m.type.type === storage
-        );
+        model = apiSchema.get({
+          component: "model",
+          ref: data.model || name,
+          type,
+        });
 
         if (!model) {
           model = ModelFactory.create(
             {
               name: data.model || name,
               endpoint,
-              type: storage,
+              type,
+              write_method: this.writeMethod.dependency,
             },
-            writeMethod.dependency,
             config,
             []
           );
-          models.push(model);
+          registry.add(model);
         }
 
         const mapper = MapperFactory.create(
           {
             name,
-            storage,
+            type,
             endpoint,
-            props: PropTools.arrayToData(props, config, {
-              dependencies: [],
-              addons: {},
-            }),
-            methods: MethodTools.arrayToData(methods, config, {
-              dependencies: [],
-              addons: {},
-            }),
+            props,
+            methods,
+            write_method: writeMethod || this.writeMethod.component,
           },
           entity,
           model,
-          writeMethod.component,
           config
         );
 
@@ -127,43 +113,33 @@ export class MapperJsonParser {
           //
           const suite = TestSuiteFactory.create(
             {
-              name: pascalCase(`${name} ${storage}`),
+              name: pascalCase(`${name} ${type}`),
               endpoint,
               type: "unit_tests",
             },
             mapper,
-            writeMethod.component,
+            this.writeMethod.component,
             config
           );
 
-          mapper.element.methods.forEach((method) => {
-            suite.element.addTest(
-              TestCaseSchema.create({
-                group: { name: suite.element.name, is_async: false },
-                is_async: method.isAsync,
-                name: method.name,
-                methods: [method],
-              })
-            );
-          });
-          test_suites.push(suite);
+          registry.add(suite);
         }
 
-        const missingDependnecies =
-          DependenciesTools.resolveMissingDependnecies(
-            mapper,
-            config,
-            writeMethod.dependency,
-            [...models, ...modelsRef],
-            [...entities, ...entitiesRef]
-          );
-        models.push(...missingDependnecies.models);
-        entities.push(...missingDependnecies.entities);
+        const missingDependnecies = DependencyTools.resolveMissingDependnecies(
+          mapper,
+          config,
+          this.writeMethod.dependency,
+          apiSchema
+        );
 
-        mappers.push(mapper);
+        registry.add(
+          mapper,
+          ...missingDependnecies.models,
+          ...missingDependnecies.entities
+        );
       }
     }
 
-    return { mappers, models, entities, test_suites };
+    return { components: registry.toArray() };
   }
 }

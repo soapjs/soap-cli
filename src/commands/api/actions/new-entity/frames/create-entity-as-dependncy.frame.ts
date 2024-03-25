@@ -1,6 +1,4 @@
-import {
-  InputNameAndEndpointInteraction,
-} from "../../../common";
+import { InputNameAndEndpointInteraction } from "../../../common";
 import chalk from "chalk";
 import { CreateEntityFrame } from "./create-entity.frame";
 import { ApiJson, Config, PropJson, Texts } from "@soapjs/soap-cli-common";
@@ -44,7 +42,7 @@ export class CreateEntityAsDependencyFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.entity.isEndpointRequired(),
+      isEndpointRequired: config.presets.entity.isEndpointRequired(),
     });
 
     return {

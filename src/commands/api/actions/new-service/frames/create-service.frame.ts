@@ -39,10 +39,10 @@ export class CreateServiceFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.service.isEndpointRequired(),
+      isEndpointRequired: config.presets.service.isEndpointRequired(),
     });
-    const componentName = config.components.service.generateName(name);
-    const componentPath = config.components.service.generatePath({
+    const componentName = config.presets.service.generateName(name);
+    const componentPath = config.presets.service.generatePath({
       name,
       endpoint,
     }).path;

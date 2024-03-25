@@ -23,11 +23,6 @@ export class SelectToolsetlayerFrame extends Frame<string[]> {
         name: "data",
         value: true,
       },
-      {
-        message: "Infra",
-        name: "infra",
-        value: true,
-      },
     ];
     let list: string[];
     do {

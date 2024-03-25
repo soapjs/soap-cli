@@ -12,7 +12,7 @@ import {
 
 export class ContainerFactory {
   public static create(config: Config): Container {
-    const { defaults } = config.components.container;
+    const { defaults } = config.presets.container;
     const interfaces = [];
     const methods = [];
     const props = [];
@@ -22,9 +22,8 @@ export class ContainerFactory {
     let ctor;
     let exp;
 
-    const componentName =
-      config.components.container.generateName("dependencies");
-    const componentPath = config.components.container.generatePath({
+    const componentName = config.presets.container.generateName("dependencies");
+    const componentPath = config.presets.container.generatePath({
       name: "dependencies",
     }).path;
 
@@ -63,18 +62,6 @@ export class ContainerFactory {
       generics.push(...defaults.common.generics);
     }
 
-    const classData: ClassData = {
-      name: componentName,
-      props,
-      methods,
-      interfaces,
-      generics,
-      inheritance,
-      imports,
-      ctor,
-      exp,
-      is_abstract: false,
-    };
     const addons: ContainerAddons = {
       repositories: [],
       use_cases: [],
@@ -82,10 +69,26 @@ export class ContainerFactory {
       toolsets: [],
       services: [],
     };
-    const element = ClassSchema.create<ContainerElement>(classData, config, {
-      addons,
-      dependencies: [],
-    });
+    const element = ClassSchema.create<ContainerElement>(
+      {
+        name: componentName,
+        props,
+        methods,
+        interfaces,
+        generics,
+        inheritance,
+        imports,
+        ctor,
+        exp,
+        is_abstract: false,
+      },
+      WriteMethod.Write,
+      config,
+      {
+        addons,
+        dependencies: [],
+      }
+    );
 
     return new Container(
       nanoid(),

@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { NewUseCaseInteractiveStrategy } from "./new-use-case.interactive-strategy";
-import { NewUseCaseOptionsStrategy } from "./new-use-case.options-strategy";
+import { NewUseCaseInteractiveStrategy } from "./strategies/new-use-case.interactive-strategy";
+import { NewUseCaseOptionsStrategy } from "./strategies/new-use-case.options-strategy";
 import { NewUseCaseOptions } from "./types";
 import { Config } from "@soapjs/soap-cli-common";
 import { CommandConfig, CompilationConfig } from "../../../../core";

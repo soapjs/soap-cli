@@ -4,21 +4,21 @@ import {
   LauncherElement,
   LauncherType,
   WriteMethod,
-  EmptyFileData,
-  EmptyFileSchema,
+  SourceFileData,
+  SourceFileSchema,
 } from "@soapjs/soap-cli-common";
 import { nanoid } from "nanoid";
 
 export class LauncherFactory {
   public static create(config: Config): Component<LauncherElement> {
-    const { defaults } = config.components.launcher;
+    const { defaults } = config.presets.launcher;
     const props = [];
     const imports = [];
     let functions = [];
     let exp;
 
-    const componentName = config.components.launcher.generateName("launcher");
-    const componentPath = config.components.launcher.generatePath({
+    const componentName = config.presets.launcher.generateName("launcher");
+    const componentPath = config.presets.launcher.generatePath({
       name: "launcher",
     }).path;
 
@@ -41,7 +41,7 @@ export class LauncherFactory {
       props.push(...defaults.common.props);
     }
 
-    const classData: EmptyFileData = {
+    const classData: SourceFileData = {
       name: componentName,
       props,
       imports,
@@ -49,10 +49,14 @@ export class LauncherFactory {
       exp,
     };
 
-    const element = EmptyFileSchema.create<LauncherElement>(classData, config, {
-      addons: {},
-      dependencies: [],
-    });
+    const element = SourceFileSchema.create<LauncherElement>(
+      classData,
+      config,
+      {
+        addons: {},
+        dependencies: [],
+      }
+    );
 
     const component = Component.create<LauncherElement>(config, {
       id: nanoid(),

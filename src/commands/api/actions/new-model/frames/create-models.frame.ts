@@ -7,8 +7,10 @@ import {
 import {
   ApiJson,
   Config,
+  ModelType,
   PropJson,
   Texts,
+  TypeInfo,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
@@ -23,6 +25,20 @@ export class CreateModelsFrame extends Frame<ApiJson> {
     protected texts: Texts
   ) {
     super(CreateModelsFrame.NAME);
+  }
+
+  private adjustPropsToModelType(props, type) {
+    return props.map((prop) => {
+      const propType = TypeInfo.create(prop.type, this.config);
+      if (propType.isModel) {
+        return {
+          ...prop,
+          type: ModelType.create(propType.name, propType.ref, type).tag,
+        };
+      }
+
+      return prop;
+    });
   }
 
   public async run(context?: {
@@ -43,14 +59,13 @@ export class CreateModelsFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.model.isEndpointRequired(),
+      isEndpointRequired: config.presets.model.isEndpointRequired(),
     });
 
     name = res.name;
     endpoint = res.endpoint;
 
     let writeMethod = WriteMethod.Write;
-
     const newPropsResult = await new CreatePropsInteraction(
       texts,
       config,
@@ -59,14 +74,15 @@ export class CreateModelsFrame extends Frame<ApiJson> {
       endpoint,
       target: "model",
       areAdditional: passedProps.length > 0,
+      modelTypes: types,
     });
 
     result.entities.push(...newPropsResult.entities);
     result.models.push(...newPropsResult.models);
 
     for (const type of types) {
-      const componentName = config.components.model.generateName(name);
-      const componentPath = config.components.model.generatePath({
+      const componentName = config.presets.model.generateName(name);
+      const componentPath = config.presets.model.generatePath({
         name,
         type,
         endpoint,
@@ -81,10 +97,12 @@ export class CreateModelsFrame extends Frame<ApiJson> {
       }
 
       if (writeMethod !== WriteMethod.Skip) {
+        const props = this.adjustPropsToModelType(newPropsResult.props, type);
+
         result.models.push({
           name,
           types: [type],
-          props: [...passedProps, ...newPropsResult.props],
+          props: [...passedProps, ...props],
           endpoint,
         });
       }

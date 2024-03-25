@@ -39,7 +39,7 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.model.isEndpointRequired(),
+      isEndpointRequired: config.presets.model.isEndpointRequired(),
     });
     const output_choices = [
       { name: "None", value: "None" },
@@ -51,8 +51,8 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
     let res: ApiJson;
     let output;
     const input = new Set<ParamJson>();
-    const componentName = config.components.use_case.generateName(name);
-    const componentPath = config.components.use_case.generatePath({
+    const componentName = config.presets.use_case.generateName(name);
+    const componentPath = config.presets.use_case.generatePath({
       name,
       endpoint,
     }).path;
@@ -75,7 +75,6 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
         const { params, ...deps } = await new CreateParamsInteraction(
           texts,
           config,
-          command.dependencies_write_method
         ).run(
           {
             endpoint,

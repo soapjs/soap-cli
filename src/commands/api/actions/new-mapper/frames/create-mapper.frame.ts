@@ -76,7 +76,7 @@ export class CreateMappersFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.mapper.isEndpointRequired(),
+      isEndpointRequired: config.presets.mapper.isEndpointRequired(),
     });
     let writeMethod = WriteMethod.Write;
     let entity: EntityJson;
@@ -113,8 +113,8 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     }
 
     for (const storage of storages) {
-      const componentName = config.components.mapper.generateName(name);
-      const componentPath = config.components.mapper.generatePath({
+      const componentName = config.presets.mapper.generateName(name);
+      const componentPath = config.presets.mapper.generatePath({
         name,
         type: storage,
         endpoint,
@@ -134,7 +134,7 @@ export class CreateMappersFrame extends Frame<ApiJson> {
           name,
           entity: entity.name,
           model: model.name,
-          storages: [storage],
+          types: [storage],
           endpoint,
         });
       }

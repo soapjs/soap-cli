@@ -10,10 +10,7 @@ export type RouteNameAndEndpoint = {
 export class DefineRouteNameAndEndpointFrame extends Frame<RouteNameAndEndpoint> {
   public static NAME = "define_route_name_and_endpoint_frame";
 
-  constructor(
-    protected config: Config,
-    protected texts: Texts
-  ) {
+  constructor(protected config: Config, protected texts: Texts) {
     super(DefineRouteNameAndEndpointFrame.NAME);
   }
 
@@ -26,7 +23,7 @@ export class DefineRouteNameAndEndpointFrame extends Frame<RouteNameAndEndpoint>
       endpointMessage: texts.get("please_provide_endpoint"),
       endpointHint: texts.get("hint___please_provide_endpoint"),
     }).run({
-      isEndpointRequired: config.components.route.isEndpointRequired(),
+      isEndpointRequired: config.presets.route.isEndpointRequired(),
     });
   }
 }

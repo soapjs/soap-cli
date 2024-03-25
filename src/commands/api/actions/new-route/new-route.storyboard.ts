@@ -30,6 +30,9 @@ export class NewRouteStoryResolver extends StoryResolver<ApiJson> {
         if (frame.output?.entities) {
           result.entities.push(...frame.output.entities);
         }
+        if (frame.output?.models) {
+          result.models.push(...frame.output.models);
+        }
         if (frame.output?.controllers) {
           result.controllers.push(...frame.output.controllers);
         }
@@ -82,8 +85,16 @@ export class NewRouteStoryboard extends Storyboard<any> {
       })
       .addFrame(new CreateRouteFrame(config, command, texts), (t) => {
         const { name, endpoint } = t.getFrame(0).output;
-        const { path, http_method, controller, handler, auth, validate } =
-          t.getFrame(1).output;
+        const {
+          path,
+          http_method,
+          controller,
+          handler,
+          auth,
+          validate,
+          cors,
+          limiter,
+        } = t.getFrame(1).output;
         const { request_body } = t.getFrame(2).output;
         const { response_body } = t.getFrame(3).output;
 
@@ -96,6 +107,8 @@ export class NewRouteStoryboard extends Storyboard<any> {
           handler,
           auth,
           validate,
+          cors,
+          limiter,
           request_body,
           response_body,
         };

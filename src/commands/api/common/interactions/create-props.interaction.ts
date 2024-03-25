@@ -27,6 +27,7 @@ export class CreatePropsInteraction extends Interaction<InteractionResult> {
   public async run(context: {
     endpoint: string;
     areAdditional?: boolean;
+    modelTypes?: string[];
     target?: string;
   }): Promise<InteractionResult> {
     const { texts, config, dependencies_write_method } = this;
@@ -56,7 +57,7 @@ export class CreatePropsInteraction extends Interaction<InteractionResult> {
           ) {
             result.models.push({
               name: type.ref,
-              types: ["json"],
+              types: context.modelTypes || ["json"],
               endpoint: context.endpoint,
             });
           } else if (

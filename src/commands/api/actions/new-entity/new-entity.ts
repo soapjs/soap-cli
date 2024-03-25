@@ -1,6 +1,6 @@
 import { NewEntityOptions } from "./types";
-import { NewEntityOptionsStrategy } from "./new-entity.options-strategy";
-import { NewEntityInteractiveStrategy } from "./new-entity.interactive-strategy";
+import { NewEntityOptionsStrategy } from "./strategies/new-entity.options-strategy";
+import { NewEntityInteractiveStrategy } from "./strategies/new-entity.interactive-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
 import { CommandConfig, CompilationConfig } from "../../../../core";

@@ -37,12 +37,14 @@ export class CreateRouteFrame extends Frame<ApiJson> {
       validate,
       request_body,
       response_body,
+      cors,
+      limiter,
     } = context;
     const result: ApiJson = {
       routes: [],
     };
-    const componentName = config.components.route.generateName(name);
-    const componentPath = config.components.route.generatePath({
+    const componentName = config.presets.route.generateName(name);
+    const componentPath = config.presets.route.generatePath({
       name,
       endpoint,
     }).path;
@@ -63,6 +65,24 @@ export class CreateRouteFrame extends Frame<ApiJson> {
         validate,
         auth,
       };
+
+      if (cors) {
+        request["cors"] = {
+          origin: null,
+          methods: null,
+          headers: null,
+          credentials: null,
+          max_age: null,
+        };
+      }
+
+      if (limiter) {
+        request["rate_limiter"] = {
+          max_requests: null,
+          window_ms: null,
+          mandatory: null,
+        };
+      }
 
       if (request_body) {
         request["body"] = request_body;

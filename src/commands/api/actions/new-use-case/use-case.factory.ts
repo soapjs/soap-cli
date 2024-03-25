@@ -3,112 +3,77 @@ import {
   ClassSchema,
   Component,
   Config,
+  DataProvider,
+  GenericDataParser,
+  MethodJson,
+  ParamDataParser,
+  ResultType,
   TypeInfo,
-  UseCaseData,
   UseCaseElement,
   UseCaseType,
-  WriteMethod,
+  VoidType,
 } from "@soapjs/soap-cli-common";
+import { UseCaseFactoryInput } from "./types";
+import {
+  DefaultGroups,
+  InputToDataParser,
+} from "../../common/input-to-data.parser";
 
 export class UseCaseFactory {
   public static create(
-    data: UseCaseData,
-    output: Component,
-    writeMethod: WriteMethod,
+    input: UseCaseFactoryInput,
     config: Config
   ): Component<UseCaseElement> {
     const dependencies = [];
-    const { id, name, endpoint } = data;
-    const { defaults } = config.components.use_case;
+    const { id, name, endpoint, write_method } = input;
 
-    const addons = {
-      input: data.input,
-      output: output?.type || TypeInfo.create(data.output, config),
-    };
+    const output = input.output ? TypeInfo.create(input.output, config) : null;
+    const parser = new InputToDataParser(config);
+    const data = parser.parse<ClassData>(
+      "use_case",
+      input,
+      new DefaultGroups(["common"])
+    );
 
-    const interfaces = [];
-    const methods = [];
-    const props = [];
-    const generics = [];
-    const imports = [];
-    let inheritance = [];
-    let ctor;
-    let exp;
-
-    const componentName = config.components.use_case.generateName(name);
-    const componentPath = config.components.use_case.generatePath({
-      name,
-      endpoint,
-    }).path;
-
-    if (defaults?.common?.exp) {
-      exp = defaults.common.exp;
-    }
-
-    if (defaults?.common?.ctor) {
-      ctor = defaults.common.ctor;
-    }
-
-    if (Array.isArray(defaults?.common?.inheritance)) {
-      inheritance.push(...defaults.common.inheritance);
-    }
-
-    if (Array.isArray(defaults?.common?.imports)) {
-      defaults.common.imports.forEach((i) => {
-        i.ref_path = componentPath;
-        imports.push(i);
-      });
-    }
-
-    if (Array.isArray(defaults?.common?.interfaces)) {
-      imports.push(...defaults.common.interfaces);
-    }
-
-    if (Array.isArray(defaults?.common?.methods)) {
-      methods.push(...defaults.common.methods);
-    }
-
-    if (Array.isArray(defaults?.common?.props)) {
-      props.push(...defaults.common.props);
-    }
-
-    if (Array.isArray(defaults?.common?.generics)) {
-      generics.push(...defaults.common.generics);
-    }
-
-    if (Array.isArray(data.props)) {
-      props.push(...data.props);
-    }
-
-    if (Array.isArray(data.methods)) {
-      methods.push(...data.methods);
-    }
-
-    const classData: ClassData = {
-      id,
-      name: componentName,
-      props,
-      methods,
-      interfaces,
-      generics,
-      inheritance,
-      ctor,
-      imports,
-      exp,
-      is_abstract: config.components.use_case.elementType === "abstract_class",
-    };
-
-    const element = ClassSchema.create<UseCaseElement>(classData, config, {
-      addons,
-      dependencies,
+    data.element.inheritance.forEach((i) => {
+      if (output) {
+        i.generics = [GenericDataParser.parse(output.name, config).data];
+      }
     });
+
+    const execMethodSchema =
+      config.presets.use_case.defaults.common.methods.find((m) =>
+        m.meta?.includes("isExec")
+      );
+
+    if (execMethodSchema) {
+      const execMethod = data.element.methods.find(
+        (m) => m.name === execMethodSchema.name
+      );
+      if (execMethod) {
+        execMethod.params = input.input.map(
+          (i) => ParamDataParser.parse(i, config).data
+        );
+        execMethod.return_type = ResultType.create(output || VoidType.create());
+      }
+    }
+
+    const element = ClassSchema.create<UseCaseElement>(
+      new DataProvider(data.element),
+      write_method,
+      config,
+      {
+        addons: {},
+        dependencies,
+      }
+    );
 
     const component = Component.create<UseCaseElement>(config, {
       id,
-      type: UseCaseType.create(componentName, name),
+      type: UseCaseType.create(input.name, name),
       endpoint,
-      path: componentPath,
-      writeMethod,
+      path: data.path,
+      writeMethod: write_method,
       addons: {},
       element,
       dependencies,

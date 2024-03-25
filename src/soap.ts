@@ -12,6 +12,14 @@ const start = async () => {
     const program = new commander.Command();
     program.description("SoapJS").enablePositionalOptions();
 
+    program.option("-v, --version").action((options) => {
+      if (options.version) {
+        Commands.Version.Actions.printVersion();
+      } else {
+        process.exit(0);
+      }
+    });
+
     const configCommand = program.command("config");
     const initCommand = program.command("init");
     const newCommand = program.command("new");
@@ -29,7 +37,7 @@ const start = async () => {
       )
       .description(texts.get("description_project_init"))
       .action((options) => {
-        Commands.Base.init(options);
+        Commands.Project.init(options);
       });
 
     /**
@@ -48,7 +56,7 @@ const start = async () => {
       )
       .description(texts.get("description_new_project"))
       .action((options) => {
-        Commands.Base.newProject(options);
+        Commands.Project.newProject(options);
       });
 
     /**
@@ -196,6 +204,8 @@ const start = async () => {
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-a, --auth <value>", texts.get("option_route_auth"))
       .option("-v, --validate", texts.get("option_route_validate"))
+      .option("-s, --cors", texts.get("option_route_cors"))
+      .option("-r, --limiter", texts.get("option_route_limiter"))
       .option("-b, --body <value>", texts.get("option_route_body"))
       .option("-r, --response <value>", texts.get("option_route_reposnse"))
       .option("--skip-tests", texts.get("option_skip_tests"))
@@ -243,6 +253,20 @@ const start = async () => {
       .action((options: Commands.Config.Actions.SetConfigOptions) =>
         Commands.Config.Actions.setConfig(options)
       );
+
+    configCommand
+      .command("get")
+      .option("-k, --key <value>", "The name of the key.")
+      .description(
+        "This command is used to display a specific option or the entire configuration."
+      )
+      .action((options: Commands.Config.Actions.PrintConfigOptions) => {
+        Commands.Config.Actions.printConfig(options);
+      });
+
+    /**
+     * VERSION
+     */
 
     configCommand
       .command("get")

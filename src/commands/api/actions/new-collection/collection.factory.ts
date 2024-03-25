@@ -1,28 +1,25 @@
 import { nanoid } from "nanoid";
 import {
-  ClassData,
   ClassSchema,
   CollectionAddons,
-  CollectionData,
   CollectionElement,
   CollectionType,
   Component,
   Config,
   Model,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
+import { CollectionFactoryInput } from "./types";
 
 export class CollectionFactory {
   public static create(
-    data: CollectionData,
+    data: CollectionFactoryInput,
     model: Model,
-    writeMethod: WriteMethod,
     config: Config
   ): Component<CollectionElement, CollectionAddons> {
     const dependencies = [model];
-    const { id, name, storage, table, endpoint, is_custom } = data;
-    const { defaults } = config.components.collection;
-    const addons = { storage, table, is_custom };
+    const { id, name, type, table, endpoint, is_custom, write_method } = data;
+    const { defaults } = config.presets.collection;
+    const addons = { type, table, is_custom };
     const interfaces = [];
     const methods = [];
     const props = [];
@@ -31,12 +28,12 @@ export class CollectionFactory {
     let inheritance = [];
     let ctor;
     let exp;
-    const componentName = config.components.collection.generateName(name, {
-      type: storage,
+    const componentName = config.presets.collection.generateName(name, {
+      type,
     });
-    const componentPath = config.components.collection.generatePath({
+    const componentPath = config.presets.collection.generatePath({
       name,
-      type: storage,
+      type,
       endpoint,
     }).path;
 
@@ -75,31 +72,31 @@ export class CollectionFactory {
       generics.push(...defaults.common.generics);
     }
 
-    if (defaults?.[storage]?.ctor) {
-      ctor = defaults[storage].ctor;
+    if (defaults?.[type]?.ctor) {
+      ctor = defaults[type].ctor;
     }
 
-    if (Array.isArray(defaults?.[storage]?.inheritance)) {
-      inheritance.push(...defaults[storage].inheritance);
+    if (Array.isArray(defaults?.[type]?.inheritance)) {
+      inheritance.push(...defaults[type].inheritance);
     }
 
-    if (Array.isArray(defaults?.[storage]?.imports)) {
-      defaults[storage].imports.forEach((i) => {
+    if (Array.isArray(defaults?.[type]?.imports)) {
+      defaults[type].imports.forEach((i) => {
         i.ref_path = componentPath;
         imports.push(i);
       });
     }
 
-    if (Array.isArray(defaults?.[storage]?.interfaces)) {
-      imports.push(...defaults[storage].interfaces);
+    if (Array.isArray(defaults?.[type]?.interfaces)) {
+      imports.push(...defaults[type].interfaces);
     }
 
-    if (Array.isArray(defaults?.[storage]?.methods)) {
-      methods.push(...defaults[storage].methods);
+    if (Array.isArray(defaults?.[type]?.methods)) {
+      methods.push(...defaults[type].methods);
     }
 
-    if (Array.isArray(defaults?.[storage]?.props)) {
-      props.push(...defaults[storage].props);
+    if (Array.isArray(defaults?.[type]?.props)) {
+      props.push(...defaults[type].props);
     }
 
     if (Array.isArray(data.props)) {
@@ -110,38 +107,40 @@ export class CollectionFactory {
       methods.push(...data.methods);
     }
 
-    if (Array.isArray(defaults?.[storage]?.generics)) {
-      generics.push(...defaults[storage].generics);
+    if (Array.isArray(defaults?.[type]?.generics)) {
+      generics.push(...defaults[type].generics);
     }
 
-    const classData: ClassData = {
-      id,
-      name: componentName,
-      props,
-      methods,
-      interfaces,
-      generics,
-      inheritance,
-      ctor,
-      imports,
-      exp,
-      is_abstract:
-        config.components.collection.elementType === "abstract_class",
-    };
-
-    const element = ClassSchema.create<CollectionElement>(classData, config, {
-      addons,
-      dependencies,
-    });
+    const element = ClassSchema.create<CollectionElement>(
+      {
+        id,
+        name: componentName,
+        props,
+        methods,
+        interfaces,
+        generics,
+        inheritance,
+        ctor,
+        imports,
+        exp,
+        is_abstract: config.presets.collection.elementType === "abstract_class",
+      },
+      write_method,
+      config,
+      {
+        addons,
+        dependencies,
+      }
+    );
 
     const component = Component.create<CollectionElement, CollectionAddons>(
       config,
       {
         id: id || nanoid(),
-        type: CollectionType.create(componentName, name, storage),
+        type: CollectionType.create(componentName, name, type),
         endpoint,
         path: componentPath,
-        writeMethod,
+        writeMethod: write_method,
         addons,
         element,
         dependencies,

@@ -1,29 +1,31 @@
 import chalk from "chalk";
 import {
+  ApiSchema,
+  Component,
+  ComponentRegistry,
   Config,
   Entity,
   Model,
   Service,
   ServiceImpl,
   ServiceJson,
-  TestCaseSchema,
   TestSuite,
   Texts,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
-import { EntityFactory } from "../new-entity";
-import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
-import { ServiceFactory } from "./service.factory";
-import { CommandConfig, DependenciesTools } from "../../../../core";
-import { ServiceImplFactory } from "./service-impl.factory";
+import { ServiceFactory } from "./factories/service.factory";
+import { CommandConfig, DependencyTools } from "../../../../core";
+import { ServiceImplFactory } from "./factories/service-impl.factory";
+import { ServiceIocContext } from "./types";
 
 export class ServiceJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod }
+    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
+    private apiSchema: ApiSchema
   ) {}
 
   buildTestSuite(data: ServiceJson, service: ServiceImpl) {
@@ -36,42 +38,24 @@ export class ServiceJsonParser {
       config
     );
 
-    service.element.methods.forEach((method) => {
-      suite.element.addTest(
-        TestCaseSchema.create({
-          group: { name: suite.element.name, is_async: false },
-          is_async: method.isAsync,
-          name: method.name,
-          methods: [method],
-        })
-      );
-    });
-
     return suite;
   }
 
   parse(
     list: ServiceJson[],
-    modelsRef: Model[],
-    entitiesRef: Entity[]
+    writeMethod?: WriteMethod
   ): {
-    models: Model[];
-    entities: Entity[];
-    services: Service[];
-    service_impls: ServiceImpl[];
-    test_suites: TestSuite[];
+    components: Component[];
+    ioc_contexts: ServiceIocContext[];
   } {
-    const { config, texts, writeMethod, command } = this;
-    const models: Model[] = [];
-    const entities: Entity[] = [];
-    const services: Service[] = [];
-    const service_impls: ServiceImpl[] = [];
-    const test_suites: TestSuite[] = [];
+    const { config, texts, command, apiSchema } = this;
+    const ioc_contexts: ServiceIocContext[] = [];
+    const registry = new ComponentRegistry();
 
     for (const data of list) {
       const { name, endpoint } = data;
 
-      if (!endpoint && config.components.service.isEndpointRequired()) {
+      if (!endpoint && config.presets.service.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
         console.log(
           chalk.yellow(texts.get("component_###_skipped").replace("###", name))
@@ -79,43 +63,48 @@ export class ServiceJsonParser {
         continue;
       }
 
-      if (services.find((e) => e.type.ref === name)) {
+      if (registry.services.find((e) => e.type.ref === name)) {
         continue;
       }
 
       const service = ServiceFactory.create(
-        data,
-        writeMethod.component,
+        { ...data, write_method: writeMethod || this.writeMethod.component },
+
         config,
         []
       );
 
       const serviceImpl = ServiceImplFactory.create(
-        data,
+        { ...data, write_method: writeMethod || this.writeMethod.component },
         service,
-        writeMethod.component,
         config
       );
-      service_impls.push(serviceImpl);
+      registry.add(serviceImpl);
 
       if (!command.skip_tests) {
         const suite = this.buildTestSuite(data, serviceImpl);
-        test_suites.push(suite);
+        registry.add(suite);
       }
 
-      const missingDependencies = DependenciesTools.resolveMissingDependnecies(
+      const missingDependencies = DependencyTools.resolveMissingDependnecies(
         service,
         config,
-        writeMethod.dependency,
-        modelsRef,
-        entitiesRef
+        this.writeMethod.dependency,
+        apiSchema
       );
-      models.push(...missingDependencies.models);
-      entities.push(...missingDependencies.entities);
 
-      services.push(service);
+      registry.add(
+        service,
+        ...missingDependencies.models,
+        ...missingDependencies.entities
+      );
+
+      ioc_contexts.push({ service, impl: serviceImpl });
     }
 
-    return { entities, services, service_impls, models, test_suites };
+    return {
+      components: registry.toArray(),
+      ioc_contexts,
+    };
   }
 }

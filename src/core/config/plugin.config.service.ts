@@ -1,8 +1,4 @@
-import {
-  ConfigTools,
-  LanguagePluginConfig,
-  Result,
-} from "@soapjs/soap-cli-common";
+import { ConfigTools, PluginConfig, Result } from "@soapjs/soap-cli-common";
 import axios from "axios";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
@@ -13,11 +9,12 @@ export class PluginConfigService {
     this.localPath = path.join(process.cwd(), localPath);
   }
 
-  async sync(url: string): Promise<LanguagePluginConfig> {
+  async sync(url: string): Promise<PluginConfig> {
     const { content: currentConfig, failure: getLocalFailure } =
       await this.getLocal();
-    const { content: latestConfig, failure: fetchFailure } =
-      await this.fetch(url);
+    const { content: latestConfig, failure: fetchFailure } = await this.fetch(
+      url
+    );
 
     if (getLocalFailure && latestConfig) {
       await this.setLocal(latestConfig);
@@ -39,7 +36,7 @@ export class PluginConfigService {
     return currentConfig;
   }
 
-  async fetch(url: string): Promise<Result<LanguagePluginConfig>> {
+  async fetch(url: string): Promise<Result<PluginConfig>> {
     try {
       const response = await axios.get(url);
 
@@ -57,13 +54,13 @@ export class PluginConfigService {
     }
   }
 
-  async setLocal(config: LanguagePluginConfig): Promise<Result<void>> {
+  async setLocal(config: PluginConfig): Promise<Result<void>> {
     return writeFile(this.localPath, JSON.stringify(config, null, 2), "utf-8")
       .then(() => Result.withoutContent())
       .catch((error) => Result.withFailure(error));
   }
 
-  async getLocal(): Promise<Result<LanguagePluginConfig>> {
+  async getLocal(): Promise<Result<PluginConfig>> {
     return readFile(this.localPath, "utf-8")
       .then((local) => {
         return Result.withContent(JSON.parse(local));

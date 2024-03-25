@@ -12,10 +12,7 @@ import DefaultPluginMap from "../../defaults/plugin-map.json";
 
 export class PluginMapService {
   private localPath: string;
-  constructor(
-    private url: string,
-    localPath: string
-  ) {
+  constructor(private url: string, localPath: string) {
     this.localPath = path.join(process.cwd(), localPath);
   }
 
@@ -26,29 +23,20 @@ export class PluginMapService {
       await this.fetch();
 
     if (getLocalFailure && latestPluginMap) {
-      await this.setLocal(latestPluginMap.toObject());
+      await this.setLocal(latestPluginMap.object);
       return latestPluginMap;
     }
 
     if (getLocalFailure || fetchFailure) {
       await this.setLocal(DefaultPluginMap);
-      const { version, languages, databases, web_frameworks, platforms } =
-        DefaultPluginMap;
-
-      return new PluginMap(
-        version,
-        languages,
-        databases,
-        web_frameworks,
-        platforms
-      );
+      return new PluginMap(DefaultPluginMap);
     }
 
     if (
       ConfigTools.versionToNumber(currentPluginMap.version) <
       ConfigTools.versionToNumber(latestPluginMap.version)
     ) {
-      await this.setLocal(latestPluginMap.toObject());
+      await this.setLocal(latestPluginMap.object);
       return latestPluginMap;
     }
 
@@ -60,19 +48,11 @@ export class PluginMapService {
     try {
       const response = await axios.get(url);
       if (response.status === 200) {
-        const { version, languages, databases, web_frameworks, platforms } =
+        const data =
           typeof response.data === "string"
             ? JSON.parse(response.data)
             : response.data;
-        return Result.withContent(
-          new PluginMap(
-            version,
-            languages,
-            databases,
-            web_frameworks,
-            platforms
-          )
-        );
+        return Result.withContent(new PluginMap(data));
       } else {
         return Result.withFailure(
           new Error(
@@ -94,15 +74,8 @@ export class PluginMapService {
   async getLocal(): Promise<Result<PluginMap>> {
     return readFile(this.localPath, "utf-8")
       .then((local) => {
-        const { version, languages, databases, web_frameworks, platforms } =
-          JSON.parse(local);
-        const map = new PluginMap(
-          version,
-          languages,
-          databases,
-          web_frameworks,
-          platforms
-        );
+        const data = JSON.parse(local);
+        const map = new PluginMap(data);
         return Result.withContent(map);
       })
       .catch((error) => Result.withFailure(error));

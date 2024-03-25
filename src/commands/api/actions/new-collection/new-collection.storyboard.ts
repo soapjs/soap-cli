@@ -41,7 +41,7 @@ export class NewCollectionStoryboard extends Storyboard<ApiJson> {
 
     this.addFrame(new SelectCollectionStoragesFrame(config, texts)).addFrame(
       new CreateCollectionFrame(config, command, texts),
-      (t) => ({ storages: t.prevFrame.output })
+      (t) => ({ types: t.prevFrame.output })
     );
   }
 }

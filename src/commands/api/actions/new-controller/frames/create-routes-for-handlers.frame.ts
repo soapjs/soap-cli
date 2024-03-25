@@ -7,10 +7,10 @@ import {
 import {
   Texts,
   Config,
-  HandlerJson,
   ModelJson,
   RouteJson,
   EntityJson,
+  MethodJson,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 
@@ -38,7 +38,7 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
   public async run(context: {
     name: string;
     endpoint: string;
-    handlers: HandlerJson[];
+    handlers: MethodJson[];
     entities: EntityJson[];
     models: ModelJson[];
   }) {
@@ -52,7 +52,7 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
       )
     ) {
       let route: RouteJson;
-      let handler: HandlerJson;
+      let handler: MethodJson;
       do {
         handler = handlers[i];
         console.log(
@@ -95,7 +95,6 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
         i++;
       } while (i < handlers.length);
     }
-    console.log("???????", result);
     return result;
   }
 }

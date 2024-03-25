@@ -3,7 +3,7 @@ import {
   ApiSchema,
   CliPackageManager,
   Config,
-  LanguageStrategyProvider,
+  PluginFacade,
   Result,
 } from "@soapjs/soap-cli-common";
 import { COMPILER_WORKER_PATH } from "../../../core/workers/worker";
@@ -20,18 +20,26 @@ export class ApiGenerator {
     const { config, compilation, cliPluginPackageName } = this;
     const obj = api.toObject();
     const packageManager = new CliPackageManager();
-    const languageModule: LanguageStrategyProvider =
-      packageManager.requirePackage(cliPluginPackageName);
+    const languageModule =
+      packageManager.requirePackage<PluginFacade>(cliPluginPackageName);
+    
+    const templatesSetup = await languageModule.setupTemplates(config.project);
 
-    const { content: models, failure } = languageModule
-      .createTemplateModelStrategy()
-      .apply(obj, config.project);
+    if (templatesSetup.isFailure) {
+      return Result.withFailure(templatesSetup.failure);
+    }
+
+    const { content: models, failure } = languageModule.createTemplateModels(
+      obj,
+      config.project
+    );
 
     if (failure) {
       return Result.withFailure(failure);
     }
-    console.log("OBJ:", JSON.stringify(obj, null, 2));
-    console.log("MODELS:", JSON.stringify(models, null, 2));
+    // console.log("OBJ:", JSON.stringify(obj, null, 2));
+    // console.log("MODELS:", JSON.stringify(models, null, 2));
+    // throw new Error('CHECK');
 
     const promises = [];
     const { threadCount, batchSize } = compilation;
@@ -81,6 +89,8 @@ export class ApiGenerator {
           code_module: cliPluginPackageName,
           transport: compilation.transport,
           models: batch,
+          templates: templatesSetup.content,
+          project: config.project,
         })
       );
     }

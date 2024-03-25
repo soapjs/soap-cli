@@ -1,154 +1,110 @@
 import {
+  AnyType,
+  ApiSchema,
+  ArrayType,
+  ComponentRegistry,
   Config,
-  Entity,
-  Model,
-  PropSchema,
+  PropJson,
   RouteJson,
   RouteModelLabel,
   TypeInfo,
-  UnknownType,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
-import { EntityFactory } from "../../new-entity";
-import { ModelFactory } from "../../new-model";
-import { RouteModelFactory } from "../route-model.factory";
+import { RouteModelFactory } from "../factories/route-model.factory";
+import { DependencyTools } from "../../../../../core";
 
 export class ResponseBodyJsonParser {
+  private registry = new ComponentRegistry();
   constructor(
     private config: Config,
     private writeMethod: { component: WriteMethod; dependency: WriteMethod },
-    private models: Model[],
-    private entities: Entity[]
+    private apiSchema: ApiSchema
   ) {}
 
-  parseStatusModel(
-    status: string,
-    value: any,
-    data: RouteJson,
-    modelsRef: Model[],
-    entitiesRef: Entity[]
+  parseObject(
+    data: any,
+    name: string,
+    endpoint: string,
+    method: string,
+    write_method: WriteMethod
   ) {
-    const { config, writeMethod, models, entities } = this;
-    const { endpoint, request, name } = data;
     const props = [];
-    const dependencies = [];
 
-    Object.keys(value).forEach((k) => {
-      const p = PropSchema.create(`${k}:${value[k]}`, config, {
-        dependencies: [],
-        addons: {},
-      });
-      props.push(p);
-      p.listTypes().forEach((type) => {
-        if (
-          type.isRouteModel &&
-          modelsRef.findIndex((m) => m.type.name === type.name) === -1
-        ) {
-          const model = RouteModelFactory.create(
-            { name: type.ref, type: type.type, endpoint, method: "" },
-            writeMethod.dependency,
-            config,
-            []
-          );
-          models.push(model);
-          dependencies.push(model);
-        } else if (
-          type.isModel &&
-          modelsRef.findIndex((m) => m.type.name === type.name) === -1
-        ) {
-          const model = ModelFactory.create(
-            { name: type.ref, type: type.type, endpoint },
-            writeMethod.dependency,
-            config,
-            []
-          );
-          models.push(model);
-          dependencies.push(model);
-        } else if (
-          type.isEntity &&
-          entitiesRef.findIndex((m) => m.type.ref === type.ref) === -1
-        ) {
-          const entity = EntityFactory.create(
-            { name: type.ref, endpoint },
-            null,
-            writeMethod.dependency,
-            config,
-            []
-          );
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      const prop: PropJson = { name: key };
 
-          entities.push(entity);
-          dependencies.push(entity);
+      if (value) {
+        if (Array.isArray(value)) {
+          prop.type = ArrayType.create(AnyType.create()).name;
+        } else if (typeof value === "string") {
+          prop.type = TypeInfo.create(value, this.config).name;
+        } else if (typeof value === "object") {
+          const obj = this.parseObject(
+            value,
+            key,
+            endpoint,
+            method,
+            write_method
+          );
+          prop.type = obj.type.name;
+        } else {
+          prop.type = AnyType.create().name;
         }
-      });
+      }
+
+      props.push(prop);
     });
 
     const model = RouteModelFactory.create(
       {
         name,
         endpoint,
-        method: request.method,
-        type: `Status${status}`,
+        method,
+        write_method,
         props,
       },
-      writeMethod.dependency,
-      config,
-      dependencies
+      this.config
+    );
+    const deps = DependencyTools.resolveMissingDependnecies(
+      model,
+      this.config,
+      write_method,
+      this.apiSchema
     );
 
-    models.push(model);
+    this.registry.add(...deps.entities, ...deps.models);
+
     return model;
   }
 
-  parse(data: RouteJson, modelsRef: Model[], entitiesRef: Entity[]) {
-    const { config, writeMethod, models } = this;
+  parse(data: RouteJson) {
+    const { config, writeMethod } = this;
     const { endpoint, request, response, name } = data;
-    const props = [];
-    const dependencies = [];
+    const props: PropJson[] = [];
 
-    if (typeof response === "string") {
-      const type = TypeInfo.create(response, config);
-      if (type.isModel) {
-        const body = modelsRef.find(
-          (m) => m.type.ref === type.ref && m.type.type === type.type
+    Object.keys(response).forEach((key) => {
+      const value = response[key];
+      const prop: PropJson = { name: key };
+
+      if (Array.isArray(value)) {
+        prop.type = ArrayType.create(AnyType.create()).name;
+      } else if (typeof value === "string") {
+        prop.type = TypeInfo.create(value, config).name;
+      } else if (value && typeof value === "object") {
+        const obj = this.parseObject(
+          value,
+          `Status${key}`,
+          endpoint,
+          request.method,
+          writeMethod.dependency
         );
-
-        if (body) {
-          return body;
-        }
+        prop.type = obj.type.name;
+      } else {
+        prop.type = AnyType.create().name;
       }
-    } else if (typeof response === "object") {
-      Object.keys(response).forEach((status) => {
-        const value = response[status];
-        let type: TypeInfo;
-
-        if (typeof value === "string") {
-          type = TypeInfo.create(value, config);
-        } else if (typeof value === "object") {
-          const model = this.parseStatusModel(
-            status,
-            value,
-            data,
-            modelsRef,
-            entitiesRef
-          );
-
-          type = model.type;
-          dependencies.push(model);
-        }
-        props.push(
-          PropSchema.create(
-            { name: status, type: type || UnknownType.create() },
-            config,
-            {
-              dependencies: [],
-              addons: {},
-            }
-          )
-        );
-      });
-    } else {
-      return null;
-    }
+      props.push(prop);
+    });
 
     const model = RouteModelFactory.create(
       {
@@ -157,13 +113,28 @@ export class ResponseBodyJsonParser {
         method: request.method,
         type: RouteModelLabel.ResponseBody,
         props,
+        write_method: writeMethod.dependency,
       },
-      writeMethod.dependency,
-      config,
-      dependencies
+      config
     );
 
-    models.push(model);
-    return model;
+    const { models, entities } = DependencyTools.resolveMissingDependnecies(
+      model,
+      config,
+      writeMethod.dependency,
+      this.apiSchema
+    );
+
+    models.forEach((m) => {
+      this.registry.add(m);
+      model.addDependency(m, config);
+    });
+
+    entities.forEach((m) => {
+      this.registry.add(m);
+      model.addDependency(m, config);
+    });
+
+    return { model, components: this.registry.toArray() };
   }
 }

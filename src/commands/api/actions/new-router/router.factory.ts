@@ -2,38 +2,29 @@ import { nanoid } from "nanoid";
 import {
   ClassData,
   ClassSchema,
-  Component,
   Config,
+  Router,
   RouterElement,
   RouterType,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 
 export class RouterFactory {
-  public static create(config: Config): Component<
-    RouterElement,
-    {
-      routes: {
-        name: string;
-        path: string;
-        controller: string;
-        handler: string;
-      }[];
-    }
-  > {
-    const { defaults } = config.components.router;
+  public static create(config: Config): Router {
+    const { defaults } = config.presets.router;
     const interfaces = [];
     const methods = [];
     const props = [];
     const generics = [];
     const imports = [];
+    const addons = { routes: [] };
     let inheritance = [];
     let ctor;
     let exp;
 
-    const componentName = config.components.router.generateName("routes");
-    const componentPath = config.components.router.generatePath({
-      name: "routes",
+    const componentName = config.presets.router.generateName("router");
+    const componentPath = config.presets.router.generatePath({
+      name: "router",
     }).path;
 
     if (defaults?.common?.exp) {
@@ -71,43 +62,34 @@ export class RouterFactory {
       generics.push(...defaults.common.generics);
     }
 
-    const classData: ClassData = {
-      name: componentName,
-      props,
-      methods,
-      interfaces,
-      generics,
-      inheritance,
-      imports,
-      ctor,
-      exp,
-      is_abstract: false,
-    };
-
-    const element = ClassSchema.create<RouterElement>(classData, config, {
-      addons: {},
-      dependencies: [],
-    });
-
-    const component = Component.create<
-      RouterElement,
+    const element = ClassSchema.create<RouterElement>(
       {
-        routes: {
-          name: string;
-          path: string;
-          controller: string;
-          handler: string;
-        }[];
+        name: componentName,
+        props,
+        methods,
+        interfaces,
+        generics,
+        inheritance,
+        imports,
+        ctor,
+        exp,
+        is_abstract: false,
+      },
+      WriteMethod.Write,
+      config,
+      {
+        addons,
+        dependencies: [],
       }
-    >(config, {
-      id: nanoid(),
-      type: RouterType.create(componentName, "routes"),
-      path: componentPath,
-      writeMethod: WriteMethod.Write,
-      element,
-      addons: { routes: [] },
-    });
+    );
 
-    return component;
+    return new Router(
+      nanoid(),
+      RouterType.create(componentName, "router"),
+      componentPath,
+      WriteMethod.Write,
+      addons,
+      element
+    );
   }
 }

@@ -1,7 +1,5 @@
 import chalk from "chalk";
-import {
-  InputNameAndEndpointInteraction,
-} from "../../../common";
+import { InputNameAndEndpointInteraction } from "../../../common";
 import { CreateModelsFrame } from "./create-models.frame";
 import { ApiJson, Config, PropJson, Texts } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
@@ -45,7 +43,7 @@ export class CreateModelsAsDependenciesFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.entity.isEndpointRequired(),
+      isEndpointRequired: config.presets.entity.isEndpointRequired(),
     });
     const models = [];
 

@@ -1,18 +1,13 @@
-import {
-  EntityJson,
-  HandlerJson,
-  ModelJson,
-  Texts,
-  TypeInfo,
-  WriteMethod,
-  Config,
-} from "@soapjs/soap-cli-common";
-import { DefineHandlerInteraction } from "./interactions/define-handler.interaction";
+import { EntityJson, ModelJson, Texts, Config } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
 import { CommandConfig } from "../../../../../core";
+import {
+  DefineHandlerInteraction,
+  HandlerDefinition,
+} from "./interactions/define-handler.interaction";
 
 export type ControllerHandlers = {
-  handlers: HandlerJson[];
+  handlers: HandlerDefinition[];
   models: ModelJson[];
   entities: EntityJson[];
 };
@@ -30,7 +25,11 @@ export class DefineControllerHandlersFrame extends Frame<ControllerHandlers> {
 
   public async run(context: { endpoint: string; name: string }) {
     const { texts, config, command } = this;
-    const result = { handlers: [], models: [], entities: [] };
+    const result: ControllerHandlers = {
+      handlers: [],
+      models: [],
+      entities: [],
+    };
 
     if (
       await InteractionPrompts.confirm(
@@ -39,55 +38,26 @@ export class DefineControllerHandlersFrame extends Frame<ControllerHandlers> {
           .replace("###", context.name || "")
       )
     ) {
-      let handler: HandlerJson;
+      let handler;
       do {
-        handler = await new DefineHandlerInteraction(texts).run();
+        const { models, entities, ...definition } =
+          await new DefineHandlerInteraction(texts, config).run({
+            endpoint: context?.endpoint,
+          });
+        handler = definition;
         result.handlers.push(handler);
 
-        if (command.dependencies_write_method !== WriteMethod.Skip) {
-          let hasComponentType = false;
-
-          const types = [];
-          if (handler.input) {
-            let it = TypeInfo.create(handler.input, config);
-
-            if (it.isComponentType) {
-              hasComponentType = true;
-              if (!it.isEntity) {
-                it = TypeInfo.create(`Entity<${it.ref}>`, config);
-              }
-              types.push(it);
-            }
+        models.forEach((model) => {
+          if (result.models.findIndex((m) => m.name === model.name) === -1) {
+            result.models.push(model);
           }
+        });
 
-          if (handler.output) {
-            let rt = TypeInfo.create(handler.output, config);
-            if (rt.isComponentType) {
-              hasComponentType = true;
-              if (!rt.isEntity) {
-                rt = TypeInfo.create(`Entity<${rt.ref}>`, config);
-              }
-              types.push(rt);
-            }
+        entities.forEach((entity) => {
+          if (result.entities.findIndex((m) => m.name === entity.name) === -1) {
+            result.entities.push(entity);
           }
-
-          if (
-            hasComponentType &&
-            (await InteractionPrompts.confirm(
-              texts.get("non_standard_types_detected__create")
-            ))
-          ) {
-            for (const type of types) {
-              const c = result.entities.find((m) => m.name === type.ref);
-              if (!c) {
-                result.entities.push({
-                  name: type.ref,
-                  endpoint: context.endpoint,
-                });
-              }
-            }
-          }
-        }
+        });
       } while (
         await InteractionPrompts.confirm(
           texts

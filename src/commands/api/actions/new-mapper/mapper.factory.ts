@@ -1,30 +1,27 @@
 import { nanoid } from "nanoid";
 import {
-  ClassData,
   ClassSchema,
   Component,
   Config,
   Entity,
   MapperAddons,
-  MapperData,
   MapperElement,
   MapperType,
   Model,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
+import { MapperFactoryInput } from "./types";
 
 export class MapperFactory {
   static create(
-    data: MapperData,
+    data: MapperFactoryInput,
     entity: Entity,
     model: Model,
-    writeMethod: WriteMethod,
     config: Config
   ): Component<MapperElement, MapperAddons> {
     const dependencies = [model, entity];
-    const { id, name, storage, endpoint } = data;
-    const { defaults } = config.components.mapper;
-    const addons = { storage };
+    const { id, name, type, endpoint, write_method } = data;
+    const { defaults } = config.presets.mapper;
+    const addons = { type };
     const interfaces = [];
     const methods = [];
     const props = [];
@@ -34,12 +31,12 @@ export class MapperFactory {
     let ctor;
     let exp;
 
-    const componentName = config.components.mapper.generateName(name, {
-      type: storage,
+    const componentName = config.presets.mapper.generateName(name, {
+      type,
     });
-    const componentPath = config.components.mapper.generatePath({
+    const componentPath = config.presets.mapper.generatePath({
       name,
-      type: storage,
+      type,
       endpoint,
     }).path;
 
@@ -77,27 +74,27 @@ export class MapperFactory {
       generics.push(...defaults.common.generics);
     }
 
-    if (Array.isArray(defaults?.[storage]?.inheritance)) {
-      inheritance.push(...defaults[storage].inheritance);
+    if (Array.isArray(defaults?.[type]?.inheritance)) {
+      inheritance.push(...defaults[type].inheritance);
     }
 
-    if (Array.isArray(defaults?.[storage]?.imports)) {
-      defaults[storage].imports.forEach((i) => {
+    if (Array.isArray(defaults?.[type]?.imports)) {
+      defaults[type].imports.forEach((i) => {
         i.ref_path = componentPath;
         imports.push(i);
       });
     }
 
-    if (Array.isArray(defaults?.[storage]?.interfaces)) {
-      interfaces.push(...defaults[storage].interfaces);
+    if (Array.isArray(defaults?.[type]?.interfaces)) {
+      interfaces.push(...defaults[type].interfaces);
     }
 
-    if (Array.isArray(defaults?.[storage]?.methods)) {
-      methods.push(...defaults[storage].methods);
+    if (Array.isArray(defaults?.[type]?.methods)) {
+      methods.push(...defaults[type].methods);
     }
 
-    if (Array.isArray(defaults?.[storage]?.props)) {
-      props.push(...defaults[storage].props);
+    if (Array.isArray(defaults?.[type]?.props)) {
+      props.push(...defaults[type].props);
     }
 
     if (Array.isArray(data.props)) {
@@ -108,35 +105,38 @@ export class MapperFactory {
       methods.push(...data.methods);
     }
 
-    if (Array.isArray(defaults?.[storage]?.generics)) {
-      generics.push(...defaults[storage].generics);
+    if (Array.isArray(defaults?.[type]?.generics)) {
+      generics.push(...defaults[type].generics);
     }
 
-    const classData: ClassData = {
-      id,
-      name: componentName,
-      props,
-      methods,
-      interfaces,
-      generics,
-      inheritance,
-      ctor,
-      exp,
-      imports,
-      is_abstract: config.components.mapper.elementType === "abstract_class",
-    };
-
-    const element = ClassSchema.create<MapperElement>(classData, config, {
-      addons,
-      dependencies,
-    });
+    const element = ClassSchema.create<MapperElement>(
+      {
+        id,
+        name: componentName,
+        props,
+        methods,
+        interfaces,
+        generics,
+        inheritance,
+        ctor,
+        exp,
+        imports,
+        is_abstract: config.presets.mapper.elementType === "abstract_class",
+      },
+      write_method,
+      config,
+      {
+        addons,
+        dependencies,
+      }
+    );
 
     const component = Component.create<MapperElement, MapperAddons>(config, {
       id: nanoid(),
-      type: MapperType.create(componentName, name, storage),
+      type: MapperType.create(componentName, name, type),
       endpoint,
       path: componentPath,
-      writeMethod,
+      writeMethod: write_method,
       addons,
       element,
       dependencies,

@@ -1,3 +1,4 @@
+import { UseCaseJson, AdditionalData } from "@soapjs/soap-cli-common";
 import { DefaultCliOptions } from "../../../../core";
 
 export type NewUseCaseOptions = DefaultCliOptions & {
@@ -6,3 +7,5 @@ export type NewUseCaseOptions = DefaultCliOptions & {
   output?: string;
   endpoint?: string;
 };
+
+export type UseCaseFactoryInput = UseCaseJson & AdditionalData;

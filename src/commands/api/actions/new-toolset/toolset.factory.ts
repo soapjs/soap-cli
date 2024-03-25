@@ -5,26 +5,24 @@ import {
   Component,
   Config,
   Toolset,
-  ToolsetData,
   ToolsetElement,
   ToolsetType,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
+import { ToolsetFactoryInput } from "./types";
 
 export class ToolsetFactory {
   static create(
-    data: ToolsetData,
-    writeMethod: WriteMethod,
+    data: ToolsetFactoryInput,
     config: Config,
     dependencies: Component[]
   ): Toolset {
-    const { id, name, endpoint, layer } = data;
+    const { id, name, endpoint, layer, write_method } = data;
     const addons = {};
-    const { defaults } = config.components.toolset;
-    const componentName = config.components.toolset.generateName(name, {
+    const { defaults } = config.presets.toolset;
+    const componentName = config.presets.toolset.generateName(name, {
       layer,
     });
-    const componentPath = config.components.toolset.generatePath({
+    const componentPath = config.presets.toolset.generatePath({
       name,
       endpoint,
       layer,
@@ -86,8 +84,9 @@ export class ToolsetFactory {
         ctor,
         inheritance,
         exp,
-        is_abstract: config.components.toolset.elementType === "abstract_class",
+        is_abstract: config.presets.toolset.elementType === "abstract_class",
       } as ClassJson,
+      write_method,
       config,
       {
         addons,
@@ -100,7 +99,7 @@ export class ToolsetFactory {
       type: ToolsetType.create(componentName, name),
       endpoint,
       path: componentPath,
-      writeMethod,
+      writeMethod: write_method,
       addons,
       element,
       dependencies,

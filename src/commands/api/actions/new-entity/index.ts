@@ -1,6 +1,6 @@
 export * from "./frames";
-export * from "./new-entity.interactive-strategy";
-export * from "./new-entity.options-strategy";
+export * from "./strategies/new-entity.interactive-strategy";
+export * from "./strategies/new-entity.options-strategy";
 export * from "./new-entity.storyboard";
 
 export * from "./types";

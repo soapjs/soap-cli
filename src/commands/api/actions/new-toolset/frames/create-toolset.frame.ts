@@ -44,12 +44,12 @@ export class CreateToolsetFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.model.isEndpointRequired(),
+      isEndpointRequired: config.presets.model.isEndpointRequired(),
     });
-    const componentName = config.components.toolset.generateName(name, {
+    const componentName = config.presets.toolset.generateName(name, {
       layer,
     });
-    const componentPath = config.components.toolset.generatePath({
+    const componentPath = config.presets.toolset.generatePath({
       name,
       endpoint,
       layer,

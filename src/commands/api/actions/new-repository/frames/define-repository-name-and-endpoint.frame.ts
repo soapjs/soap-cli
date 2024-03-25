@@ -10,10 +10,7 @@ export type RepositoryNameAndEndpoint = {
 export class DefineRepositoryNameAndEndpointFrame extends Frame<RepositoryNameAndEndpoint> {
   public static NAME = "define_repository_name_and_endpoint_frame";
 
-  constructor(
-    protected config: Config,
-    protected texts: Texts
-  ) {
+  constructor(protected config: Config, protected texts: Texts) {
     super(DefineRepositoryNameAndEndpointFrame.NAME);
   }
 
@@ -26,7 +23,7 @@ export class DefineRepositoryNameAndEndpointFrame extends Frame<RepositoryNameAn
       endpointMessage: texts.get("please_provide_endpoint"),
       endpointHint: texts.get("hint___please_provide_endpoint"),
     }).run({
-      isEndpointRequired: config.components.repository.isEndpointRequired(),
+      isEndpointRequired: config.presets.repository.isEndpointRequired(),
     });
   }
 }

@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { NewMapperInteractiveStrategy } from "./new-mapper.interactive-strategy";
-import { NewMapperOptionsStrategy } from "./new-mapper.options-strategy";
+import { NewMapperInteractiveStrategy } from "./strategies/new-mapper.interactive-strategy";
+import { NewMapperOptionsStrategy } from "./strategies/new-mapper.options-strategy";
 import { NewMapperOptions } from "./types";
 import { Config } from "@soapjs/soap-cli-common";
 import { CommandConfig, CompilationConfig } from "../../../../core";

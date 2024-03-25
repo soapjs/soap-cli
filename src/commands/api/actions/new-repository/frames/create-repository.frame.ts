@@ -41,8 +41,8 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
       createImplementation,
     } = context;
     const result: ApiJson = { models: [], entities: [], repositories: [] };
-    const componentName = config.components.repository.generateName(name);
-    const componentPath = config.components.repository.generatePath({
+    const componentName = config.presets.repository.generateName(name);
+    const componentPath = config.presets.repository.generatePath({
       name,
       endpoint,
     }).path;

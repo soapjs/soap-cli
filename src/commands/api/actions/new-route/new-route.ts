@@ -1,6 +1,6 @@
 import { NewRouteOptions } from "./types";
-import { NewRouteOptionsStrategy } from "./new-route.options-strategy";
-import { NewRouteInteractiveStrategy } from "./new-route.interactive-strategy";
+import { NewRouteOptionsStrategy } from "./strategies/new-route.options-strategy";
+import { NewRouteInteractiveStrategy } from "./strategies/new-route.interactive-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
 import { CommandConfig, CompilationConfig } from "../../../../core";

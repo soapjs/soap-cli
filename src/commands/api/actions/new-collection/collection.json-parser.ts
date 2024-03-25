@@ -7,16 +7,15 @@ import {
   Config,
   Collection,
   TestSuite,
-  PropTools,
-  MethodTools,
-  TestCaseSchema,
+  ApiSchema,
+  ComponentRegistry,
+  Component,
 } from "@soapjs/soap-cli-common";
 import chalk from "chalk";
-import { EntityFactory } from "../new-entity";
 import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { CollectionFactory } from "./collection.factory";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, DependencyTools } from "../../../../core";
 import { pascalCase } from "change-case";
 
 export class CollectionJsonParser {
@@ -24,28 +23,23 @@ export class CollectionJsonParser {
     private config: Config,
     private command: CommandConfig,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod }
+    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
+    private apiSchema: ApiSchema
   ) {}
 
-  build(
+  parse(
     list: CollectionJson[],
-    modelsRef: Model[]
+    writeMethod?: WriteMethod
   ): {
-    collections: Collection[];
-    models: Model[];
-    entities: Entity[];
-    test_suites: TestSuite[];
+    components: Component[];
   } {
-    const { config, texts, writeMethod, command } = this;
-    const collections: Collection[] = [];
-    const models: Model[] = [];
-    const entities: Entity[] = [];
-    const test_suites: TestSuite[] = [];
+    const { config, texts, command, apiSchema } = this;
+    const registry = new ComponentRegistry();
 
     for (const data of list) {
-      const { name, endpoint, storages, table, props, methods } = data;
+      const { name, endpoint, types, table, props, methods } = data;
 
-      if (!endpoint && config.components.collection.isEndpointRequired()) {
+      if (!endpoint && config.presets.collection.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
         console.log(
           chalk.yellow(texts.get("component_###_skipped").replace("###", name))
@@ -53,53 +47,46 @@ export class CollectionJsonParser {
         continue;
       }
 
-      for (const storage of storages) {
+      for (const type of types) {
         let model;
         if (
-          collections.find(
-            (m) => m.type.ref === name && m.type.type === storage
+          registry.collections.find(
+            (m) => m.type.ref === name && m.type.type === type
           )
         ) {
           continue;
         }
 
-        model = modelsRef.find(
-          (m) =>
-            (m.type.ref === data.model || m.type.ref === name) &&
-            m.type.type === storage
-        );
+        model = apiSchema.get({
+          component: "model",
+          ref: data.model || name,
+          type,
+        });
 
         if (!model) {
           model = ModelFactory.create(
             {
               name: data.model || name,
               endpoint,
-              type: storage,
+              type,
+              write_method: writeMethod || this.writeMethod.dependency,
             },
-            writeMethod.dependency,
-            config,
-            []
+            config
           );
-          models.push(model);
+          registry.add(model);
         }
 
         const collection = CollectionFactory.create(
           {
             name,
-            storage,
+            type,
             table,
             endpoint,
-            props: PropTools.arrayToData(props, config, {
-              dependencies: [],
-              addons: {},
-            }),
-            methods: MethodTools.arrayToData(methods, config, {
-              dependencies: [],
-              addons: {},
-            }),
+            props,
+            methods,
+            write_method: writeMethod || this.writeMethod.component,
           },
           model,
-          writeMethod.component,
           config
         );
 
@@ -107,71 +94,29 @@ export class CollectionJsonParser {
           //
           const suite = TestSuiteFactory.create(
             {
-              name: pascalCase(`${name} ${storage}`),
+              name: pascalCase(`${name} ${type}`),
               endpoint,
               type: "unit_tests",
             },
             collection,
-            writeMethod.component,
+            this.writeMethod.component,
             config
           );
 
-          collection.element.methods.forEach((method) => {
-            suite.element.addTest(
-              TestCaseSchema.create({
-                group: { name: suite.element.name, is_async: false },
-                is_async: method.isAsync,
-                name: method.name,
-                methods: [method],
-              })
-            );
-          });
-          test_suites.push(suite);
+          registry.add(suite);
         }
 
-        collection.unresolvedDependencies.forEach((type) => {
-          // MODEL DEPENDENCY
-          if (type.isModel) {
-            let model;
-            model = modelsRef.find(
-              (m) => m.type.ref === type.ref && m.type.type === type.type
-            );
+        const resolved = DependencyTools.resolveMissingDependnecies(
+          collection,
+          config,
+          this.writeMethod.dependency,
+          apiSchema
+        );
 
-            if (!model) {
-              model = ModelFactory.create(
-                {
-                  name: type.ref,
-                  endpoint: collection.endpoint,
-                  type: type.type,
-                },
-                writeMethod.dependency,
-                config,
-                []
-              );
-              models.push(model);
-            }
-            collection.addDependency(model, config);
-          } else if (type.isEntity) {
-            let e;
-            e = entities.find((m) => m.type.ref === type.ref);
-            if (!e) {
-              e = EntityFactory.create(
-                { name: type.ref, endpoint: collection.endpoint },
-                null,
-                writeMethod.dependency,
-                config,
-                []
-              );
-              entities.push(e);
-            }
-            collection.addDependency(e, config);
-          }
-        });
-
-        collections.push(collection);
+        registry.add(collection, ...resolved.models, ...resolved.entities);
       }
     }
 
-    return { collections, models, entities, test_suites };
+    return { components: registry.toArray() };
   }
 }

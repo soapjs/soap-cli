@@ -1,3 +1,4 @@
+import { TypeJson, AdditionalData } from "@soapjs/soap-cli-common";
 import { DefaultCliOptions } from "../../../../core";
 
 export type NewModelOptions = DefaultCliOptions & {
@@ -6,3 +7,8 @@ export type NewModelOptions = DefaultCliOptions & {
   type?: string[];
   props?: string[];
 };
+
+export type ModelFactoryInput = TypeJson &
+  AdditionalData & {
+    endpoint?: string;
+  };

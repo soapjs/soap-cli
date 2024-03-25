@@ -2,118 +2,72 @@ import { nanoid } from "nanoid";
 import {
   Component,
   Config,
+  DataProvider,
+  DatabaseType,
   Model,
   ModelAddons,
-  ModelData,
   ModelElement,
   ModelType,
-  TypeJson,
+  TypeData,
   TypeSchema,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
+import { ModelFactoryInput } from "./types";
+import {
+  DefaultGroups,
+  InputToDataParser,
+} from "../../common/input-to-data.parser";
 
 export class ModelFactory {
   static create(
-    data: ModelData,
-    writeMethod: WriteMethod,
+    input: ModelFactoryInput,
     config: Config,
-    dependencies: Component[]
+    dependencies?: Component[]
   ): Model {
-    const { id, name, type, endpoint, alias } = data;
+    const _dependencies = dependencies || [];
+    const { id, type, endpoint, write_method } = input;
     const addons = { modelType: type };
-    const { defaults } = config.components.model;
     const dbConfig = config.databases.find((d) => d.alias === type);
-    const componentName = config.components.model.generateName(name, {
-      type,
-    });
-    const typeLC = type.toLowerCase();
-    const componentPath = config.components.model.generatePath({
-      name,
-      type,
-      endpoint,
-    }).path;
-    const imports = [];
-    const props = [];
-    const generics = [];
-    let exp;
 
-    if (defaults?.common?.exp) {
-      exp = defaults.common.exp;
-    }
-
-    if (Array.isArray(defaults?.common?.imports)) {
-      defaults.common.imports.forEach((i) => {
-        i.ref_path = componentPath;
-        imports.push(i);
-      });
-    }
-
-    if (Array.isArray(defaults?.common?.generics)) {
-      generics.push(...defaults.common.generics);
-    }
-
-    if (Array.isArray(defaults?.common?.props)) {
-      props.push(...defaults.common.props);
-    }
-
-    if (Array.isArray(defaults?.[typeLC]?.imports)) {
-      defaults[typeLC].imports.forEach((i) => {
-        i.ref_path = componentPath;
-        imports.push(i);
-      });
-    }
-
-    if (Array.isArray(defaults?.[typeLC]?.generics)) {
-      generics.push(...defaults[typeLC].generics);
-    }
-
-    if (Array.isArray(defaults?.[typeLC]?.props)) {
-      props.push(...defaults[typeLC].props);
-    }
-
-    if (Array.isArray(data.generics)) {
-      generics.push(...data.generics);
-    }
-
-    if (Array.isArray(data.props)) {
-      props.push(...data.props);
-    }
+    const parser = new InputToDataParser(config);
+    const data = parser.parse<TypeData>(
+      "model",
+      input,
+      new DefaultGroups(["common", type]),
+      {
+        addons,
+        dependencies: _dependencies,
+      }
+    );
 
     if (dbConfig) {
-      props.forEach((p) => {
-        const mapping = dbConfig.mappings.find((m) => m.codeType === p.type);
+      data.element.props.forEach((p) => {
+        const mapping = dbConfig.mappings.find(
+          (m) => m.codeType === p.type.ref
+        );
         if (mapping) {
-          p.type = mapping.dbType;
+          p.type = DatabaseType.create(mapping.dbType);
         }
       });
     }
 
     const element = TypeSchema.create<ModelElement>(
-      {
-        name: componentName,
-        type,
-        props,
-        generics,
-        imports,
-        alias,
-        exp,
-      } as TypeJson,
+      new DataProvider(data.element),
       config,
       {
         addons,
-        dependencies,
+        dependencies: _dependencies,
       }
     );
 
     const component = Component.create<ModelElement, ModelAddons>(config, {
       id: id || nanoid(),
-      type: ModelType.create(componentName, name, type),
+      type: ModelType.create(data.element.name, input.name, type),
       endpoint,
-      path: componentPath,
-      writeMethod,
+      path: data.path,
+      writeMethod: write_method,
       addons,
       element,
-      dependencies,
+      dependencies: _dependencies,
     });
 
     return component;

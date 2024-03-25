@@ -1,55 +1,54 @@
 import {
+  ApiSchema,
   Component,
   Config,
-  Entity,
-  Model,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { ModelFactory, EntityFactory } from "../../commands/api/actions";
 
-export class DependenciesTools {
+export class DependencyTools {
   static resolveMissingDependnecies(
-    component: Component,
+    data: Component,
     config: Config,
     writeMethod: WriteMethod,
-    modelsRef: Model[],
-    entitiesRef: Entity[]
+    apiSchema: ApiSchema
   ) {
     const models = [];
     const entities = [];
 
-    component.unresolvedDependencies.forEach((type) => {
-      if (type.isModel) {
-        let model;
-        model = modelsRef.find(
-          (m) => m.type.ref === type.ref && m.type.type === type.type
-        );
-        if (!model) {
-          model = ModelFactory.create(
-            { name: type.ref, endpoint: component.endpoint, type: type.type },
-            writeMethod,
-            config,
-            []
+    for (const type of data.unresolvedDependencies) {
+      const dependency = apiSchema.get(type);
+
+      if (dependency) {
+        data.addDependency(dependency, config);
+      } else {
+        if (type.isModel) {
+          const model = ModelFactory.create(
+            {
+              name: type.ref,
+              endpoint: data.endpoint,
+              type: type.type,
+              write_method: writeMethod,
+            },
+            config
           );
           models.push(model);
-        }
-        component.addDependency(model, config);
-      } else if (type.isEntity) {
-        let e;
-        e = entitiesRef.find((m) => m.type.ref === type.ref);
-        if (!e) {
-          e = EntityFactory.create(
-            { name: type.ref, endpoint: component.endpoint },
+          data.addDependency(model, config);
+        } else if (type.isEntity) {
+          const entity = EntityFactory.create(
+            {
+              name: type.ref,
+              endpoint: data.endpoint,
+              write_method: writeMethod,
+            },
             null,
-            writeMethod,
-            config,
-            []
+            config
           );
-          entities.push(e);
+          entities.push(entity);
+          data.addDependency(entity, config);
         }
-        component.addDependency(e, config);
       }
-    });
+    }
 
     return { models, entities };
   }

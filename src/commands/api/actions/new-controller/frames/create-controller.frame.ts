@@ -10,8 +10,8 @@ import {
   Config,
   ApiJson,
   ModelJson,
-  HandlerJson,
   EntityJson,
+  MethodJson,
 } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
 import { CommandConfig } from "../../../../../core";
@@ -33,7 +33,7 @@ export class CreateControllerFrame extends Frame<ApiJson> {
       endpoint: string;
       entities: EntityJson[];
       models: ModelJson[];
-      handlers: HandlerJson[];
+      handlers: MethodJson[];
     }
   ) {
     const { texts, config, command } = this;
@@ -43,8 +43,8 @@ export class CreateControllerFrame extends Frame<ApiJson> {
       entities: [],
       controllers: [],
     };
-    const componentName = config.components.controller.generateName(name);
-    const componentPath = config.components.controller.generatePath({
+    const componentName = config.presets.controller.generateName(name);
+    const componentPath = config.presets.controller.generatePath({
       name,
       endpoint,
     }).path;

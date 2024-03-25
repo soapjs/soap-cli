@@ -5,7 +5,9 @@ import { ConsoleTransport } from "../transport/console.transport";
 import {
   CliPackageManager,
   FileTemplateModel,
-  LanguageStrategyProvider,
+  PluginFacade,
+  ProjectDescription,
+  TemplateSchemaMap,
 } from "@soapjs/soap-cli-common";
 
 export const COMPILER_WORKER_PATH = __filename;
@@ -14,10 +16,12 @@ export type Payload = {
   transport: string;
   code_module: string;
   models: FileTemplateModel[];
+  templates: TemplateSchemaMap;
+  project: ProjectDescription;
 };
 
 const writeFiles = async (payload: Payload) => {
-  const { models, code_module } = payload;
+  const { models, code_module, project, templates } = payload;
   const transport =
     payload.transport === "file" ? new FileTransport() : new ConsoleTransport();
 
@@ -27,12 +31,11 @@ const writeFiles = async (payload: Payload) => {
   if (packageManager.hasPackage(code_module) === false) {
     await packageManager.installPackage(code_module);
   }
-  const languageModule: LanguageStrategyProvider =
-    packageManager.requirePackage(code_module);
+  const languageModule =
+    packageManager.requirePackage<PluginFacade>(code_module);
 
-  const { content: outputs, failure } = await languageModule
-    .createFileOutputStrategy()
-    .apply(models);
+  const { content: outputs, failure } =
+    await languageModule.createFileDescriptors(models, templates, project);
 
   if (failure) {
     parentPort.postMessage({ status: "error", error: failure.error });

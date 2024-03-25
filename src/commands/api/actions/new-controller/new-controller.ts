@@ -1,6 +1,6 @@
 import { NewControllerOptions } from "./types";
-import { NewControllerOptionsStrategy } from "./new-controller.options-strategy";
-import { NewControllerInteractiveStrategy } from "./new-controller.interactive-strategy";
+import { NewControllerOptionsStrategy } from "./strategies/new-controller.options-strategy";
+import { NewControllerInteractiveStrategy } from "./strategies/new-controller.interactive-strategy";
 import { CommandConfig, CompilationConfig } from "../../../../core";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
@@ -22,7 +22,8 @@ export const newController = async (
       .apply(cliPluginPackageName)
       .catch((error) => {
         if (error) {
-          console.log(chalk.yellow(error));
+          console.log(error);
+          // console.log(chalk.yellow(error));
         }
       });
   }

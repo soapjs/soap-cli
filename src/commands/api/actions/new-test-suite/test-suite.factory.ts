@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import {
   Component,
   Config,
+  TestCaseSchema,
   TestSuite,
   TestSuiteData,
   TestSuiteElement,
@@ -19,9 +20,9 @@ export class TestSuiteFactory {
   ): TestSuite {
     const { id, name, endpoint, is_async, layer } = data;
     const testType = `${testedElement.type.component}_${data.type}`;
-    const { defaults } = config.components[testType];
-    const componentName = config.components[testType].generateName(name);
-    const componentPath = config.components[testType].generatePath({
+    const { defaults } = config.presets[testType];
+    const componentName = config.presets[testType].generateName(name);
+    const componentPath = config.presets[testType].generatePath({
       name,
       endpoint,
       layer,
@@ -54,6 +55,17 @@ export class TestSuiteFactory {
       path: componentPath,
       writeMethod,
       element,
+    });
+
+    testedElement.element.methods.forEach((method) => {
+      component.element.addTest(
+        TestCaseSchema.create({
+          group: { name: component.element.name, is_async: false },
+          is_async: method.isAsync,
+          name: method.name,
+          methods: [method],
+        })
+      );
     });
 
     return component;

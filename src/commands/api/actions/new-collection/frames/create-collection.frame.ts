@@ -7,8 +7,8 @@ import {
 import {
   ApiJson,
   Config,
+  PropDataParser,
   PropJson,
-  PropTools,
   Texts,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
@@ -28,7 +28,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
   }
 
   public async run(context?: {
-    storages: string[];
+    types: string[];
     name?: string;
     endpoint?: string;
     props?: PropJson[];
@@ -36,25 +36,25 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
     const { texts, config, command } = this;
     const resolveDependencies = new ResolveDependneciesInteraction(texts);
     const result: ApiJson = { models: [], entities: [], collections: [] };
-    const storages = context.storages ? [...context.storages] : [];
+    const types = context.types ? [...context.types] : [];
     const { name, endpoint } = await new InputNameAndEndpointInteraction({
       nameMessage: texts.get("please_provide_collection_name"),
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.collection.isEndpointRequired(),
+      isEndpointRequired: config.presets.collection.isEndpointRequired(),
     });
     let writeMethod = WriteMethod.Write;
 
     let storedPropsStr = "";
     let storedProps = [];
 
-    for (const storage of storages) {
-      const db = config.databases.find((db) => db.alias === storage);
-      const componentName = config.components.collection.generateName(name);
-      const componentPath = config.components.collection.generatePath({
+    for (const type of types) {
+      const db = config.databases.find((db) => db.alias === type);
+      const componentName = config.presets.collection.generateName(name);
+      const componentPath = config.presets.collection.generatePath({
         name,
-        type: storage,
+        type,
         endpoint,
       }).path;
 
@@ -66,7 +66,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
         }
       }
       const model: { [key: string]: string } = await InteractionPrompts.form(
-        texts.get("models_form_title_###").replace("###", db?.name || ''),
+        texts.get("models_form_title_###").replace("###", db?.name || ""),
         [
           {
             name: "name",
@@ -84,9 +84,9 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
             initial: paramCase(`${name}.collection`),
           },
           {
-            name: "storage",
+            name: "type",
             message: texts.get("type"),
-            initial: storage,
+            initial: type,
           },
           {
             name: "props",
@@ -99,12 +99,14 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
 
       if (model.props != storedPropsStr) {
         storedPropsStr = model.props;
-        storedProps = PropTools.arrayToData(model.props.split(","), config);
+        storedProps = model.props
+          .split(",")
+          .map((p) => PropDataParser.parse(p, config));
       }
 
       result.models.push({
         name: model.name,
-        types: [storage],
+        types: [type],
         endpoint: model.endpoint,
         props: storedProps,
       });
@@ -124,7 +126,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
           name,
           table: model.table,
           model: model.name,
-          storages: [storage],
+          types: [type],
           endpoint,
         });
       }

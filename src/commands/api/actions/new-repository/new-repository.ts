@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { CommandConfig, CompilationConfig } from "../../../../core";
-import { NewRepositoryInteractiveStrategy } from "./new-repository.interactive-strategy";
-import { NewRepositoryOptionsStrategy } from "./new-repository.options-strategy";
+import { NewRepositoryInteractiveStrategy } from "./strategies/new-repository.interactive-strategy";
+import { NewRepositoryOptionsStrategy } from "./strategies/new-repository.options-strategy";
 import { NewRepositoryOptions } from "./types";
 import { Config } from "@soapjs/soap-cli-common";
 

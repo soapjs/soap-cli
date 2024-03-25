@@ -41,14 +41,14 @@ export class CreateEntityFrame extends Frame<ApiJson> {
       endpointMessage: texts.get("please_provide_endpoint"),
     }).run({
       ...context,
-      isEndpointRequired: config.components.entity.isEndpointRequired(),
+      isEndpointRequired: config.presets.entity.isEndpointRequired(),
     });
 
     name = res.name;
     endpoint = res.endpoint;
 
-    const componentName = config.components.entity.generateName(name);
-    const componentPath = config.components.entity.generatePath({
+    const componentName = config.presets.entity.generateName(name);
+    const componentPath = config.presets.entity.generatePath({
       name,
       endpoint,
     }).path;
@@ -78,11 +78,9 @@ export class CreateEntityFrame extends Frame<ApiJson> {
       result.models.push(...deps.models);
       let has_model = false;
 
-      if (command.dependencies_write_method !== WriteMethod.Skip) {
-        has_model = await InteractionPrompts.confirm(
-          texts.get("do_you_want_to_create_entity_json_model")
-        );
-      }
+      has_model = await InteractionPrompts.confirm(
+        texts.get("do_you_want_to_create_entity_json_model")
+      );
 
       result.entities.push({
         name,

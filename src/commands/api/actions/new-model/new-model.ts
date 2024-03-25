@@ -1,6 +1,6 @@
 import { NewModelOptions } from "./types";
-import { NewModelInteractiveStrategy } from "./new-model.interactive-strategy";
-import { NewModelOptionsStrategy } from "./new-model.options-strategy";
+import { NewModelInteractiveStrategy } from "./strategies/new-model.interactive-strategy";
+import { NewModelOptionsStrategy } from "./strategies/new-model.options-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
 import { CommandConfig, CompilationConfig } from "../../../../core";

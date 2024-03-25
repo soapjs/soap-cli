@@ -8,8 +8,10 @@ export type RouteDescription = {
   http_method?: string;
   controller?: string;
   handler?: string;
-  auth?: string;
+  auth?: { type: string; operation?: string };
   validate?: boolean;
+  cors?: boolean;
+  limiter?: boolean;
 };
 
 type TempRouteDescription = {
@@ -19,7 +21,10 @@ type TempRouteDescription = {
   controller?: string;
   handler?: string;
   auth?: string;
+  auth_operation?: string;
   validate?: string;
+  cors?: string;
+  limiter?: string;
 };
 
 class DescriptionValidation {
@@ -117,7 +122,9 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
         message: texts.get("route_handler"),
         hint: texts.get("hint___route_handler"),
         initial:
-          context.handler || context.name ? camelCase(`get ${context.name}`) : "",
+          context.handler || context.name
+            ? camelCase(`get ${context.name}`)
+            : "",
       });
       validation.mustContainHandler = true;
     }
@@ -140,7 +147,34 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
       });
     }
 
-    let route;
+    if (skip.includes("cors") === false) {
+      choices.push({
+        name: "cors",
+        message: texts.get("route_cors"),
+        initial: "false",
+        hint: texts.get("hint___route_cors"),
+      });
+    }
+
+    if (skip.includes("limiter") === false) {
+      choices.push({
+        name: "limiter",
+        message: texts.get("route_limiter"),
+        initial: "false",
+        hint: texts.get("hint___route_limiter"),
+      });
+    }
+
+    if (skip.includes("auth_operation") === false) {
+      choices.push({
+        name: "auth_operation",
+        message: texts.get("route_auth_operation"),
+        initial: "none",
+        hint: texts.get("hint___route_auth_operation"),
+      });
+    }
+
+    let route: TempRouteDescription;
 
     do {
       route = await InteractionPrompts.form(
@@ -149,8 +183,19 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
       );
     } while (validation.validate(route) === false);
 
-    route.validate = route.validate.toLowerCase() === "true";
-
-    return route;
+    return {
+      name: route.name,
+      path: route.path,
+      http_method: route.http_method,
+      controller: route.controller,
+      handler: route.handler,
+      validate: route.validate.toLowerCase() === "true",
+      cors: route.cors.toLowerCase() === "true",
+      limiter: route.limiter.toLowerCase() === "true",
+      auth:
+        route.auth && route.auth !== "none"
+          ? { type: route.auth, operation: route.auth_operation }
+          : null,
+    };
   }
 }

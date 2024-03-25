@@ -10,10 +10,7 @@ export type ControllerNameAndEndpoint = {
 export class DefineControllerNameAndEndpointFrame extends Frame<ControllerNameAndEndpoint> {
   public static NAME = "define_controller_name_and_endpoint_frame";
 
-  constructor(
-    protected config: Config,
-    protected texts: Texts
-  ) {
+  constructor(protected config: Config, protected texts: Texts) {
     super(DefineControllerNameAndEndpointFrame.NAME);
   }
 
@@ -26,7 +23,7 @@ export class DefineControllerNameAndEndpointFrame extends Frame<ControllerNameAn
       endpointMessage: texts.get("please_provide_endpoint"),
       endpointHint: texts.get("hint___please_provide_endpoint"),
     }).run({
-      isEndpointRequired: config.components.controller.isEndpointRequired(),
+      isEndpointRequired: config.presets.controller.isEndpointRequired(),
     });
   }
 }

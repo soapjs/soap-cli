@@ -1,6 +1,6 @@
 import { NewServiceOptions } from "./types";
-import { NewServiceOptionsStrategy } from "./new-service.options-strategy";
-import { NewServiceInteractiveStrategy } from "./new-service.interactive-strategy";
+import { NewServiceOptionsStrategy } from "./strategies/new-service.options-strategy";
+import { NewServiceInteractiveStrategy } from "./strategies/new-service.interactive-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
 import { CommandConfig, CompilationConfig } from "../../../../core";
