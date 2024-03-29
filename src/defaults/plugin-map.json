@@ -163,8 +163,8 @@
         ]
       },
       "soap_modules": {
-        "typescript": [],
-        "javascript": []
+        "typescript": ["@soapjs/soap-express"],
+        "javascript": ["@soapjs/soap-express"]
       }
     },
     {
@@ -193,8 +193,8 @@
         ]
       },
       "soap_modules": {
-        "typescript": [],
-        "javascript": []
+        "typescript": ["@soapjs/soap-aws"],
+        "javascript": ["@soapjs/soap-aws"]
       }
     },
     {
@@ -231,8 +231,8 @@
         ]
       },
       "soap_modules": {
-        "typescript": [],
-        "javascript": []
+        "typescript": ["@soapjs/soap-nestjs"],
+        "javascript": ["@soapjs/soap-nestjs"]
       }
     }
   ],
