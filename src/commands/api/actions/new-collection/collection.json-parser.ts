@@ -1,43 +1,68 @@
 import {
   Texts,
-  Entity,
-  WriteMethod,
   CollectionJson,
-  Model,
   Config,
-  Collection,
-  TestSuite,
   ApiSchema,
   ComponentRegistry,
   Component,
+  Model,
 } from "@soapjs/soap-cli-common";
 import chalk from "chalk";
 import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { CollectionFactory } from "./collection.factory";
-import { CommandConfig, DependencyTools } from "../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../core";
 import { pascalCase } from "change-case";
 
 export class CollectionJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {}
 
-  parse(
-    list: CollectionJson[],
-    writeMethod?: WriteMethod
-  ): {
+  private ensureModel(data, type, registry, related_write_methods): Model {
+    const { config, apiSchema } = this;
+    const { name, endpoint } = data;
+    let model = apiSchema.get({
+      component: "model",
+      ref: data.model || name,
+      type,
+    });
+
+    if (!model) {
+      model = ModelFactory.create(
+        {
+          name: data.model || name,
+          endpoint,
+          type,
+          write_method: related_write_methods.model,
+          rank: 2,
+        },
+        config
+      );
+      registry.add(model);
+    }
+
+    return model;
+  }
+
+  parse(list: CollectionJson[]): {
     components: Component[];
   } {
-    const { config, texts, command, apiSchema } = this;
+    const { config, texts, command, apiSchema, writeMethods } = this;
     const registry = new ComponentRegistry();
 
     for (const data of list) {
       const { name, endpoint, types, table, props, methods } = data;
+      const write_method = data.write_method || command.write_method;
+      const rank = data.rank || 0;
 
       if (!endpoint && config.presets.collection.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
@@ -48,7 +73,6 @@ export class CollectionJsonParser {
       }
 
       for (const type of types) {
-        let model;
         if (
           registry.collections.find(
             (m) => m.type.ref === name && m.type.type === type
@@ -57,25 +81,7 @@ export class CollectionJsonParser {
           continue;
         }
 
-        model = apiSchema.get({
-          component: "model",
-          ref: data.model || name,
-          type,
-        });
-
-        if (!model) {
-          model = ModelFactory.create(
-            {
-              name: data.model || name,
-              endpoint,
-              type,
-              write_method: writeMethod || this.writeMethod.dependency,
-            },
-            config
-          );
-          registry.add(model);
-        }
-
+        const model = this.ensureModel(data, type, registry, writeMethods);
         const collection = CollectionFactory.create(
           {
             name,
@@ -84,13 +90,14 @@ export class CollectionJsonParser {
             endpoint,
             props,
             methods,
-            write_method: writeMethod || this.writeMethod.component,
+            write_method,
+            rank,
           },
           model,
           config
         );
 
-        if (!command.skip_tests && collection.element.methods.length > 0) {
+        if (!command.no_tests && collection.element.methods.length > 0) {
           //
           const suite = TestSuiteFactory.create(
             {
@@ -99,17 +106,17 @@ export class CollectionJsonParser {
               type: "unit_tests",
             },
             collection,
-            this.writeMethod.component,
+            write_method,
             config
           );
 
           registry.add(suite);
         }
 
-        const resolved = DependencyTools.resolveMissingDependnecies(
+        const resolved = DependencyResolver.resolveMissingDependencies(
           collection,
           config,
-          this.writeMethod.dependency,
+          writeMethods.relatedComponentsMethods,
           apiSchema
         );
 

@@ -27,6 +27,7 @@ export type NewRouteOptions = DefaultCliOptions & {
 export type RouteModelFactoryInput = AdditionalData & {
   method: string;
   name: string;
+  route: string;
   endpoint?: string;
   type?: string;
   props?: (PropJson | string)[];

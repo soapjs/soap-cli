@@ -10,16 +10,17 @@ import {
   Texts,
 } from "@soapjs/soap-cli-common";
 import { NewProjectOptions } from "./types";
-import { CliOptionsTools } from "../../../../core";
 
 import RootConfig from "../../../../defaults/root.config.json";
+import { CliOptionsParser } from "../../../../core";
 
 export class NewProjectOptionsStrategy extends Strategy {
   constructor(private pluginMap: PluginMap) {
     super();
   }
 
-  public async apply(options: NewProjectOptions) {
+  public async apply(rawOptions: NewProjectOptions) {
+    const options = CliOptionsParser.parse<NewProjectOptions>(rawOptions);
     const { pluginMap } = this;
     const texts = Texts.load();
     const project: ProjectDescription = {
@@ -60,7 +61,7 @@ export class NewProjectOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    CliOptionsTools.splitArrayOption(options.database).forEach((db) => {
+    options.database.forEach((db) => {
       if (project.database.includes(db) === false) {
         project.database.push(db);
       }

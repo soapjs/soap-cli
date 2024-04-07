@@ -12,7 +12,7 @@ import {
   DefineControllerNameAndEndpointFrame,
 } from "./frames";
 import { localSessionPath } from "../../common/consts";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, WriteMethodResolver } from "../../../../core";
 import { CreateHandlerIoWithRouteFrame } from "./frames/create-handler-io-with-route.frame";
 
 export class NewControllerResolver extends StoryResolver<ApiJson> {
@@ -73,16 +73,18 @@ export class NewControllerStoryboard extends Storyboard<ApiJson> {
       new NewControllerResolver()
     );
 
+    const writeMethods = WriteMethodResolver.resolveWriteMethods(command);
+
     this.addFrame(new DefineControllerNameAndEndpointFrame(config, texts))
       .addFrame(
-        new DefineControllerHandlersFrame(config, command, texts),
+        new DefineControllerHandlersFrame(config, writeMethods, texts),
         (t) => {
           const { name, endpoint } = t.getFrame(0).output;
           return { name, endpoint };
         }
       )
       .addFrame(
-        new CreateRoutesForHandlersFrame(config, texts),
+        new CreateRoutesForHandlersFrame(config, writeMethods, texts),
         (t) => {
           const { name, endpoint } = t.getFrame(0).output;
           const { handlers, models, entities } = t.getFrame(1).output;
@@ -101,7 +103,7 @@ export class NewControllerStoryboard extends Storyboard<ApiJson> {
         }
       )
       .addFrame(
-        new CreateHandlerIoWithRouteFrame(config, texts),
+        new CreateHandlerIoWithRouteFrame(config, writeMethods, texts),
         (t) => {
           const { name, endpoint } = t.getFrame(0).output;
           const { handlers, models, entities } = t.getFrame(1).output;
@@ -121,45 +123,48 @@ export class NewControllerStoryboard extends Storyboard<ApiJson> {
           return handlers.length > 0;
         }
       )
-      .addFrame(new CreateControllerFrame(config, command, texts), (t) => {
-        const { name, endpoint } = t.getFrame(0).output;
-        const frame1 = t.getFrame(1).output;
-        const frame3 = t.getFrame(3).output;
-        const entities = [];
-        const models = [];
-        const handlers = [];
+      .addFrame(
+        new CreateControllerFrame(config, command, writeMethods, texts),
+        (t) => {
+          const { name, endpoint } = t.getFrame(0).output;
+          const frame1 = t.getFrame(1).output;
+          const frame3 = t.getFrame(3).output;
+          const entities = [];
+          const models = [];
+          const handlers = [];
 
-        if (Array.isArray(frame1.handlers)) {
-          handlers.push(...frame1.handlers);
+          if (Array.isArray(frame1.handlers)) {
+            handlers.push(...frame1.handlers);
+          }
+
+          if (Array.isArray(frame3.handlers)) {
+            handlers.push(...frame3.handlers);
+          }
+
+          if (Array.isArray(frame1.entities)) {
+            entities.push(...frame1.entities);
+          }
+
+          if (Array.isArray(frame3.entities)) {
+            entities.push(...frame3.entities);
+          }
+
+          if (Array.isArray(frame1.models)) {
+            models.push(...frame1.models);
+          }
+
+          if (Array.isArray(frame3.models)) {
+            models.push(...frame3.models);
+          }
+
+          return {
+            name,
+            endpoint,
+            handlers,
+            entities,
+            models,
+          };
         }
-
-        if (Array.isArray(frame3.handlers)) {
-          handlers.push(...frame3.handlers);
-        }
-
-        if (Array.isArray(frame1.entities)) {
-          entities.push(...frame1.entities);
-        }
-
-        if (Array.isArray(frame3.entities)) {
-          entities.push(...frame3.entities);
-        }
-
-        if (Array.isArray(frame1.models)) {
-          models.push(...frame1.models);
-        }
-
-        if (Array.isArray(frame3.models)) {
-          models.push(...frame3.models);
-        }
-
-        return {
-          name,
-          endpoint,
-          handlers,
-          entities,
-          models,
-        };
-      });
+      );
   }
 }

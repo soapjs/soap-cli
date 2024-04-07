@@ -7,17 +7,21 @@ import {
   Repository,
   RepositoryJson,
   Texts,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 
 import { RepositoryImplFactory } from "../factories/repository-impl.factory";
-import { DependencyTools } from "../../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../../core";
 
 export class RepositoryImplJsonParser {
   constructor(
     private config: Config,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
+    private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private apiSchema: ApiSchema
   ) {}
 
@@ -27,8 +31,9 @@ export class RepositoryImplJsonParser {
     repository: Repository,
     contexts: DataContext[]
   ) {
-    const { config, writeMethod, texts, apiSchema } = this;
-    const { name, endpoint, props, methods } = data;
+    const { config, texts, apiSchema, writeMethods } = this;
+    const { name, endpoint, props, methods, rank } = data;
+    const write_method = data.write_method || this.command.write_method;
 
     if (!endpoint && config.presets.repository_impl.isEndpointRequired()) {
       console.log(chalk.red(texts.get("missing_endpoint")));
@@ -45,17 +50,19 @@ export class RepositoryImplJsonParser {
         props,
         methods,
         is_custom: data.impl,
-        write_method: writeMethod.component,
+        write_method,
+        rank,
       },
       contexts,
+      repository,
       config,
       [entity, repository]
     );
 
-    const { models, entities } = DependencyTools.resolveMissingDependnecies(
+    const { models, entities } = DependencyResolver.resolveMissingDependencies(
       repositoryImpl,
       config,
-      writeMethod.dependency,
+      writeMethods.relatedComponentsMethods,
       apiSchema
     );
 

@@ -48,17 +48,17 @@ export class CreateRouteFrame extends Frame<ApiJson> {
       name,
       endpoint,
     }).path;
-    let writeMethod = WriteMethod.Write;
+    let write_method = command.write_method;
 
     if (command.force === false) {
-      if (existsSync(componentPath)) {
-        writeMethod = await new SelectComponentWriteMethodInteraction(
+      if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+        write_method = await new SelectComponentWriteMethodInteraction(
           texts
         ).run(componentName);
       }
     }
 
-    if (writeMethod !== WriteMethod.Skip) {
+    if (write_method !== WriteMethod.Skip) {
       const request = {
         path,
         method: http_method,
@@ -105,6 +105,7 @@ export class CreateRouteFrame extends Frame<ApiJson> {
         handler,
         request,
         response,
+        write_method,
       });
     }
 

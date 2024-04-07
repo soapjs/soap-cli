@@ -55,6 +55,7 @@ export class TestSuiteFactory {
       path: componentPath,
       writeMethod,
       element,
+      rank: 0,
     });
 
     testedElement.element.methods.forEach((method) => {

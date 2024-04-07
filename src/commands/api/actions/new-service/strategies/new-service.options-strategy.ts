@@ -2,11 +2,7 @@ import chalk from "chalk";
 import { ApiGenerator, ApiJsonParser } from "../../../common";
 import { Config, ServiceJson, Strategy, Texts } from "@soapjs/soap-cli-common";
 import { NewServiceOptions } from "../types";
-import {
-  CliOptionsTools,
-  CommandConfig,
-  CompilationConfig,
-} from "../../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../../core";
 
 export class NewServiceOptionsStrategy extends Strategy {
   constructor(
@@ -26,12 +22,13 @@ export class NewServiceOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    const { endpoint, name } = options;
-    const methods = CliOptionsTools.splitArrayOption(options.methods);
+    const { endpoint, name, methods } = options;
     const service: ServiceJson = {
       name,
       endpoint,
       methods,
+      rank: 0,
+      write_method: command.write_method,
     };
     const schema = new ApiJsonParser(config, command, texts).build({
       models: [],

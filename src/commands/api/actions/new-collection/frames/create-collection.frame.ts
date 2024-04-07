@@ -1,6 +1,5 @@
 import { existsSync } from "fs";
 import {
-  InputNameAndEndpointInteraction,
   ResolveDependneciesInteraction,
   SelectComponentWriteMethodInteraction,
 } from "../../../common";
@@ -13,7 +12,7 @@ import {
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodResolver } from "../../../../../core";
 import { paramCase } from "change-case";
 
 export class CreateCollectionFrame extends Frame<ApiJson> {
@@ -27,25 +26,25 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
     super(CreateCollectionFrame.NAME);
   }
 
-  public async run(context?: {
+  public async run(context: {
     types: string[];
     name?: string;
     endpoint?: string;
     props?: PropJson[];
   }) {
     const { texts, config, command } = this;
-    const resolveDependencies = new ResolveDependneciesInteraction(texts);
-    const result: ApiJson = { models: [], entities: [], collections: [] };
+    const writeMethods = WriteMethodResolver.resolveWriteMethods(command);
+    const resolveDependencies = new ResolveDependneciesInteraction(
+      writeMethods
+    );
+    const result: ApiJson = {
+      models: [],
+      entities: [],
+      collections: [],
+    };
+    const { name, endpoint } = context;
     const types = context.types ? [...context.types] : [];
-    const { name, endpoint } = await new InputNameAndEndpointInteraction({
-      nameMessage: texts.get("please_provide_collection_name"),
-      endpointMessage: texts.get("please_provide_endpoint"),
-    }).run({
-      ...context,
-      isEndpointRequired: config.presets.collection.isEndpointRequired(),
-    });
-    let writeMethod = WriteMethod.Write;
-
+    let write_method = command.write_method;
     let storedPropsStr = "";
     let storedProps = [];
 
@@ -59,11 +58,14 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
       }).path;
 
       if (command.force === false) {
-        if (existsSync(componentPath)) {
-          writeMethod = await new SelectComponentWriteMethodInteraction(
+        if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+          write_method = await new SelectComponentWriteMethodInteraction(
             texts
           ).run(componentName);
         }
+      }
+      if (write_method === WriteMethod.Skip) {
+        continue;
       }
       const model: { [key: string]: string } = await InteractionPrompts.form(
         texts.get("models_form_title_###").replace("###", db?.name || ""),
@@ -100,7 +102,7 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
       if (model.props != storedPropsStr) {
         storedPropsStr = model.props;
         storedProps = model.props
-          .split(",")
+          .split(/,\s*/)
           .map((p) => PropDataParser.parse(p, config));
       }
 
@@ -109,27 +111,29 @@ export class CreateCollectionFrame extends Frame<ApiJson> {
         types: [type],
         endpoint: model.endpoint,
         props: storedProps,
+        write_method: writeMethods.relatedComponentsMethods.model,
+        rank: 2,
       });
 
-      if (command.dependencies_write_method !== WriteMethod.Skip) {
-        storedProps.forEach(async (prop) => {
-          const dependencies = await resolveDependencies.run(
-            prop.type,
-            endpoint
-          );
-          result.entities.push(...dependencies.entities);
-          result.models.push(...dependencies.models);
-        });
-      }
-      if (writeMethod !== WriteMethod.Skip) {
-        result.collections.push({
-          name,
-          table: model.table,
-          model: model.name,
-          types: [type],
+      storedProps.forEach(async (prop) => {
+        const dependencies = await resolveDependencies.run(
+          prop.type,
           endpoint,
-        });
-      }
+          2
+        );
+        result.entities.push(...dependencies.entities);
+        result.models.push(...dependencies.models);
+      });
+
+      result.collections.push({
+        name,
+        table: model.table,
+        model: model.name,
+        types: [type],
+        endpoint,
+        write_method,
+        rank: 0,
+      });
     }
 
     return result;

@@ -3,11 +3,7 @@ import { ApiJsonParser } from "../../../common/api-json.parser";
 import { ApiGenerator } from "../../../common";
 import { Config, Strategy, Texts, ToolsetJson } from "@soapjs/soap-cli-common";
 import { NewToolsetOptions } from "../types";
-import {
-  CliOptionsTools,
-  CommandConfig,
-  CompilationConfig,
-} from "../../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../../core";
 
 export class NewToolsetOptionsStrategy extends Strategy {
   constructor(
@@ -32,13 +28,14 @@ export class NewToolsetOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    const { endpoint, name, layer } = options;
-    const methods = CliOptionsTools.splitArrayOption(options.methods);
+    const { endpoint, name, layer, methods } = options;
     const toolset: ToolsetJson = {
       layer,
       name,
       endpoint,
       methods,
+      rank: 0,
+      write_method: command.write_method,
     };
     const schema = new ApiJsonParser(config, command, texts).build({
       models: [],

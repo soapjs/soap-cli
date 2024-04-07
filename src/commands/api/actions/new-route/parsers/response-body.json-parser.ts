@@ -5,135 +5,145 @@ import {
   ComponentRegistry,
   Config,
   PropJson,
+  PropSchema,
   RouteJson,
+  RouteModel,
   RouteModelLabel,
   TypeInfo,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { RouteModelFactory } from "../factories/route-model.factory";
-import { DependencyTools } from "../../../../../core";
+import {
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../../core";
+
+type ParseContext = {
+  route: string;
+  endpoint: string;
+  method: string;
+  write_method: WriteMethod;
+  rank: number;
+  type?: RouteModelLabel;
+};
 
 export class ResponseBodyJsonParser {
   private registry = new ComponentRegistry();
+
   constructor(
     private config: Config,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
+    private writeMethods: WriteMethodsAssignment,
     private apiSchema: ApiSchema
   ) {}
 
-  parseObject(
+  private parseProperty(
+    route: string,
+    key: string,
+    value: any,
+    context: ParseContext
+  ): { name: string; type: TypeInfo; dependencies: RouteModel[] } {
+    let dependencies = [];
+    let type;
+    const name = Number.isFinite(+key) ? `${route}${key}` : key;
+
+    if (Array.isArray(value)) {
+      type = ArrayType.create(AnyType.create());
+    } else if (typeof value === "string") {
+      type = TypeInfo.create(value, this.config);
+    } else if (value && typeof value === "object") {
+      // skip route model label in names
+      const model = this.parseObject(value, name, route, {
+        ...context,
+        type: null,
+      });
+      dependencies.push(model);
+      type = model.type;
+      this.registry.add(model);
+    } else {
+      type = AnyType.create();
+    }
+
+    return { name: key, type, dependencies };
+  }
+
+  private parseObject(
     data: any,
     name: string,
-    endpoint: string,
-    method: string,
-    write_method: WriteMethod
-  ) {
-    const props = [];
-
-    Object.keys(data).forEach((key) => {
-      const value = data[key];
-      const prop: PropJson = { name: key };
-
-      if (value) {
-        if (Array.isArray(value)) {
-          prop.type = ArrayType.create(AnyType.create()).name;
-        } else if (typeof value === "string") {
-          prop.type = TypeInfo.create(value, this.config).name;
-        } else if (typeof value === "object") {
-          const obj = this.parseObject(
-            value,
-            key,
-            endpoint,
-            method,
-            write_method
-          );
-          prop.type = obj.type.name;
-        } else {
-          prop.type = AnyType.create().name;
-        }
-      }
-
-      props.push(prop);
-    });
-
+    route: string,
+    context: ParseContext
+  ): RouteModel {
     const model = RouteModelFactory.create(
       {
+        ...context,
         name,
-        endpoint,
-        method,
-        write_method,
-        props,
+        route,
+        props: [],
       },
       this.config
     );
-    const deps = DependencyTools.resolveMissingDependnecies(
-      model,
-      this.config,
-      write_method,
-      this.apiSchema
-    );
 
-    this.registry.add(...deps.entities, ...deps.models);
+    Object.entries(data).forEach(([key, value]) => {
+      const { name, type, dependencies } = this.parseProperty(
+        route,
+        key,
+        value,
+        context
+      );
+      model.element.addProp(
+        PropSchema.create({ name, type: type.tag }, this.config, {
+          dependencies,
+        })
+      );
+      dependencies.forEach((d) => {
+        model.addDependency(d, this.config);
+        this.registry.add(d);
+      });
+    });
+
+    this.resolveAndRegisterDependencies(model, route, context.method);
 
     return model;
   }
 
+  private resolveAndRegisterDependencies(
+    model: RouteModel,
+    route: string,
+    method: string
+  ) {
+    model.unresolvedDependencies.forEach((type) => {
+      const dependency = RouteModelFactory.create(
+        {
+          name: type.ref,
+          endpoint: model.endpoint,
+          type: type.type,
+          write_method: this.writeMethods.relatedComponentsMethods.route_model,
+          rank: 2,
+          route,
+          method,
+        },
+        this.config
+      );
+      model.addDependency(dependency, this.config);
+      this.registry.add(dependency);
+    });
+  }
+
   parse(data: RouteJson) {
-    const { config, writeMethod } = this;
-    const { endpoint, request, response, name } = data;
-    const props: PropJson[] = [];
+    const context: ParseContext = {
+      route: data.name,
+      endpoint: data.endpoint,
+      method: data.request.method,
+      write_method: data.write_method,
+      rank: data.rank,
+      type: RouteModelLabel.ResponseBody,
+    };
 
-    Object.keys(response).forEach((key) => {
-      const value = response[key];
-      const prop: PropJson = { name: key };
-
-      if (Array.isArray(value)) {
-        prop.type = ArrayType.create(AnyType.create()).name;
-      } else if (typeof value === "string") {
-        prop.type = TypeInfo.create(value, config).name;
-      } else if (value && typeof value === "object") {
-        const obj = this.parseObject(
-          value,
-          `Status${key}`,
-          endpoint,
-          request.method,
-          writeMethod.dependency
-        );
-        prop.type = obj.type.name;
-      } else {
-        prop.type = AnyType.create().name;
-      }
-      props.push(prop);
-    });
-
-    const model = RouteModelFactory.create(
-      {
-        name,
-        endpoint,
-        method: request.method,
-        type: RouteModelLabel.ResponseBody,
-        props,
-        write_method: writeMethod.dependency,
-      },
-      config
+    const model = this.parseObject(
+      data.response,
+      data.name,
+      data.name,
+      context
     );
-
-    const { models, entities } = DependencyTools.resolveMissingDependnecies(
-      model,
-      config,
-      writeMethod.dependency,
-      this.apiSchema
-    );
-
-    models.forEach((m) => {
-      this.registry.add(m);
-      model.addDependency(m, config);
-    });
-
-    entities.forEach((m) => {
-      this.registry.add(m);
-      model.addDependency(m, config);
-    });
 
     return { model, components: this.registry.toArray() };
   }

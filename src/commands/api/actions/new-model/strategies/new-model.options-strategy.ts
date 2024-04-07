@@ -1,5 +1,5 @@
 import { NewModelOptions } from "../types";
-import { CliOptionsTools } from "../../../../../core/tools";
+import { CliOptionsParser } from "../../../../../core/tools";
 import { ApiJsonParser } from "../../../common/api-json.parser";
 import { ApiGenerator } from "../../../common/api-generator";
 import { Config, ModelJson, Strategy, Texts } from "@soapjs/soap-cli-common";
@@ -16,21 +16,22 @@ export class NewModelOptionsStrategy extends Strategy {
     super();
   }
 
-  public async apply(options: NewModelOptions, cliPluginPackageName: string) {
+  public async apply(
+    options: NewModelOptions,
+    cliPluginPackageName: string
+  ) {
     const { config, command, compilation } = this;
     const texts = await Texts.load();
+    const { endpoint, name, props } = options;
 
-    const { endpoint, name } = options;
-    const extractedTypes = CliOptionsTools.splitArrayOption(options.type);
-    const types: string[] =
-      extractedTypes.length > 0 ? extractedTypes : ["json"];
-    const props = CliOptionsTools.splitArrayOption(options.props);
-
+    const types: string[] = options.type.length > 0 ? options.type : ["json"];
     const model: ModelJson = {
       name,
       endpoint,
       types,
       props,
+      rank: 0,
+      write_method: command.write_method,
     };
 
     const schema = new ApiJsonParser(config, command, texts).build({

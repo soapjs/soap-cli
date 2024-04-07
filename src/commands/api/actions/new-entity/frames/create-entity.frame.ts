@@ -12,7 +12,8 @@ import {
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
+import chalk from "chalk";
 
 export class CreateEntityFrame extends Frame<ApiJson> {
   public static NAME = "create_entity_frame";
@@ -20,6 +21,7 @@ export class CreateEntityFrame extends Frame<ApiJson> {
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(CreateEntityFrame.NAME);
@@ -29,12 +31,23 @@ export class CreateEntityFrame extends Frame<ApiJson> {
     name?: string;
     endpoint?: string;
     props?: PropJson[];
+    dependencyOf?: string;
   }) {
-    const { texts, config, command } = this;
+    const { texts, config, command, writeMethods } = this;
     const result: ApiJson = { entities: [], models: [] };
     const passedProps = context.props || [];
     let name: string;
     let endpoint: string;
+
+    if (context?.dependencyOf) {
+      console.log(
+        chalk.gray(
+          texts
+            .get("setup_entity_as_dependency_of_###")
+            .replace("###", context?.dependencyOf)
+        )
+      );
+    }
 
     const res = await new InputNameAndEndpointInteraction({
       nameMessage: texts.get("please_provide_entity_name"),
@@ -53,43 +66,56 @@ export class CreateEntityFrame extends Frame<ApiJson> {
       endpoint,
     }).path;
 
-    let writeMethod = WriteMethod.Write;
-
-    if (command.force === false) {
-      if (existsSync(componentPath)) {
-        writeMethod = await new SelectComponentWriteMethodInteraction(
-          texts
-        ).run(componentName);
-      }
-    }
-
-    if (writeMethod !== WriteMethod.Skip) {
-      const { props, ...deps } = await new CreatePropsInteraction(
-        texts,
-        config,
-        command.dependencies_write_method
-      ).run({
-        endpoint,
-        target: "entity",
-        areAdditional: passedProps.length > 0,
-      });
-
-      result.entities.push(...deps.entities);
-      result.models.push(...deps.models);
-      let has_model = false;
-
-      has_model = await InteractionPrompts.confirm(
-        texts.get("do_you_want_to_create_entity_json_model")
-      );
-
+    if (context?.dependencyOf) {
       result.entities.push({
         name,
-        has_model,
-        props: [...passedProps, ...props],
+        has_model: false,
+        props: passedProps,
         endpoint,
+        write_method: writeMethods.relatedComponentsMethods.entity,
+        rank: 2,
       });
-    }
+    } else {
+      let write_method = command.write_method;
 
+      if (command.force === false) {
+        if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+          write_method = await new SelectComponentWriteMethodInteraction(
+            texts
+          ).run(componentName);
+        }
+      }
+
+      if (write_method !== WriteMethod.Skip) {
+        const { props, ...deps } = await new CreatePropsInteraction(
+          texts,
+          config,
+          writeMethods,
+          2
+        ).run({
+          endpoint,
+          target: "entity",
+          areAdditional: passedProps.length > 0,
+        });
+
+        result.entities.push(...deps.entities);
+        result.models.push(...deps.models);
+        let has_model = false;
+
+        has_model = await InteractionPrompts.confirm(
+          texts.get("do_you_want_to_create_entity_json_model")
+        );
+
+        result.entities.push({
+          name,
+          has_model,
+          props: [...passedProps, ...props],
+          endpoint,
+          write_method,
+          rank: 0,
+        });
+      }
+    }
     return result;
   }
 }

@@ -7,11 +7,7 @@ import {
   Strategy,
   Texts,
 } from "@soapjs/soap-cli-common";
-import {
-  CliOptionsTools,
-  CommandConfig,
-  CompilationConfig,
-} from "../../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../../core";
 import { paramCase } from "change-case";
 
 export class NewRepositoryOptionsStrategy extends Strategy {
@@ -34,31 +30,33 @@ export class NewRepositoryOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    const { endpoint, name, entity, model, impl } = options;
-    const storages = CliOptionsTools.splitArrayOption(options.storage);
+    const { endpoint, name, entity, model, impl, storage, collection } =
+      options;
 
     const repository: RepositoryJson = {
       name,
       endpoint,
       entity: entity || name,
       contexts: [],
-      impl: storages.length > 1 || impl,
+      impl: storage.length > 1 || impl,
+      write_method: command.write_method,
+      rank: 0,
     };
 
     if (model) {
-      storages.forEach((type) => {
+      storage.forEach((type) => {
         repository.contexts.push({
           type,
           model,
           collection: {
             name,
-            impl: false,
+            impl: collection,
             table: paramCase(`${name}.collection`),
           },
         });
       });
     } else {
-      repository.contexts.push(...storages);
+      repository.contexts.push(...storage);
     }
 
     const schema = new ApiJsonParser(config, command, texts).build({

@@ -8,7 +8,7 @@ import {
   TimelineFrame,
 } from "@soapjs/soap-cli-interactive";
 import { localSessionPath } from "../../common/consts";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, WriteMethodResolver } from "../../../../core";
 
 export class NewModelStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -38,8 +38,12 @@ export class NewModelStoryboard extends Storyboard<ApiJson> {
       new NewModelStoryResolver()
     );
 
-    this.addFrame(new SelectModelTypesFrame(config, texts)).addFrame(
-      new CreateModelsFrame(config, command, texts),
+    const writeMethods = WriteMethodResolver.resolveWriteMethods(command);
+
+    this.addFrame(
+      new SelectModelTypesFrame(config, writeMethods, texts)
+    ).addFrame(
+      new CreateModelsFrame(config, command, writeMethods, texts),
       (t) => ({ types: t.prevFrame.output })
     );
   }

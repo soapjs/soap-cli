@@ -3,7 +3,7 @@ import { NewCollectionOptions } from "../types";
 import { ApiJsonParser } from "../../../common/api-json.parser";
 import { ApiGenerator } from "../../../common";
 import {
-  CliOptionsTools,
+  CliOptionsParser,
   CommandConfig,
   CompilationConfig,
 } from "../../../../../core";
@@ -28,20 +28,21 @@ export class NewCollectionOptionsStrategy extends Strategy {
   ) {
     const { config, command, compilation } = this;
     const texts = await Texts.load();
+    const { endpoint, name, model, table, storage: types } = options;
 
     if (!options.endpoint && config.presets.collection.isEndpointRequired()) {
       console.log(chalk.red(texts.get("missing_endpoint")));
       process.exit(1);
     }
 
-    const { endpoint, name, model, table } = options;
-    const types = CliOptionsTools.splitArrayOption(options.storage);
     const collection: CollectionJson = {
       name,
       endpoint,
       table,
       types,
       model,
+      write_method: command.write_method,
+      rank: 0,
     };
     const schema = new ApiJsonParser(config, command, texts).build({
       models: [],

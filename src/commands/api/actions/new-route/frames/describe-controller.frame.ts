@@ -1,28 +1,25 @@
 import {
   ApiJson,
-  ComponentJsonFactory,
-  ComponentTools,
   Config,
   ControllerJson,
   EntityJson,
   MethodJson,
   ModelJson,
-  RouteJson,
   Texts,
-  TypeInfo,
 } from "@soapjs/soap-cli-common";
-import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
-import { pascalCase } from "change-case";
-import { PathParamsTools, QueryParamsTools } from "../parsers";
-import { ConvertRouteDataToHandlerIoDataInteraction } from "../../new-controller/frames/interactions/convert-request-to-handler-input-props.interaction";
-import { CreateParamsInteraction } from "../../../common/interactions/create-params.interaction";
+import { Frame } from "@soapjs/soap-cli-interactive";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
+import { PickInputStrategyInteraction } from "./interactions/pick-input-strategy.interaction";
+import { PickOutputStrategyInteraction } from "./interactions/pick-output-strategy.interaction";
+import { ResolveInputStrategyInteraction } from "./interactions/resolve-input-strategy.interaction";
+import { ResolveOutputStrategyInteraction } from "./interactions/resolve-output-strategy.interaction";
 
 export class DescribeControllerFrame extends Frame<ApiJson> {
   public static NAME = "describe_controller_frame";
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(DescribeControllerFrame.NAME);
@@ -36,153 +33,59 @@ export class DescribeControllerFrame extends Frame<ApiJson> {
     response_body: any;
     path: string;
   }) {
-    const { texts, config, command } = this;
-    const { endpoint, handler, request_body, response_body, path } = context;
-    const input: EntityJson = {
-      name: pascalCase(`${handler}Input`),
+    const { texts, config, writeMethods } = this;
+    const {
       endpoint,
-      props: [],
-    };
-    const output: EntityJson = {
-      name: pascalCase(`${handler}Output`),
-      endpoint,
-      props: [],
-    };
-    const h: MethodJson = {
-      name: handler,
+      handler: handlerName,
+      request_body,
+      response_body,
+      path,
+    } = context;
+
+    const handler: MethodJson = {
+      name: handlerName,
       is_async: true,
       params: [],
       return_type: `Result<void>`,
     };
-    const controller: ControllerJson = {
-      name: context.controller,
-      endpoint: endpoint,
-      handlers: [h],
-    };
-    const controllers: ControllerJson[] = [controller];
+
+    const controllers: ControllerJson[] = [
+      {
+        name: context.controller,
+        endpoint: endpoint,
+        handlers: [handler],
+        write_method: writeMethods.relatedComponentsMethods.controller,
+        rank: 2,
+      },
+    ];
     const entities: EntityJson[] = [];
     const models: ModelJson[] = [];
-    const params = [
-      ...PathParamsTools.extractFromString(path),
-      ...QueryParamsTools.extractFromString(path),
-    ];
+    const input_strategy = await new PickInputStrategyInteraction(texts).run(
+      request_body,
+      path
+    );
+    const output_strategy = await new PickOutputStrategyInteraction(texts).run(
+      response_body
+    );
 
-    if (params.length > 0 || request_body || response_body) {
-      const input_strategy_options = [
-        {
-          message: texts.get("handler_no_input"),
-          name: "none",
-        },
-        {
-          message: texts.get("handler_define_input"),
-          name: "own",
-        },
-      ];
+    await new ResolveInputStrategyInteraction(config, writeMethods, texts).run(
+      input_strategy,
+      handler,
+      endpoint,
+      path,
+      request_body,
+      models,
+      entities
+    );
 
-      if (params.length > 0 || request_body) {
-        input_strategy_options.splice(1, 0, {
-          message: texts.get("handler_use_request_for_input"),
-          name: "request",
-        });
-      }
-
-      const input_strategy = await InteractionPrompts.select(
-        texts.get("pick_handler_input_strategy"),
-        input_strategy_options,
-        ["none"],
-        texts.get("hint___pick_handler_input_strategy")
-      );
-
-      const output_strategy_options = [
-        {
-          message: texts.get("handler_no_output"),
-          name: "none",
-        },
-        {
-          message: texts.get("handler_define_output"),
-          name: "own",
-        },
-      ];
-
-      if (response_body) {
-        output_strategy_options.splice(1, 0, {
-          message: texts.get("handler_use_response_for_output"),
-          name: "response",
-        });
-      }
-
-      const output_strategy = await InteractionPrompts.select(
-        texts.get("pick_handler_output_strategy"),
-        output_strategy_options,
-        ["none"],
-        texts.get("hint___pick_handler_output_strategy")
-      );
-
-      let route: any = { request: null, response: null };
-
-      if (input_strategy === "request") {
-        route.request = {
-          path: context.path,
-          body: request_body,
-          method: "",
-        };
-      }
-
-      if (output_strategy === "response") {
-        route.response = response_body;
-      }
-
-      if (route.request || route.response) {
-        const routeToIO = new ConvertRouteDataToHandlerIoDataInteraction(
-          config
-        );
-
-        const result = await routeToIO.run({ endpoint, route });
-        if (result.input) {
-          input.props.push(...result.input.props);
-          h.params.push({ name: "input", type: `Entity<${input.name}>` });
-        }
-
-        if (result.output) {
-          output.props.push(...result.output.props);
-          h.return_type = `Entity<${output.name}>`;
-        }
-      }
-
-      if (input_strategy === "own") {
-        const result = await new CreateParamsInteraction(texts, config).run({
-          endpoint: context?.endpoint,
-          target: handler,
-        });
-        h.params.push(...result.params);
-        models.push(...result.models);
-        entities.push(...result.entities);
-      }
-
-      if (output_strategy === "own") {
-        do {
-          h.return_type = await InteractionPrompts.input(
-            texts.get("handler_return_type")
-          );
-        } while (!h.return_type);
-
-        const rType = TypeInfo.create(h.return_type, config);
-        const types = ComponentTools.filterComponentTypes(rType);
-        types.forEach((componentType) => {
-          const json = ComponentJsonFactory.create(componentType, {
-            name: componentType.ref,
-            types: ["json"],
-            endpoint: context?.endpoint,
-          });
-
-          if (rType.isModel) {
-            models.push(json);
-          } else if (rType.isEntity) {
-            entities.push(json);
-          }
-        });
-      }
-    }
+    await new ResolveOutputStrategyInteraction(config, writeMethods, texts).run(
+      output_strategy,
+      handler,
+      endpoint,
+      response_body,
+      models,
+      entities
+    );
 
     return { controllers, entities, models };
   }

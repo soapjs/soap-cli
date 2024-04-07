@@ -18,7 +18,7 @@ import {
 } from "@soapjs/soap-cli-common";
 import chalk from "chalk";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
 
 export class CreateUseCaseFrame extends Frame<ApiJson> {
   public static NAME = "create_use_case_frame";
@@ -26,13 +26,14 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(CreateUseCaseFrame.NAME);
   }
 
   public async run(context?: { name?: string; endpoint?: string }) {
-    const { texts, config, command } = this;
+    const { texts, config, command, writeMethods } = this;
     const result: ApiJson = { entities: [], models: [], use_cases: [] };
     const { name, endpoint } = await new InputNameAndEndpointInteraction({
       nameMessage: texts.get("please_provide_use_case_name"),
@@ -47,7 +48,7 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
       { name: "Model", value: "Model" },
       { name: "Other", value: "Other" },
     ];
-    let writeMethod = WriteMethod.Write;
+    let write_method = command.write_method;
     let res: ApiJson;
     let output;
     const input = new Set<ParamJson>();
@@ -58,14 +59,14 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
     }).path;
 
     if (command.force === false) {
-      if (existsSync(componentPath)) {
-        writeMethod = await new SelectComponentWriteMethodInteraction(
+      if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+        write_method = await new SelectComponentWriteMethodInteraction(
           texts
         ).run(componentName);
       }
     }
 
-    if (writeMethod !== WriteMethod.Skip) {
+    if (write_method !== WriteMethod.Skip) {
       if (
         await InteractionPrompts.confirm(
           texts.get("does_the_use_case_have_an_input")
@@ -75,6 +76,7 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
         const { params, ...deps } = await new CreateParamsInteraction(
           texts,
           config,
+          writeMethods
         ).run(
           {
             endpoint,
@@ -94,16 +96,28 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
       );
 
       if (cat === "Entity") {
-        res = await new CreateEntityFrame(config, command, texts).run({
+        res = await new CreateEntityFrame(
+          config,
+          command,
+          writeMethods,
+          texts
+        ).run({
           name: pascalCase(`${name} Output`),
           endpoint,
+          dependencyOf: 'use case',
         });
         output = `Entity<${res.entities.at(-1).name}>`;
       } else if (cat === "Model") {
-        res = await new CreateModelsFrame(config, command, texts).run({
+        res = await new CreateModelsFrame(
+          config,
+          command,
+          writeMethods,
+          texts
+        ).run({
           name: pascalCase(`${name} Output`),
           types: ["json"],
           endpoint,
+          dependencyOf: 'use case',
         });
         output = `Model<${res.models.at(-1).name}>`;
       } else if (cat === "Other") {
@@ -129,6 +143,7 @@ export class CreateUseCaseFrame extends Frame<ApiJson> {
         endpoint,
         input: [...input],
         output,
+        rank: 0,
       });
     }
 

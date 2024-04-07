@@ -42,7 +42,7 @@ export * from "./new-config";
 export const newComponent = async (options: any, type?: string) => {
   const texts = Texts.load();
   const cliConfig = await new CliConfigService().sync();
-  const command = CommandConfig.create(options, cliConfig);
+  const command = CommandConfig.create(options, cliConfig, texts);
   const compilation = CompilationConfig.create(cliConfig);
 
   const { content: config, failure } = await new ConfigService(

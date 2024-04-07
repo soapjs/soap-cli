@@ -8,16 +8,16 @@ import {
   Entity,
   Mapper,
   Model,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { CollectionFactory } from "../../new-collection";
 import { MapperFactory } from "../../new-mapper";
 import { ModelFactory } from "../../new-model";
+import { WriteMethodsAssignment } from "../../../../../core";
 
 export class DataContextJsonParser {
   constructor(
     private config: Config,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
+    private writeMethods: WriteMethodsAssignment,
     private apiSchema: ApiSchema
   ) {}
 
@@ -27,7 +27,7 @@ export class DataContextJsonParser {
     endpoint: string,
     entity: Entity
   ) {
-    const { config, writeMethod, apiSchema } = this;
+    const { config, apiSchema, writeMethods } = this;
     const contexts: { model: Model; collection: Collection; mapper: Mapper }[] =
       [];
     const dependencies: Component[] = [];
@@ -66,7 +66,8 @@ export class DataContextJsonParser {
             name: modelName,
             endpoint,
             type,
-            write_method: writeMethod.dependency,
+            write_method: writeMethods.relatedComponentsMethods.model,
+            rank: 1,
           },
           config
         );
@@ -86,7 +87,8 @@ export class DataContextJsonParser {
             type: type,
             table,
             is_custom: isCustomCollection,
-            write_method: writeMethod.dependency,
+            write_method: writeMethods.relatedComponentsMethods.collection,
+            rank: 1,
           },
           model,
           config
@@ -101,7 +103,8 @@ export class DataContextJsonParser {
             name: mapperName,
             endpoint,
             type,
-            write_method: writeMethod.dependency,
+            write_method: writeMethods.relatedComponentsMethods.mapper,
+            rank: 1,
           },
           entity,
           model,

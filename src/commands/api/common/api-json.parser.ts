@@ -16,9 +16,12 @@ import {
   ToolsetJson,
   UseCase,
   UseCaseJson,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
-import { CommandConfig } from "../../../core";
+import {
+  CommandConfig,
+  WriteMethodResolver,
+  WriteMethodsAssignment,
+} from "../../../core";
 import {
   ModelJsonParser,
   EntityJsonParser,
@@ -37,13 +40,13 @@ import {
   UseCaseIocContainer,
   ServiceIocContainer,
   ToolsetIocContainer,
+  RepositoryBundleJsonParser,
+  ConfigFactory,
 } from "../actions";
-import { ConfigFactory } from "../actions/new-config";
-import { RepositoryBundleJsonParser } from "../actions/new-repository/parsers/repository-bundle.json-parser";
 
 export class ApiJsonParser {
   private apiSchema: ApiSchema;
-  private writeMethod: { component: WriteMethod; dependency: WriteMethod };
+  private writeMethods: WriteMethodsAssignment;
 
   constructor(
     private config: Config,
@@ -56,18 +59,17 @@ export class ApiJsonParser {
       LauncherFactory.create(config),
       ConfigFactory.create(config)
     );
-    this.writeMethod = {
-      component: command.write_method,
-      dependency: command.dependencies_write_method,
-    };
+
+    this.writeMethods = WriteMethodResolver.resolveWriteMethods(command);
   }
 
   parseModels(list: ModelJson[]) {
-    const { apiSchema, config, texts, writeMethod } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const result = new ModelJsonParser(
       config,
+      command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -77,12 +79,12 @@ export class ApiJsonParser {
   }
 
   parseEntities(list: EntityJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const result = new EntityJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -92,13 +94,13 @@ export class ApiJsonParser {
   }
 
   parseTools(list: ToolsetJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const iocContainer = new ToolsetIocContainer(apiSchema.container, config);
     const result = new ToolsetJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -111,13 +113,13 @@ export class ApiJsonParser {
   }
 
   parseServices(list: ServiceJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const iocContainer = new ServiceIocContainer(apiSchema.container, config);
     const result = new ServiceJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -131,12 +133,12 @@ export class ApiJsonParser {
   }
 
   parseMappers(list: MapperJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const result = new MapperJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -146,12 +148,12 @@ export class ApiJsonParser {
   }
 
   parseCollections(list: CollectionJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const result = new CollectionJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -161,13 +163,13 @@ export class ApiJsonParser {
   }
 
   parseUseCases(list: UseCaseJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const iocContainer = new UseCaseIocContainer(apiSchema.container, config);
     const result = new UseCaseJsonParse(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -180,7 +182,7 @@ export class ApiJsonParser {
   }
 
   parseRepositories(list: RepositoryJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const iocContainer = new RepositoryIocContainer(
       apiSchema.container,
       config
@@ -189,8 +191,8 @@ export class ApiJsonParser {
     const result = new RepositoryBundleJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -204,7 +206,7 @@ export class ApiJsonParser {
   }
 
   parseControllers(list: ControllerJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const iocContainer = new ControllerIocContainer(
       apiSchema.container,
       config
@@ -212,8 +214,8 @@ export class ApiJsonParser {
     const result = new ControllerJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 
@@ -226,12 +228,12 @@ export class ApiJsonParser {
   }
 
   parseRoutes(list: RouteJson[]) {
-    const { apiSchema, config, texts, writeMethod, command } = this;
+    const { apiSchema, config, texts, command, writeMethods } = this;
     const result = new RouteJsonParser(
       config,
       command,
+      writeMethods,
       texts,
-      writeMethod,
       apiSchema
     ).parse(list);
 

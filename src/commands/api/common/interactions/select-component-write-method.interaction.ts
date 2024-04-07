@@ -20,6 +20,10 @@ export class SelectComponentWriteMethodInteraction extends Interaction<WriteMeth
             message: texts.get("skip_this_component"),
           },
           {
+            name: WriteMethod.Patch,
+            message: texts.get("patch_this_component"),
+          },
+          {
             name: WriteMethod.Overwrite,
             message: texts.get("overwrite_this_component"),
           },

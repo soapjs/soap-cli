@@ -8,5 +8,6 @@ export * from "./repository.ioc-container";
 export * from "./parsers/repository.json-parser";
 export * from "./parsers/data-context.json-parser";
 export * from "./parsers/repository-impl.json-parser";
+export * from "./parsers/repository-bundle.json-parser";
 export * from "./types";
 export * from "./new-repository";

@@ -3,15 +3,21 @@ import { NewUseCaseInteractiveStrategy } from "./strategies/new-use-case.interac
 import { NewUseCaseOptionsStrategy } from "./strategies/new-use-case.options-strategy";
 import { NewUseCaseOptions } from "./types";
 import { Config } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../core";
+import {
+  CliOptionsParser,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 
 export const newUseCase = async (
-  options: NewUseCaseOptions,
+  rawOptions: NewUseCaseOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
+  const options = CliOptionsParser.parse<NewUseCaseOptions>(rawOptions);
+
   if (Object.keys(options).includes("name")) {
     new NewUseCaseOptionsStrategy(config, command, compilation).apply(
       options,

@@ -1,105 +1,55 @@
 import { nanoid } from "nanoid";
 import {
-  ClassJson,
+  ClassData,
   ClassSchema,
   Component,
   Config,
+  DataProvider,
   Service,
   ServiceElement,
   ServiceType,
 } from "@soapjs/soap-cli-common";
 import { ServiceFactoryInput } from "../types";
+import {
+  InputToDataParser,
+  DefaultGroups,
+} from "../../../common/input-to-data.parser";
 
 export class ServiceFactory {
   static create(
-    data: ServiceFactoryInput,
+    input: ServiceFactoryInput,
     config: Config,
     dependencies: Component[]
   ): Service {
-    const { id, name, endpoint, write_method } = data;
-    const addons = {};
-    const { defaults } = config.presets.service;
-    const componentName = config.presets.service.generateName(name);
-    const componentPath = config.presets.service.generatePath({
-      name,
-      endpoint,
-    }).path;
-    const props = [];
-    const methods = [];
-    const imports = [];
-    const generics = [];
-    const inheritance = [];
-    let ctor;
-    let exp;
-
-    if (defaults?.common?.exp) {
-      exp = defaults.common.exp;
-    }
-
-    if (defaults?.common.ctor) {
-      ctor = defaults.common.ctor;
-    }
-
-    if (Array.isArray(defaults?.common?.methods)) {
-      methods.push(...defaults.common.methods);
-    }
-
-    if (Array.isArray(defaults?.common?.inheritance)) {
-      inheritance.push(...defaults.common.inheritance);
-    }
-
-    if (Array.isArray(defaults?.common?.props)) {
-      props.push(...defaults.common.props);
-    }
-
-    if (Array.isArray(data.props)) {
-      props.push(...data.props);
-    }
-
-    if (Array.isArray(data.methods)) {
-      methods.push(...data.methods);
-    }
-
-    if (Array.isArray(defaults?.common?.imports)) {
-      defaults.common.imports.forEach((i) => {
-        i.ref_path = componentPath;
-        imports.push(i);
-      });
-    }
-
-    if (Array.isArray(defaults?.common?.generics)) {
-      generics.push(...defaults.common.generics);
-    }
+    const { id, name, endpoint, write_method } = input;
+    const references = {
+      addons: {},
+      dependencies: dependencies || [],
+    };
+    const parser = new InputToDataParser(config);
+    const data = parser.parse<ClassData>(
+      "service",
+      input,
+      new DefaultGroups(["common"]),
+      references
+    );
 
     const element = ClassSchema.create<ServiceElement>(
-      {
-        name: componentName,
-        props,
-        methods,
-        generics,
-        imports,
-        ctor,
-        inheritance,
-        exp,
-        is_abstract: config.presets.service.elementType === "abstract_class",
-      } as ClassJson,
-      write_method,
+      new DataProvider(data.element),
       config,
-      {
-        addons,
-        dependencies,
-      }
+      references
     );
 
     const component = Component.create<ServiceElement>(config, {
       id: id || nanoid(),
-      type: ServiceType.create(componentName, name),
+      type: ServiceType.create(data.element.name, name),
       endpoint,
-      path: componentPath,
+      path: data.path,
       writeMethod: write_method,
-      addons,
+      addons: references.addons,
       element,
-      dependencies,
+      dependencies: references.dependencies,
+      rank: data.element.rank,
     });
 
     return component;

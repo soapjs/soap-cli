@@ -3,15 +3,20 @@ import { NewModelInteractiveStrategy } from "./strategies/new-model.interactive-
 import { NewModelOptionsStrategy } from "./strategies/new-model.options-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../core";
+import {
+  CliOptionsParser,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 
 export const newModel = async (
-  options: NewModelOptions,
+  rawOptions: NewModelOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
+  const options = CliOptionsParser.parse<NewModelOptions>(rawOptions);
   if (Object.keys(options).includes("name")) {
     new NewModelOptionsStrategy(config, command, compilation).apply(
       options,

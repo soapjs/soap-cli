@@ -4,8 +4,12 @@ import {
   StoryboardSession,
   TimelineFrame,
 } from "@soapjs/soap-cli-interactive";
-import { CreateCollectionFrame, SelectCollectionStoragesFrame } from "./frames";
-import { Texts, ApiJson, Config } from "@soapjs/soap-cli-common";
+import {
+  CreateCollectionFrame,
+  DefineCollectionNameAndEndpointFrame,
+  SelectCollectionStoragesFrame,
+} from "./frames";
+import { Texts, Config, ApiJson } from "@soapjs/soap-cli-common";
 import { localSessionPath } from "../../common/consts";
 import { CommandConfig } from "../../../../core";
 
@@ -39,9 +43,15 @@ export class NewCollectionStoryboard extends Storyboard<ApiJson> {
       new NewCollectionStoryResolver()
     );
 
-    this.addFrame(new SelectCollectionStoragesFrame(config, texts)).addFrame(
-      new CreateCollectionFrame(config, command, texts),
-      (t) => ({ types: t.prevFrame.output })
-    );
+    this.addFrame(new SelectCollectionStoragesFrame(config, texts))
+      .addFrame(new DefineCollectionNameAndEndpointFrame(config, texts))
+      .addFrame(new CreateCollectionFrame(config, command, texts), (t) => {
+        const { name, endpoint } = t.prevFrame.output;
+        return {
+          types: t.getFrame(0).output,
+          name,
+          endpoint,
+        };
+      });
   }
 }

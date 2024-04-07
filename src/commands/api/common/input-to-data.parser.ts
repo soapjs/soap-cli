@@ -27,6 +27,7 @@ import {
   PropData,
   ComponentLabel,
   WriteMethod,
+  SchemaTools,
 } from "@soapjs/soap-cli-common";
 
 type JsonInput = {
@@ -86,7 +87,10 @@ export class InputToDataParser {
     component: ComponentLabel,
     json: JsonInput,
     defaults: DefaultGroups,
-    references?: any
+    references?: {
+      [key: string]: unknown;
+      dependencies: any[];
+    }
   ): ComponentData<T> {
     const { config } = this;
     //
@@ -140,30 +144,83 @@ export class InputToDataParser {
         }
 
         if (Array.isArray(dflts.inheritance)) {
-          inheritance.push(...dflts.inheritance);
+          dflts.inheritance.forEach((i) => {
+            if (i.meta) {
+              const meta = SchemaTools.executeMeta(i, references, config);
+              if (meta) {
+                inheritance.push(i);
+              }
+            } else {
+              inheritance.push(i);
+            }
+          });
         }
 
         if (Array.isArray(dflts.imports)) {
           dflts.imports.forEach((i) => {
             i.ref_path = componentPath;
-            imports.push(i);
+
+            if (i.meta) {
+              const meta = SchemaTools.executeMeta(i, references, config);
+              if (meta) {
+                imports.push(i);
+              }
+            } else {
+              imports.push(i);
+            }
           });
         }
 
         if (Array.isArray(dflts.interfaces)) {
-          interfaces.push(...dflts.interfaces);
+          dflts.interfaces.forEach((i) => {
+            if (i["meta"]) {
+              const meta = SchemaTools.executeMeta(i, references, config);
+              if (meta) {
+                interfaces.push(i);
+              }
+            } else {
+              interfaces.push(i);
+            }
+          });
         }
 
         if (Array.isArray(dflts.methods)) {
-          methods.push(...dflts.methods);
+          dflts.methods.forEach((i) => {
+            if (i.meta) {
+              const meta = SchemaTools.executeMeta(i, references, config);
+              if (meta) {
+                methods.push(i);
+              }
+            } else {
+              methods.push(i);
+            }
+          });
         }
 
         if (Array.isArray(dflts.props)) {
-          props.push(...dflts.props);
+          dflts.props.forEach((i) => {
+            if (i.meta) {
+              const meta = SchemaTools.executeMeta(i, references, config);
+              if (meta) {
+                props.push(i);
+              }
+            } else {
+              props.push(i);
+            }
+          });
         }
 
         if (Array.isArray(dflts.generics)) {
-          generics.push(...dflts.generics);
+          dflts.generics.forEach((i) => {
+            if (i.meta) {
+              const meta = SchemaTools.executeMeta(i, references, config);
+              if (meta) {
+                generics.push(i);
+              }
+            } else {
+              generics.push(i);
+            }
+          });
         }
 
         if (Array.isArray(dflts.tests)) {
@@ -218,6 +275,7 @@ export class InputToDataParser {
           : [],
         tests,
         write_method: json.write_method,
+        rank: json.rank,
       } as T,
     };
   }

@@ -5,13 +5,12 @@ import {
   EntityJson,
   MethodJson,
   ModelJson,
-  ParamJson,
   Texts,
   TypeInfo,
 } from "@soapjs/soap-cli-common";
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CreateParamsInteraction } from "../../../../common/interactions/create-params.interaction";
-import { type } from "os";
+import { CreateParamsInteraction } from "../../../../common";
+import { WriteMethodsAssignment } from "../../../../../../core";
 
 export type HandlerDefinition = MethodJson & {
   input_strategy: "none" | "own" | "request";
@@ -24,14 +23,18 @@ export type DefineHandlerInteractionResult = HandlerDefinition & {
 };
 
 export class DefineHandlerInteraction extends Interaction<DefineHandlerInteractionResult> {
-  constructor(private texts: Texts, protected config: Config) {
+  constructor(
+    private texts: Texts,
+    protected config: Config,
+    protected writeMethods: WriteMethodsAssignment
+  ) {
     super();
   }
   public async run(options?: {
     initialName?: string;
     endpoint?: string;
   }): Promise<DefineHandlerInteractionResult> {
-    const { texts, config } = this;
+    const { texts, config, writeMethods } = this;
     const models = [];
     const entities = [];
     let name;
@@ -86,7 +89,11 @@ export class DefineHandlerInteraction extends Interaction<DefineHandlerInteracti
     const params = [];
 
     if (input_strategy === "own") {
-      const result = await new CreateParamsInteraction(texts, config).run({
+      const result = await new CreateParamsInteraction(
+        texts,
+        config,
+        writeMethods
+      ).run({
         endpoint: options?.endpoint,
         target: name,
       });
@@ -110,11 +117,14 @@ export class DefineHandlerInteraction extends Interaction<DefineHandlerInteracti
           name: componentType.ref,
           types: ["json"],
           endpoint: options?.endpoint,
+          rank: 2,
         });
 
         if (rType.isModel) {
+          json.write_method = writeMethods.relatedComponentsMethods.model;
           models.push(json);
         } else if (rType.isEntity) {
+          json.write_method = writeMethods.relatedComponentsMethods.entity;
           entities.push(json);
         }
       });

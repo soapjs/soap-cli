@@ -82,7 +82,6 @@ export class ContainerFactory {
         exp,
         is_abstract: false,
       },
-      WriteMethod.Write,
       config,
       {
         addons,

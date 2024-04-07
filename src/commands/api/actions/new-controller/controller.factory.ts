@@ -40,7 +40,6 @@ export class ControllerFactory {
 
     const element = ClassSchema.create<ControllerElement>(
       new DataProvider(data.element),
-      write_method,
       config,
       references
     );
@@ -54,6 +53,7 @@ export class ControllerFactory {
       addons: references.addons,
       element,
       dependencies: references.dependencies,
+      rank: data.element.rank,
     });
 
     return component;

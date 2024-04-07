@@ -21,13 +21,10 @@ export class QueryParamsTools {
 }
 
 export class QueryParamsJsonParser {
-  constructor(
-    private config: Config,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod }
-  ) {}
+  constructor(private config: Config) {}
 
   parse(data: RouteJson) {
-    const { config, writeMethod } = this;
+    const { config } = this;
     const { name, endpoint, request } = data;
     const params = QueryParamsTools.extractFromString(request.path);
 
@@ -35,11 +32,13 @@ export class QueryParamsJsonParser {
       return RouteModelFactory.create(
         {
           name,
+          route: name,
           endpoint,
           method: request.method,
           type: RouteModelLabel.QueryParams,
           props: params.map((p) => ({ name: p, type: "string" })),
-          write_method: writeMethod.dependency,
+          write_method: data.write_method,
+          rank: data.rank,
         },
         config
       );

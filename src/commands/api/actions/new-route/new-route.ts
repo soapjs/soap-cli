@@ -3,15 +3,21 @@ import { NewRouteOptionsStrategy } from "./strategies/new-route.options-strategy
 import { NewRouteInteractiveStrategy } from "./strategies/new-route.interactive-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../core";
+import {
+  CliOptionsParser,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 
 export const newRoute = async (
-  options: NewRouteOptions,
+  rawOptions: NewRouteOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
+  const options = CliOptionsParser.parse<NewRouteOptions>(rawOptions);
+
   if (Object.keys(options).includes("name")) {
     new NewRouteOptionsStrategy(config, command, compilation).apply(
       options,

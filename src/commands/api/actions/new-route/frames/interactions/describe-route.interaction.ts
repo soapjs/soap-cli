@@ -1,6 +1,7 @@
 import { camelCase, paramCase } from "change-case";
 import { Texts } from "@soapjs/soap-cli-common";
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { generateRouteDetails } from "../../utils";
 
 export type RouteDescription = {
   name?: string;
@@ -76,6 +77,7 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
     const skip = Array.isArray(options?.skip) ? options.skip : [];
     const choices = [];
     const validation = new DescriptionValidation();
+    const { handlerName, httpMethod } = generateRouteDetails(context.name);
 
     if (skip.includes("name") === false) {
       choices.push({
@@ -101,7 +103,7 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
       choices.push({
         name: "http_method",
         message: texts.get("route_http_method"),
-        initial: "GET",
+        initial: httpMethod,
         hint: texts.get("hint___route_http_method"),
       });
       validation.mustContainHttpMethod = true;
@@ -121,10 +123,7 @@ export class DescribeRouteInteraction extends Interaction<RouteDescription> {
         name: "handler",
         message: texts.get("route_handler"),
         hint: texts.get("hint___route_handler"),
-        initial:
-          context.handler || context.name
-            ? camelCase(`get ${context.name}`)
-            : "",
+        initial: context.handler || context.name ? camelCase(handlerName) : "",
       });
       validation.mustContainHandler = true;
     }

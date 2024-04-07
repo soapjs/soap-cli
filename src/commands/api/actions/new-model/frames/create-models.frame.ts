@@ -14,21 +14,50 @@ import {
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
+import chalk from "chalk";
 
 export class CreateModelsFrame extends Frame<ApiJson> {
   public static NAME = "create_models_frame";
+  private newProps;
 
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(CreateModelsFrame.NAME);
   }
 
-  private adjustPropsToModelType(props, type) {
-    return props.map((prop) => {
+  private async adjustPropsToModelType(
+    endpoint,
+    types,
+    passedProps,
+    result,
+    type
+  ) {
+    const { texts, config, writeMethods } = this;
+
+    if (!this.newProps) {
+      const newPropsResult = await new CreatePropsInteraction(
+        texts,
+        config,
+        writeMethods,
+        2
+      ).run({
+        endpoint,
+        target: "model",
+        areAdditional: passedProps.length > 0,
+        modelTypes: types,
+      });
+
+      result.entities.push(...newPropsResult.entities);
+      result.models.push(...newPropsResult.models);
+      this.newProps = newPropsResult.props;
+    }
+
+    return this.newProps.map((prop) => {
       const propType = TypeInfo.create(prop.type, this.config);
       if (propType.isModel) {
         return {
@@ -46,6 +75,7 @@ export class CreateModelsFrame extends Frame<ApiJson> {
     name?: string;
     endpoint?: string;
     props?: PropJson[];
+    dependencyOf?: string;
   }) {
     const { texts, config, command } = this;
     const result: ApiJson = { models: [], entities: [] };
@@ -53,6 +83,16 @@ export class CreateModelsFrame extends Frame<ApiJson> {
     const passedProps = context?.props || [];
     let name: string;
     let endpoint: string;
+
+    if (context?.dependencyOf) {
+      console.log(
+        chalk.gray(
+          texts
+            .get("setup_model_as_dependency_of_###")
+            .replace("###", context?.dependencyOf)
+        )
+      );
+    }
 
     const res = await new InputNameAndEndpointInteraction({
       nameMessage: texts.get("please_provide_model_name"),
@@ -65,49 +105,55 @@ export class CreateModelsFrame extends Frame<ApiJson> {
     name = res.name;
     endpoint = res.endpoint;
 
-    let writeMethod = WriteMethod.Write;
-    const newPropsResult = await new CreatePropsInteraction(
-      texts,
-      config,
-      command.dependencies_write_method
-    ).run({
-      endpoint,
-      target: "model",
-      areAdditional: passedProps.length > 0,
-      modelTypes: types,
-    });
+    let write_method = command.write_method;
 
-    result.entities.push(...newPropsResult.entities);
-    result.models.push(...newPropsResult.models);
-
-    for (const type of types) {
-      const componentName = config.presets.model.generateName(name);
-      const componentPath = config.presets.model.generatePath({
-        name,
-        type,
-        endpoint,
-      }).path;
-
-      if (command.force === false) {
-        if (existsSync(componentPath)) {
-          writeMethod = await new SelectComponentWriteMethodInteraction(
-            texts
-          ).run(componentName);
-        }
-      }
-
-      if (writeMethod !== WriteMethod.Skip) {
-        const props = this.adjustPropsToModelType(newPropsResult.props, type);
-
+    if (context?.dependencyOf) {
+      types.forEach((t) => {
         result.models.push({
           name,
-          types: [type],
-          props: [...passedProps, ...props],
           endpoint,
+          types: [t],
+          write_method: this.writeMethods.relatedComponentsMethods.model,
+          rank: 2,
         });
+      });
+    } else {
+      for (const type of types) {
+        const componentName = config.presets.model.generateName(name);
+        const componentPath = config.presets.model.generatePath({
+          name,
+          type,
+          endpoint,
+        }).path;
+
+        if (command.force === false) {
+          if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+            write_method = await new SelectComponentWriteMethodInteraction(
+              texts
+            ).run(componentName);
+          }
+        }
+
+        if (write_method !== WriteMethod.Skip) {
+          const props = await this.adjustPropsToModelType(
+            endpoint,
+            types,
+            passedProps,
+            result,
+            type
+          );
+
+          result.models.push({
+            name,
+            types: [type],
+            props: [...passedProps, ...props],
+            endpoint,
+            write_method,
+            rank: 0,
+          });
+        }
       }
     }
-
     return result;
   }
 }

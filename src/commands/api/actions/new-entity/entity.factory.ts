@@ -1,8 +1,10 @@
 import { nanoid } from "nanoid";
 import {
+  ClassData,
   ClassSchema,
   Component,
   Config,
+  DataProvider,
   Entity,
   EntityAddons,
   EntityElement,
@@ -10,99 +12,47 @@ import {
   Model,
 } from "@soapjs/soap-cli-common";
 import { EntityFactoryInput } from "./types";
+import {
+  DefaultGroups,
+  InputToDataParser,
+} from "../../common/input-to-data.parser";
 
 export class EntityFactory {
   static create(
-    data: EntityFactoryInput,
+    input: EntityFactoryInput,
     model: Model,
     config: Config,
     dependencies?: Component[]
   ): Entity {
-    const _dependencies = dependencies || [];
-    const { id, name, endpoint, write_method } = data;
-    const addons = { hasModel: !!model };
-    const { defaults } = config.presets.entity;
-    const componentName = config.presets.entity.generateName(name);
-    const componentPath = config.presets.entity.generatePath({
-      name,
-      endpoint,
-    }).path;
-    const props = [];
-    const methods = [];
-    const imports = [];
-    const generics = [];
-    const inheritance = [];
-    let ctor;
-    let exp;
-
-    if (defaults?.common?.exp) {
-      exp = defaults.common.exp;
-    }
-
-    if (defaults?.common.ctor) {
-      ctor = defaults.common.ctor;
-    }
-
-    if (Array.isArray(defaults?.common?.methods)) {
-      methods.push(...defaults.common.methods);
-    }
-
-    if (Array.isArray(defaults?.common?.inheritance)) {
-      inheritance.push(...defaults.common.inheritance);
-    }
-
-    if (Array.isArray(defaults?.common?.props)) {
-      props.push(...defaults.common.props);
-    }
-
-    if (Array.isArray(data.props)) {
-      props.push(...data.props);
-    }
-
-    if (Array.isArray(data.methods)) {
-      methods.push(...data.methods);
-    }
-
-    if (Array.isArray(defaults?.common?.imports)) {
-      defaults.common.imports.forEach((i) => {
-        i.ref_path = componentPath;
-        imports.push(i);
-      });
-    }
-
-    if (Array.isArray(defaults?.common?.generics)) {
-      generics.push(...defaults.common.generics);
-    }
+    const { id, name, endpoint, write_method } = input;
+    const references = {
+      addons: { hasModel: !!model },
+      dependencies: dependencies || [],
+    };
+    const parser = new InputToDataParser(config);
+    const data = parser.parse<ClassData>(
+      "entity",
+      input,
+      new DefaultGroups(["common"]),
+      references
+    );
 
     const element = ClassSchema.create<EntityElement>(
-      {
-        name: componentName,
-        props,
-        methods,
-        generics,
-        imports,
-        ctor,
-        inheritance,
-        exp,
-        is_abstract: config.presets.entity.elementType === "abstract_class",
-      },
-      write_method,
+      new DataProvider(data.element),
       config,
-      {
-        addons,
-        dependencies: [model, ..._dependencies],
-      }
+      references
     );
 
     const component = Component.create<EntityElement, EntityAddons>(config, {
       id: id || nanoid(),
-      type: EntityType.create(componentName, name),
+      type: EntityType.create(data.element.name, name),
       endpoint,
-      path: componentPath,
+      path: data.path,
       writeMethod: write_method,
-      addons,
+      addons: references.addons,
       element,
-      dependencies: _dependencies,
+      dependencies: references.dependencies,
+      rank: data.element.rank,
     });
 
     if (model) {

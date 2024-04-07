@@ -13,6 +13,7 @@ import {
   MethodJson,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { WriteMethodsAssignment } from "../../../../../core";
 
 export type HandlerRoutes = {
   routes: RouteJson[];
@@ -27,7 +28,11 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
   private selectRequestBodyFrame: SelectRequestBodyTypeFrame;
   private selectResponseBodyFrame: SelectResponseBodyTypeFrame;
 
-  constructor(protected config: Config, protected texts: Texts) {
+  constructor(
+    protected config: Config,
+    protected writeMethods: WriteMethodsAssignment,
+    protected texts: Texts
+  ) {
     super(CreateRoutesForHandlersFrame.NAME);
 
     this.interaction = new DescribeRouteInteraction(texts);
@@ -42,7 +47,7 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
     entities: EntityJson[];
     models: ModelJson[];
   }) {
-    const { texts } = this;
+    const { texts, writeMethods } = this;
     const { handlers, name, endpoint } = context;
     const result = { routes: [], models: [], entities: [] };
     let i = 0;
@@ -89,6 +94,8 @@ export class CreateRoutesForHandlersFrame extends Frame<HandlerRoutes> {
             body,
           },
           response,
+          write_method: writeMethods.relatedComponentsMethods.route,
+          rank: 2,
         };
         result.routes.push(route);
 

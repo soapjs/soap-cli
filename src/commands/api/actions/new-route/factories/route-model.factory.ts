@@ -17,7 +17,7 @@ export class RouteModelFactory {
     dependencies?: Component[]
   ): Component<RouteModelElement, RouteModelAddons> {
     const _deps = dependencies || [];
-    const { method, name, type, endpoint, alias, write_method } = data;
+    const { method, name, type, endpoint, alias, write_method, route } = data;
     const addons = { modelType: type };
     const { defaults } = config.presets.route_model;
     const componentName = config.presets.route_model.generateName(name, {
@@ -28,9 +28,10 @@ export class RouteModelFactory {
     const methodLC = method?.toLowerCase() || "";
     const componentPath = config.presets.route_model.generatePath({
       name,
-      type: typeLC,
-      method: methodLC,
       endpoint,
+      route,
+      type,
+      method
     }).path;
     const imports = [];
     const props = [];
@@ -86,7 +87,6 @@ export class RouteModelFactory {
         props,
         generics,
         exp,
-        alias,
       } as TypeJson,
       config,
       {
@@ -106,6 +106,7 @@ export class RouteModelFactory {
         addons,
         element,
         dependencies: _deps,
+        rank: data.rank,
       }
     );
 

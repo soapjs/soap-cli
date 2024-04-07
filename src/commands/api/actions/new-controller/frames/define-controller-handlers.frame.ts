@@ -1,6 +1,6 @@
 import { EntityJson, ModelJson, Texts, Config } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { WriteMethodsAssignment } from "../../../../../core";
 import {
   DefineHandlerInteraction,
   HandlerDefinition,
@@ -17,14 +17,14 @@ export class DefineControllerHandlersFrame extends Frame<ControllerHandlers> {
 
   constructor(
     protected config: Config,
-    protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(DefineControllerHandlersFrame.NAME);
   }
 
   public async run(context: { endpoint: string; name: string }) {
-    const { texts, config, command } = this;
+    const { texts, config, writeMethods } = this;
     const result: ControllerHandlers = {
       handlers: [],
       models: [],
@@ -41,7 +41,7 @@ export class DefineControllerHandlersFrame extends Frame<ControllerHandlers> {
       let handler;
       do {
         const { models, entities, ...definition } =
-          await new DefineHandlerInteraction(texts, config).run({
+          await new DefineHandlerInteraction(texts, config, writeMethods).run({
             endpoint: context?.endpoint,
           });
         handler = definition;

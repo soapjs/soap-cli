@@ -197,7 +197,6 @@ export class RouteFactory {
         exp,
         is_abstract: config.presets.route.elementType === "abstract_class",
       },
-      write_method,
       config,
       {
         addons,
@@ -214,6 +213,7 @@ export class RouteFactory {
       addons,
       element,
       dependencies,
+      rank: data.rank,
     });
 
     return component;

@@ -53,7 +53,7 @@ export class RepositoryIocContainer {
           const sourceImport = config.presets.container.defaults[
             type
           ].imports.find((i) => i.meta.includes("isSource"));
-          
+
           const inheritanceImport = config.presets.container.defaults[
             type
           ].imports.find((i) => i.meta.includes("isCollection"));
@@ -83,6 +83,8 @@ export class RepositoryIocContainer {
             ctx.query_factory = queryFactoryImport.list[0];
           }
         }
+
+        ctx.is_custom_collection = context.collection.addons.is_custom;
 
         if (context.collection.addons.is_custom) {
           ctx.collection = context.collection.type.name;

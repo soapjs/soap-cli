@@ -10,6 +10,7 @@ import {
   Texts,
   TypeInfo,
 } from "@soapjs/soap-cli-common";
+import { WriteMethodsAssignment } from "../../../../core";
 
 export type CreateParamsInteractionResult = {
   params: ParamJson[];
@@ -18,7 +19,11 @@ export type CreateParamsInteractionResult = {
 };
 
 export class CreateParamsInteraction extends Interaction<CreateParamsInteractionResult> {
-  constructor(protected texts: Texts, protected config: Config) {
+  constructor(
+    protected texts: Texts,
+    protected config: Config,
+    protected writeMethods: WriteMethodsAssignment
+  ) {
     super();
   }
   public async run(
@@ -50,22 +55,22 @@ export class CreateParamsInteraction extends Interaction<CreateParamsInteraction
         const type = TypeInfo.create(param.type, config);
         const types = ComponentTools.filterComponentTypes(type);
 
-        // if (dependencies_write_method !== WriteMethod.Skip) {
-
         types.forEach((componentType) => {
           const json = ComponentJsonFactory.create(componentType, {
             name: componentType.ref,
             types: ["json"],
             endpoint: context.endpoint,
+            rank: 2,
           });
 
           if (type.isModel) {
+            json.write_method = this.writeMethods.relatedComponentsMethods.model;
             result.models.push(json);
           } else if (type.isEntity) {
+            json.write_method = this.writeMethods.relatedComponentsMethods.entity;
             result.entities.push(json);
           }
         });
-        // }
       } while (
         await InteractionPrompts.confirm(
           texts

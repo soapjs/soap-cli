@@ -1,6 +1,6 @@
 export type DefaultCliOptions = {
-  skipTests?: boolean;
-  withDeps?: boolean;
+  tests?: boolean;
+  rel?: string[];
   force?: boolean;
   patch?: boolean;
   json?: string;

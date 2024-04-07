@@ -11,9 +11,11 @@ export class ComponentFactory {
     type: TypeInfo,
     config: Config,
     data: {
-      endpoint?: string;
-      props?: [];
       write_method: WriteMethod;
+      props?: [];
+      endpoint?: string;
+      rank: number;
+      route?: string;
       method?: string;
       type?: string;
       alias?: string;
@@ -27,6 +29,7 @@ export class ComponentFactory {
           type: type.type,
           props: data.props || [],
           write_method: data.write_method,
+          rank: data.rank,
         },
         config
       );
@@ -37,6 +40,7 @@ export class ComponentFactory {
           endpoint: data.endpoint,
           props: data.props || [],
           write_method: data.write_method,
+          rank: data.rank,
         },
         null,
         config
@@ -45,11 +49,13 @@ export class ComponentFactory {
       return RouteModelFactory.create(
         {
           name: type.ref,
+          route: data.route,
           endpoint: data.endpoint,
           method: data.method,
           type: data.type,
           alias: type.ref,
           write_method: data.write_method,
+          rank: data.rank,
         },
         config
       );

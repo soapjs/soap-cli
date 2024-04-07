@@ -1,6 +1,5 @@
 import { nanoid } from "nanoid";
 import {
-  ClassData,
   ClassSchema,
   Config,
   Router,
@@ -75,7 +74,6 @@ export class RouterFactory {
         exp,
         is_abstract: false,
       },
-      WriteMethod.Write,
       config,
       {
         addons,

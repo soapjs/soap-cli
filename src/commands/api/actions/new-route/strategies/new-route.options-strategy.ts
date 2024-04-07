@@ -4,7 +4,6 @@ import { ApiGenerator } from "../../../common";
 import {
   Config,
   ControllerJson,
-  MethodDataParser,
   MethodJson,
   MethodStringParser,
   RouteJson,
@@ -13,7 +12,12 @@ import {
   Texts,
 } from "@soapjs/soap-cli-common";
 import { NewRouteOptions } from "../types";
-import { CommandConfig, CompilationConfig } from "../../../../../core";
+import {
+  CommandConfig,
+  CompilationConfig,
+  WriteMethodResolver,
+} from "../../../../../core";
+import { generateRouteDetails } from "../utils";
 
 export class NewRouteOptionsStrategy extends Strategy {
   constructor(
@@ -54,12 +58,17 @@ export class NewRouteOptionsStrategy extends Strategy {
       name: options.controller,
       endpoint,
       handlers: [],
+      write_method:
+        WriteMethodResolver.resolveWriteMethods(command)
+          .relatedComponentsMethods.controller,
     };
 
     if (options.handler) {
       handler = MethodStringParser.parse(options.handler);
       controller.handlers.push(handler);
     }
+
+    const { handlerName, httpMethod } = generateRouteDetails(name);
 
     const route: RouteJson = {
       name,
@@ -68,14 +77,16 @@ export class NewRouteOptionsStrategy extends Strategy {
         path,
         auth,
         validate,
-        method: method || RouteMethodType.Get,
+        method: method || httpMethod,
         body,
         cors: cors ? { origin: "*" } : null,
         rate_limiter: limiter ? { max_requests: 1000 } : null,
       },
       response,
-      handler: handler.name,
+      handler: handler.name || handlerName,
       controller: options.controller,
+      write_method: command.write_method,
+      rank: 0,
     };
 
     const schema = new ApiJsonParser(config, command, texts).build({

@@ -9,37 +9,36 @@ import {
   ControllerJson,
   MethodDataParser,
   Texts,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
-import { CommandConfig, DependencyTools } from "../../../../../core";
-import { EntityFactory } from "../../new-entity";
-import { pascalCase } from "change-case";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../../core";
 
 export class ControllerJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {}
 
-  parse(
-    list: ControllerJson[],
-    writeMethod?: WriteMethod
-  ): {
+  parse(list: ControllerJson[]): {
     components: Component[];
   } {
-    const { config, texts, command, apiSchema } = this;
+    const { config, texts, command, apiSchema, writeMethods } = this;
     const registry = new ComponentRegistry();
 
     for (const data of list) {
-      const { name, endpoint, handlers, ...rest } = data;
+      const { name, endpoint, handlers, rank, ...rest } = data;
       const context = {
         name,
         endpoint,
         handlers: [],
-        write_method: writeMethod || this.writeMethod.component,
+        write_method: command.write_method,
+        rank,
         ...rest,
       };
 
@@ -70,21 +69,21 @@ export class ControllerJsonParser {
         registry.toArray()
       );
 
-      if (!command.skip_tests && controller.element.methods.length > 0) {
+      if (!command.no_tests && controller.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests" },
           controller,
-          this.writeMethod.component,
+          command.write_method,
           config
         );
         registry.add(suite);
       }
 
-      const resolved = DependencyTools.resolveMissingDependnecies(
+      const resolved = DependencyResolver.resolveMissingDependencies(
         controller,
         config,
-        this.writeMethod.dependency,
+        writeMethods.relatedComponentsMethods,
         apiSchema
       );
 

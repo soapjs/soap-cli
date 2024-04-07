@@ -1,17 +1,19 @@
 import { Config, Texts } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { WriteMethodsAssignment } from "../../../../../core";
 
 export class SelectModelTypesFrame extends Frame<string[]> {
   public static NAME = "select_model_types_frame";
   constructor(
     protected config: Config,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(SelectModelTypesFrame.NAME);
   }
 
   public async run() {
-    const { texts, config } = this;
+    const { texts, config, writeMethods } = this;
     const choices: {}[] = [
       {
         message: texts.get("JSON"),

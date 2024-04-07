@@ -1,3 +1,40 @@
+const httpMethodsMapping = {
+  // GET
+  get: "GET",
+  list: "GET",
+  find: "GET",
+  fetch: "GET",
+  read: "GET",
+  query: "GET",
+  // POST
+  add: "POST",
+  create: "POST",
+  new: "POST",
+  submit: "POST",
+  insert: "POST",
+  login: "POST",
+  logout: "POST",
+  register: "POST",
+  signUp: "POST",
+  signIn: "POST",
+  authorize: "POST",
+  validate: "POST",
+  verify: "POST",
+  authenticate: "POST",
+  // PUT
+  update: "PUT",
+  modify: "PUT",
+  change: "PUT",
+  edit: "PUT",
+  // DELETE
+  remove: "DELETE",
+  delete: "DELETE",
+  erase: "DELETE",
+  patch: "PATCH",
+  adjust: "PATCH",
+  revise: "PATCH",
+};
+
 export const hasBody = (body: unknown) => {
   if (
     typeof body === "string" ||
@@ -30,7 +67,6 @@ export const processBody = (input) => {
     }
 
     if (type === "array" && value.length > 0) {
-
       const firstItem = value[0];
       if (typeof firstItem === "object" && !Array.isArray(firstItem)) {
         const itemProps = processBody([firstItem]);
@@ -49,26 +85,32 @@ export const processBody = (input) => {
   }
 
   return result;
-}
+};
 
-// // Example usage:
-// const input = {
-//   model: {
-//     id: "string",
-//     category: "string",
-//     coords: {
-//       x: "number",
-//       y: "number",
-//       z: "number",
-//     },
-//   },
-//   arenas: [
-//     {
-//       ground: "string",
-//       size: "number",
-//     },
-//   ],
-//   labels: ["string"],
-// };
+export const generateRouteDetails = (routeName: string) => {
+  let action = "get";
+  let defaultHttpMethod = "GET";
 
-// console.log(processObject(input));
+  Object.keys(httpMethodsMapping).forEach((key) => {
+    if (routeName.toLowerCase().startsWith(key)) {
+      action = key;
+      defaultHttpMethod = httpMethodsMapping[key];
+    }
+  });
+
+  let handlerName = routeName.charAt(0).toLowerCase() + routeName.slice(1);
+  if (
+    !Object.keys(httpMethodsMapping).some((prefix) =>
+      handlerName.toLowerCase().startsWith(prefix)
+    )
+  ) {
+    handlerName = `${action}${handlerName
+      .charAt(0)
+      .toUpperCase()}${handlerName.slice(1)}`;
+  }
+
+  return {
+    httpMethod: defaultHttpMethod,
+    handlerName,
+  };
+};

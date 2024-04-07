@@ -4,18 +4,17 @@ import {
   Component,
   ComponentRegistry,
   Config,
-  Entity,
-  Model,
-  Service,
   ServiceImpl,
   ServiceJson,
-  TestSuite,
   Texts,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { TestSuiteFactory } from "../new-test-suite";
 import { ServiceFactory } from "./factories/service.factory";
-import { CommandConfig, DependencyTools } from "../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../core";
 import { ServiceImplFactory } from "./factories/service-impl.factory";
 import { ServiceIocContext } from "./types";
 
@@ -23,37 +22,36 @@ export class ServiceJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {}
 
   buildTestSuite(data: ServiceJson, service: ServiceImpl) {
-    const { config, writeMethod } = this;
+    const { config, command } = this;
     const { name, endpoint } = data;
     const suite = TestSuiteFactory.create(
       { name, endpoint, type: "unit_tests" },
       service,
-      writeMethod.component,
+      command.write_method,
       config
     );
 
     return suite;
   }
 
-  parse(
-    list: ServiceJson[],
-    writeMethod?: WriteMethod
-  ): {
+  parse(list: ServiceJson[]): {
     components: Component[];
     ioc_contexts: ServiceIocContext[];
   } {
-    const { config, texts, command, apiSchema } = this;
+    const { config, texts, command, apiSchema, writeMethods } = this;
     const ioc_contexts: ServiceIocContext[] = [];
     const registry = new ComponentRegistry();
 
     for (const data of list) {
       const { name, endpoint } = data;
+      const write_method = data.write_method || command.write_method;
+      const rank = data.rank || 0;
 
       if (!endpoint && config.presets.service.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
@@ -68,28 +66,28 @@ export class ServiceJsonParser {
       }
 
       const service = ServiceFactory.create(
-        { ...data, write_method: writeMethod || this.writeMethod.component },
+        { ...data, write_method, rank },
 
         config,
         []
       );
 
       const serviceImpl = ServiceImplFactory.create(
-        { ...data, write_method: writeMethod || this.writeMethod.component },
+        { ...data, write_method, rank },
         service,
         config
       );
       registry.add(serviceImpl);
 
-      if (!command.skip_tests) {
+      if (!command.no_tests) {
         const suite = this.buildTestSuite(data, serviceImpl);
         registry.add(suite);
       }
 
-      const missingDependencies = DependencyTools.resolveMissingDependnecies(
+      const missingDependencies = DependencyResolver.resolveMissingDependencies(
         service,
         config,
-        this.writeMethod.dependency,
+        writeMethods.relatedComponentsMethods,
         apiSchema
       );
 

@@ -14,7 +14,7 @@ import {
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
 
 export class CreateRepositoryFrame extends Frame<ApiJson> {
   public static NAME = "create_repository_frame";
@@ -22,6 +22,7 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(CreateRepositoryFrame.NAME);
@@ -31,7 +32,7 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
     context: RepositoryDescription &
       RepositoryNameAndEndpoint & { entity: EntityJson; models: ModelJson[] }
   ) {
-    const { texts, config, command } = this;
+    const { texts, config, command, writeMethods } = this;
     const {
       name,
       endpoint,
@@ -46,50 +47,50 @@ export class CreateRepositoryFrame extends Frame<ApiJson> {
       name,
       endpoint,
     }).path;
-    let writeMethod = WriteMethod.Write;
+    let write_method = command.write_method;
 
     if (command.force === false) {
-      if (existsSync(componentPath)) {
-        writeMethod = await new SelectComponentWriteMethodInteraction(
+      if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+        write_method = await new SelectComponentWriteMethodInteraction(
           texts
         ).run(componentName);
       }
     }
 
-    if (writeMethod !== WriteMethod.Skip) {
-      const contexts = [...context.contexts];
-      let defineMethodsResult = { methods: [], entities: [], models: [] };
+    const contexts = [...context.contexts];
+    let defineMethodsResult = { methods: [], entities: [], models: [] };
 
-      if (willHaveAdditionalContent) {
-        const references = { models: [...models], entities: [] };
-        if (entity) {
-          references.entities.push(entity);
-        }
-        defineMethodsResult = await new DefineMethodsInteraction(
-          texts,
-          config,
-          command.dependencies_write_method,
-          references
-        ).run({ endpoint: endpoint, component: "repository" });
-
-        result.entities.push(...defineMethodsResult.entities);
-        result.models.push(...defineMethodsResult.models);
+    if (willHaveAdditionalContent && write_method !== WriteMethod.Skip) {
+      const references = { models: [...models], entities: [] };
+      if (entity) {
+        references.entities.push(entity);
       }
+      defineMethodsResult = await new DefineMethodsInteraction(
+        texts,
+        config,
+        writeMethods,
+        references
+      ).run({ endpoint: endpoint, component: "repository" });
 
-      contexts.forEach((ctx) => {
-        const model = models.find((m) => m.types.includes(ctx.type));
-        ctx.model = model.name;
-      });
-
-      result.repositories.push({
-        name,
-        methods: defineMethodsResult.methods,
-        entity: entity.name,
-        endpoint,
-        impl: createImplementation,
-        contexts,
-      });
+      result.entities.push(...defineMethodsResult.entities);
+      result.models.push(...defineMethodsResult.models);
     }
+
+    contexts.forEach((ctx) => {
+      const model = models.find((m) => m.types.includes(ctx.type));
+      ctx.model = model.name;
+    });
+
+    result.repositories.push({
+      name,
+      methods: defineMethodsResult.methods,
+      entity: entity.name,
+      endpoint,
+      impl: createImplementation,
+      contexts,
+      write_method,
+      rank: 0,
+    });
 
     return result;
   }

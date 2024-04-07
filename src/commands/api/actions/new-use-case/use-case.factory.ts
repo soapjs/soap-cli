@@ -60,7 +60,6 @@ export class UseCaseFactory {
 
     const element = ClassSchema.create<UseCaseElement>(
       new DataProvider(data.element),
-      write_method,
       config,
       {
         addons: {},
@@ -70,13 +69,14 @@ export class UseCaseFactory {
 
     const component = Component.create<UseCaseElement>(config, {
       id,
-      type: UseCaseType.create(input.name, name),
+      type: UseCaseType.create(data.element.name, name),
       endpoint,
       path: data.path,
       writeMethod: write_method,
       addons: {},
       element,
       dependencies,
+      rank: data.element.rank,
     });
 
     return component;

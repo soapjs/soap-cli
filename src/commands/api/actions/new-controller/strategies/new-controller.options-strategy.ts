@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { NewControllerOptions } from "../types";
 import { ApiJsonParser } from "../../../common/api-json.parser";
 import {
-  CliOptionsTools,
+  CliOptionsParser,
   CommandConfig,
   CompilationConfig,
 } from "../../../../../core";
@@ -38,7 +38,7 @@ export class NewControllerOptionsStrategy extends Strategy {
 
     const { endpoint, name } = options;
     const handlers: MethodJson[] = [];
-    CliOptionsTools.splitArrayOption(options.handlers).forEach((handler) => {
+    options.handlers.forEach((handler) => {
       const json = MethodStringParser.parse(handler);
       handlers.push({
         ...json,
@@ -51,6 +51,8 @@ export class NewControllerOptionsStrategy extends Strategy {
       name,
       endpoint,
       handlers,
+      write_method: command.write_method,
+      rank: 0,
     };
 
     const schema = new ApiJsonParser(config, command, texts).build({

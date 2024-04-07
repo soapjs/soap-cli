@@ -4,38 +4,36 @@ import {
   Component,
   ComponentRegistry,
   Config,
-  Entity,
-  Model,
-  TestSuite,
   Texts,
-  Toolset,
   ToolsetJson,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { TestSuiteFactory } from "../new-test-suite";
 import { ToolsetFactory } from "./toolset.factory";
-import { CommandConfig, DependencyTools } from "../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../core";
 
 export class ToolsetJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {}
 
-  parse(
-    list: ToolsetJson[],
-    writeMethod?: WriteMethod
-  ): {
+  parse(list: ToolsetJson[]): {
     components: Component[];
   } {
-    const { config, texts, command, apiSchema } = this;
+    const { config, texts, command, apiSchema, writeMethods } = this;
     const registry = new ComponentRegistry();
 
     for (const data of list) {
       const { name, endpoint, layer } = data;
+      const write_method = data.write_method || command.write_method;
+      const rank = data.rank || 0;
 
       if (!endpoint && config.presets.toolset.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
@@ -50,17 +48,17 @@ export class ToolsetJsonParser {
       }
 
       const toolset = ToolsetFactory.create(
-        { ...data, write_method: writeMethod || this.writeMethod.component },
+        { ...data, write_method, rank },
         config,
         []
       );
 
-      if (!command.skip_tests && toolset.element.methods.length > 0) {
+      if (!command.no_tests && toolset.element.methods.length > 0) {
         //
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests", layer },
           toolset,
-          this.writeMethod.component,
+          write_method,
           config
         );
 
@@ -71,10 +69,10 @@ export class ToolsetJsonParser {
     }
 
     registry.toolsets.forEach((toolset) => {
-      const resolved = DependencyTools.resolveMissingDependnecies(
+      const resolved = DependencyResolver.resolveMissingDependencies(
         toolset,
         config,
-        this.writeMethod.dependency,
+        writeMethods.relatedComponentsMethods,
         apiSchema
       );
       registry.add(...resolved.models);

@@ -14,7 +14,7 @@ import {
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { Frame, InteractionPrompts } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
 import chalk from "chalk";
 
 export class CreateMappersFrame extends Frame<ApiJson> {
@@ -23,6 +23,7 @@ export class CreateMappersFrame extends Frame<ApiJson> {
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(CreateMappersFrame.NAME);
@@ -34,7 +35,7 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     entity: EntityJson,
     passProps: boolean
   ): Promise<ModelJson[]> {
-    const { texts, config } = this;
+    const { texts, config, writeMethods } = this;
 
     const inputs = dbs.map((db) => {
       const dbDesc = config.databases.find((adb) => adb.alias === db);
@@ -56,6 +57,8 @@ export class CreateMappersFrame extends Frame<ApiJson> {
         types: [db],
         props: passProps ? entity.props : [],
         endpoint: entity.endpoint,
+        write_method: writeMethods.relatedComponentsMethods.model,
+        rank: 2,
       };
     });
 
@@ -68,7 +71,7 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     endpoint?: string;
     props?: PropJson[];
   }) {
-    const { texts, config, command } = this;
+    const { texts, config, command, writeMethods } = this;
     const result: ApiJson = { models: [], entities: [], mappers: [] };
     const storages = context.storages ? [...context.storages] : [];
     const { name, endpoint } = await new InputNameAndEndpointInteraction({
@@ -78,23 +81,19 @@ export class CreateMappersFrame extends Frame<ApiJson> {
       ...context,
       isEndpointRequired: config.presets.mapper.isEndpointRequired(),
     });
-    let writeMethod = WriteMethod.Write;
+    let write_method = command.write_method;
     let entity: EntityJson;
     let passProps = false;
-
-    console.log(
-      chalk.gray(
-        texts.get("setup_entity_as_dependency_of_###").replace("###", "mapper")
-      )
-    );
 
     const createEntityResult = await new CreateEntityFrame(
       config,
       command,
+      writeMethods,
       texts
     ).run({
       name,
       endpoint,
+      dependencyOf: "mapper",
     });
     entity = createEntityResult.entities.at(-1);
 
@@ -105,12 +104,9 @@ export class CreateMappersFrame extends Frame<ApiJson> {
     }
 
     const models = await this.defineModels(storages, name, entity, passProps);
-
-    if (command.dependencies_write_method !== WriteMethod.Skip) {
-      result.entities.push(...createEntityResult.entities);
-      result.models.push(...createEntityResult.models);
-      result.models.push(...models);
-    }
+    result.entities.push(...createEntityResult.entities);
+    result.models.push(...createEntityResult.models);
+    result.models.push(...models);
 
     for (const storage of storages) {
       const componentName = config.presets.mapper.generateName(name);
@@ -121,24 +117,25 @@ export class CreateMappersFrame extends Frame<ApiJson> {
       }).path;
 
       if (command.force === false) {
-        if (existsSync(componentPath)) {
-          writeMethod = await new SelectComponentWriteMethodInteraction(
+        if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+          write_method = await new SelectComponentWriteMethodInteraction(
             texts
           ).run(componentName);
         }
       }
 
-      if (writeMethod !== WriteMethod.Skip) {
-        const model = models.find((m) => m.types.includes(storage));
-        result.mappers.push({
-          name,
-          entity: entity.name,
-          model: model.name,
-          types: [storage],
-          endpoint,
-        });
-      }
+      const model = models.find((m) => m.types.includes(storage));
+      result.mappers.push({
+        name,
+        entity: entity.name,
+        model: model.name,
+        types: [storage],
+        endpoint,
+        write_method,
+        rank: 0,
+      });
     }
+
     return result;
   }
 }

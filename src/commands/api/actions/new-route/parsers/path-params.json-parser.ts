@@ -1,9 +1,4 @@
-import {
-  Config,
-  RouteJson,
-  RouteModelLabel,
-  WriteMethod,
-} from "@soapjs/soap-cli-common";
+import { Config, RouteJson, RouteModelLabel } from "@soapjs/soap-cli-common";
 import { RouteModelFactory } from "../factories/route-model.factory";
 
 export class PathParamsTools {
@@ -23,13 +18,10 @@ export class PathParamsTools {
 }
 
 export class PathParamsJsonParser {
-  constructor(
-    private config: Config,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod }
-  ) {}
+  constructor(private config: Config) {}
 
   parse(data: RouteJson) {
-    const { config, writeMethod } = this;
+    const { config } = this;
     const { name, endpoint, request } = data;
     const params = PathParamsTools.extractFromString(request.path);
 
@@ -37,11 +29,13 @@ export class PathParamsJsonParser {
       return RouteModelFactory.create(
         {
           name,
+          route: name,
           endpoint,
           method: request.method,
           type: RouteModelLabel.PathParams,
           props: params.map((p) => ({ name: p, type: "string" })),
-          write_method: writeMethod.dependency,
+          write_method: data.write_method,
+          rank: data.rank,
         },
         config
       );

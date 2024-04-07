@@ -6,10 +6,10 @@ import {
   ParamSchema,
   Texts,
   TypeInfo,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { DefineMethodInteraction } from "./define-method.interaction";
 import { Interaction, InteractionPrompts } from "@soapjs/soap-cli-interactive";
+import { WriteMethodsAssignment } from "../../../../core";
 
 type InteractionResult = {
   methods: MethodJson[];
@@ -21,8 +21,11 @@ export class DefineMethodsInteraction extends Interaction<InteractionResult> {
   constructor(
     protected texts: Texts,
     protected config: Config,
-    protected dependencies_write_method: WriteMethod,
-    protected references?: { models?: ModelJson[]; entities?: EntityJson[] }
+    protected writeMethods: WriteMethodsAssignment,
+    protected references?: {
+      models?: ModelJson[];
+      entities?: EntityJson[];
+    }
   ) {
     super();
   }
@@ -52,7 +55,7 @@ export class DefineMethodsInteraction extends Interaction<InteractionResult> {
     component?: string;
     title?: string;
   }): Promise<InteractionResult> {
-    const { texts, config, dependencies_write_method, references } = this;
+    const { texts, config, writeMethods, references } = this;
     const result = { methods: [], models: [], entities: [] };
 
     if (
@@ -69,57 +72,49 @@ export class DefineMethodsInteraction extends Interaction<InteractionResult> {
         method = await new DefineMethodInteraction(texts).run();
         result.methods.push(method);
 
-        if (dependencies_write_method !== WriteMethod.Skip) {
-          const types = [];
-          if (method.return_type) {
-            const rt = TypeInfo.create(method.return_type, config);
-            if (rt.isComponentType && this.isUnique(references, rt)) {
-              types.push(rt);
-            }
+        const types = [];
+        if (method.return_type) {
+          const rt = TypeInfo.create(method.return_type, config);
+          if (rt.isComponentType && this.isUnique(references, rt)) {
+            types.push(rt);
           }
+        }
 
-          if (Array.isArray(method.params)) {
-            method.params.forEach((str) => {
-              const param = ParamSchema.create(str, config);
-              if (
-                param.type.isComponentType &&
-                this.isUnique(references, param.type)
-              ) {
-                types.push(param.type);
-              }
-            });
-          }
-
-          for (const type of types) {
+        if (Array.isArray(method.params)) {
+          method.params.forEach((str) => {
+            const param = ParamSchema.create(str, config);
             if (
-              type.isModel &&
-              (await InteractionPrompts.confirm(
-                texts.get("non_standard_type_detected__create_one")
-              ))
+              param.type.isComponentType &&
+              this.isUnique(references, param.type)
             ) {
-              const c = result.models.find(
-                (m) => m.name === type.ref && m.types.includes(type.type)
-              );
-              if (!c) {
-                result.models.push({
-                  name: type.ref,
-                  types: [type.type],
-                  endpoint: context.endpoint,
-                });
-              }
-            } else if (
-              type.isEntity &&
-              (await InteractionPrompts.confirm(
-                texts.get("non_standard_type_detected__create_one")
-              ))
-            ) {
-              const c = result.entities.find((m) => m.name === type.ref);
-              if (!c) {
-                result.entities.push({
-                  name: type.ref,
-                  endpoint: context.endpoint,
-                });
-              }
+              types.push(param.type);
+            }
+          });
+        }
+
+        for (const type of types) {
+          if (type.isModel) {
+            const c = result.models.find(
+              (m) => m.name === type.ref && m.types.includes(type.type)
+            );
+            if (!c) {
+              result.models.push({
+                name: type.ref,
+                types: [type.type],
+                endpoint: context.endpoint,
+                writeMethod: writeMethods.relatedComponentsMethods.model,
+                rank: 2,
+              });
+            }
+          } else if (type.isEntity) {
+            const c = result.entities.find((m) => m.name === type.ref);
+            if (!c) {
+              result.entities.push({
+                name: type.ref,
+                endpoint: context.endpoint,
+                writeMethod: writeMethods.relatedComponentsMethods.entity,
+                rank: 2,
+              });
             }
           }
         }

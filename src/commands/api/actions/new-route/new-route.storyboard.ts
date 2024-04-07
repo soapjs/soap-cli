@@ -14,7 +14,11 @@ import {
 import { DescribeControllerFrame } from "./frames/describe-controller.frame";
 import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import { localSessionPath } from "../../common/consts";
-import { CommandConfig } from "../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodResolver,
+} from "../../../../core";
 
 export class NewRouteStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -61,6 +65,8 @@ export class NewRouteStoryboard extends Storyboard<any> {
       new NewRouteStoryResolver()
     );
 
+    const writeMethods = WriteMethodResolver.resolveWriteMethods(command);
+
     this.addFrame(new DefineRouteNameAndEndpointFrame(config, texts))
       .addFrame(new DescribeRouteFrame(config, texts), (t) => {
         const { name, endpoint } = t.getFrame(0).output;
@@ -68,21 +74,24 @@ export class NewRouteStoryboard extends Storyboard<any> {
       })
       .addFrame(new SelectRequestBodyTypeFrame(texts))
       .addFrame(new SelectResponseBodyTypeFrame(texts))
-      .addFrame(new DescribeControllerFrame(config, command, texts), (t) => {
-        const { name, endpoint } = t.getFrame(0).output;
-        const { controller, handler, path } = t.getFrame(1).output;
-        const { request_body } = t.getFrame(2).output;
-        const { response_body } = t.getFrame(3).output;
-        return {
-          name,
-          endpoint,
-          controller,
-          handler,
-          path,
-          request_body,
-          response_body,
-        };
-      })
+      .addFrame(
+        new DescribeControllerFrame(config, command, writeMethods, texts),
+        (t) => {
+          const { name, endpoint } = t.getFrame(0).output;
+          const { controller, handler, path } = t.getFrame(1).output;
+          const { request_body } = t.getFrame(2).output;
+          const { response_body } = t.getFrame(3).output;
+          return {
+            name,
+            endpoint,
+            controller,
+            handler,
+            path,
+            request_body,
+            response_body,
+          };
+        }
+      )
       .addFrame(new CreateRouteFrame(config, command, texts), (t) => {
         const { name, endpoint } = t.getFrame(0).output;
         const {

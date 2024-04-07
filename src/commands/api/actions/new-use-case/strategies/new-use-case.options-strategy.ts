@@ -2,11 +2,7 @@ import chalk from "chalk";
 import { Config, Strategy, Texts, UseCaseJson } from "@soapjs/soap-cli-common";
 import { ApiJsonParser, ApiGenerator } from "../../../common";
 import { NewUseCaseOptions } from "../types";
-import {
-  CliOptionsTools,
-  CommandConfig,
-  CompilationConfig,
-} from "../../../../../core";
+import { CommandConfig, CompilationConfig } from "../../../../../core";
 
 export class NewUseCaseOptionsStrategy extends Strategy {
   constructor(
@@ -25,13 +21,14 @@ export class NewUseCaseOptionsStrategy extends Strategy {
       console.log(chalk.red(texts.get("missing_endpoint")));
       process.exit(1);
     }
-    const { endpoint, name, output } = options;
-    const input = CliOptionsTools.splitArrayOption(options.input);
+    const { endpoint, name, input, output } = options;
     const use_case: UseCaseJson = {
       name,
       endpoint,
       input,
       output,
+      write_method: command.write_method,
+      rank: 0,
     };
     const schema = new ApiJsonParser(config, command, texts).build({
       models: [],

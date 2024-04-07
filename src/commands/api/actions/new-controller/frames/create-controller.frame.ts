@@ -8,13 +8,13 @@ import {
   Texts,
   WriteMethod,
   Config,
-  ApiJson,
-  ModelJson,
-  EntityJson,
   MethodJson,
+  ApiJson,
+  EntityJson,
+  ModelJson,
 } from "@soapjs/soap-cli-common";
 import { Frame } from "@soapjs/soap-cli-interactive";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
 
 export class CreateControllerFrame extends Frame<ApiJson> {
   public static NAME = "create_controller_frame";
@@ -22,6 +22,7 @@ export class CreateControllerFrame extends Frame<ApiJson> {
   constructor(
     protected config: Config,
     protected command: CommandConfig,
+    protected writeMethods: WriteMethodsAssignment,
     protected texts: Texts
   ) {
     super(CreateControllerFrame.NAME);
@@ -36,36 +37,37 @@ export class CreateControllerFrame extends Frame<ApiJson> {
       handlers: MethodJson[];
     }
   ) {
-    const { texts, config, command } = this;
+    const { texts, config, command, writeMethods } = this;
     const { name, endpoint, handlers } = context;
     const result: ApiJson = {
       models: [],
       entities: [],
       controllers: [],
     };
+
     const componentName = config.presets.controller.generateName(name);
     const componentPath = config.presets.controller.generatePath({
       name,
       endpoint,
     }).path;
-    let writeMethod = WriteMethod.Write;
+    let write_method = command.write_method;
 
     if (command.force === false) {
-      if (existsSync(componentPath)) {
-        writeMethod = await new SelectComponentWriteMethodInteraction(
+      if (existsSync(componentPath) && write_method !== WriteMethod.Patch) {
+        write_method = await new SelectComponentWriteMethodInteraction(
           texts
         ).run(componentName);
       }
     }
 
-    if (writeMethod !== WriteMethod.Skip) {
+    if (write_method !== WriteMethod.Skip) {
       const { methods, ...rest } = await new DefineMethodsInteraction(
         texts,
         config,
-        command.dependencies_write_method,
+        writeMethods,
         result
       ).run({
-        endpoint: endpoint,
+        endpoint,
         component: "controller",
         title: texts.get("do_you_want_to_add_controller_methods"),
       });
@@ -77,6 +79,8 @@ export class CreateControllerFrame extends Frame<ApiJson> {
         endpoint,
         methods,
         handlers,
+        write_method,
+        rank: 0,
       });
     }
 

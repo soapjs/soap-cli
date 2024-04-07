@@ -6,27 +6,30 @@ import {
   Model,
   ModelJson,
   Texts,
-  WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { ModelFactory } from "./model.factory";
-import { DependencyTools } from "../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../core";
 
 export class ModelJsonParser {
   constructor(
     private config: Config,
+    private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {}
 
-  parse(
-    list: ModelJson[],
-    writeMethod?: WriteMethod
-  ): { components: Component[] } {
-    const { config, texts, apiSchema } = this;
+  parse(list: ModelJson[]): { components: Component[] } {
+    const { config, texts, apiSchema, command, writeMethods } = this;
     const models: Model[] = [];
 
     for (const data of list) {
+      const write_method = data.write_method || command.write_method;
+      const rank = data.rank || 0;
       if (!data.endpoint && config.presets.model.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
         console.log(
@@ -47,7 +50,6 @@ export class ModelJsonParser {
         }
 
         const { endpoint, name, props, generics, alias } = rest;
-
         const model = ModelFactory.create(
           {
             endpoint,
@@ -56,25 +58,24 @@ export class ModelJsonParser {
             generics,
             alias,
             type,
-            write_method: writeMethod || this.writeMethod.component,
+            write_method,
+            rank,
           },
           config,
           []
         );
 
         models.push(model);
+
+        const resolved = DependencyResolver.resolveMissingDependencies(
+          model,
+          config,
+          writeMethods.relatedComponentsMethods,
+          apiSchema
+        );
+        models.push(...resolved.models);
       }
     }
-
-    models.forEach((model) => {
-      const resolved = DependencyTools.resolveMissingDependnecies(
-        model,
-        config,
-        this.writeMethod.dependency,
-        apiSchema
-      );
-      models.push(...resolved.models);
-    });
 
     return { components: models };
   }

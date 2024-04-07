@@ -7,7 +7,7 @@ import {
   StoryboardSession,
 } from "@soapjs/soap-cli-interactive";
 import { localSessionPath } from "../../common/consts";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, WriteMethodResolver } from "../../../../core";
 
 export class NewToolsetStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -39,8 +39,10 @@ export class NewToolsetStoryboard extends Storyboard<ApiJson> {
       new NewToolsetStoryResolver()
     );
 
+    const writeMethods = WriteMethodResolver.resolveWriteMethods(command);
+
     this.addFrame(new SelectToolsetlayerFrame(config, texts)).addFrame(
-      new CreateToolsetFrame(config, command, texts),
+      new CreateToolsetFrame(config, command, writeMethods, texts),
       (t) => ({ layer: t.prevFrame.output })
     );
   }

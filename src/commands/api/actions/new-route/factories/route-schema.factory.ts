@@ -118,6 +118,7 @@ export class RouteSchemaFactory {
       addons,
       element,
       dependencies,
+      rank: 0,
     });
 
     return component;

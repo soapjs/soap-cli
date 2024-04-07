@@ -3,15 +3,21 @@ import { NewEntityOptionsStrategy } from "./strategies/new-entity.options-strate
 import { NewEntityInteractiveStrategy } from "./strategies/new-entity.interactive-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../core";
+import {
+  CliOptionsParser,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 
 export const newEntity = async (
-  options: NewEntityOptions,
+  rawOptions: NewEntityOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
+  const options = CliOptionsParser.parse<NewEntityOptions>(rawOptions);
+
   if (Object.keys(options).includes("name")) {
     new NewEntityOptionsStrategy(config, command, compilation).apply(
       options,

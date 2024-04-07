@@ -1,2 +1,3 @@
-export * from "./cli-options.tools";
-export * from "./dependencies.tools";
+export * from "./cli-options-parser";
+export * from "./dependency-resolver";
+export * from "./write-method-resolver";

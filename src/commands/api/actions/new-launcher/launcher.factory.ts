@@ -63,6 +63,7 @@ export class LauncherFactory {
       type: LauncherType.create(componentName, "launcher"),
       path: componentPath,
       writeMethod: WriteMethod.Write,
+      rank: 0,
       element,
     });
 

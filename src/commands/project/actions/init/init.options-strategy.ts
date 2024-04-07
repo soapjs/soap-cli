@@ -10,16 +10,17 @@ import {
   Strategy,
   Texts,
 } from "@soapjs/soap-cli-common";
-import { CliOptionsTools } from "../../../../core";
 
 import RootConfig from "../../../../defaults/root.config.json";
+import { CliOptionsParser } from "../../../../core";
 
 export class InitOptionsStrategy extends Strategy {
   constructor(private pluginMap: PluginMap) {
     super();
   }
 
-  public async apply(options: InitOptions) {
+  public async apply(rawOptions: InitOptions) {
+    const options = CliOptionsParser.parse<InitOptions>(rawOptions);
     const { pluginMap } = this;
     const texts = await Texts.load();
     const project: ProjectDescription = {
@@ -30,7 +31,6 @@ export class InitOptionsStrategy extends Strategy {
       ioc: "",
     };
     let failed = false;
-
     if (!options.lang) {
       failed = true;
       console.log(chalk.red(texts.get("missing_project_language")));
@@ -53,7 +53,7 @@ export class InitOptionsStrategy extends Strategy {
       process.exit(1);
     }
 
-    CliOptionsTools.splitArrayOption(options.database).forEach((db) => {
+    options.database.forEach((db) => {
       if (project.database.includes(db) === false) {
         project.database.push(db);
       }

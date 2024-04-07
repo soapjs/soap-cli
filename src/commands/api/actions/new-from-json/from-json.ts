@@ -4,19 +4,21 @@ import { existsSync, readFileSync } from "fs";
 import { ApiJsonParser } from "../../common/api-json.parser";
 import { ApiGenerator } from "../../common/api-generator";
 import {
+  CliOptionsParser,
   CommandConfig,
   CompilationConfig,
   DefaultCliOptions,
 } from "../../../../core";
 
 export const fromJson = async (
-  options: DefaultCliOptions,
+  rawOptions: DefaultCliOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
   const texts = await Texts.load();
+  const options = CliOptionsParser.parse<DefaultCliOptions>(rawOptions);
 
   if (existsSync(options.json) === false) {
     console.log(

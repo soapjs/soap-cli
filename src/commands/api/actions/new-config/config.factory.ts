@@ -61,6 +61,7 @@ export class ConfigFactory {
       path: componentPath,
       writeMethod: WriteMethod.Write,
       element,
+      rank: 0,
     });
 
     return component;

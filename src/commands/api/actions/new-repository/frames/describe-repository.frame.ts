@@ -44,6 +44,9 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
     name: string
   ): Promise<DataContextJson[]> {
     const { texts, config } = this;
+    const impl = await InteractionPrompts.confirm(
+      texts.get("will_your_collection_contain_additional_properties_or_methods")
+    );
 
     const inputs = dbs.map((db) => {
       const dbDesc = config.databases.find((adb) => adb.alias === db);
@@ -63,7 +66,7 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
       type: alias,
       collection: {
         name,
-        impl: false,
+        impl,
         table: tables[alias],
       },
     }));
@@ -71,16 +74,6 @@ export class DescribeRepositoryFrame extends Frame<RepositoryDescription> {
 
   public async run(context: { name: string }) {
     const { texts } = this;
-    const choices = [
-      {
-        message: texts.get("default_repository_implementation"),
-        name: "default_impl",
-      },
-      {
-        message: texts.get("custom_repository_implementation"),
-        name: "custom_impl",
-      },
-    ];
 
     let createImplementation = false;
     let willHaveAdditionalContent = false;

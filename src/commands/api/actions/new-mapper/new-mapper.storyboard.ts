@@ -7,7 +7,7 @@ import {
 import { CreateMappersFrame, SelectMapperStoragesFrame } from "./frames";
 import { ApiJson, Config, Texts } from "@soapjs/soap-cli-common";
 import { localSessionPath } from "../../common/consts";
-import { CommandConfig } from "../../../../core";
+import { CommandConfig, WriteMethodResolver } from "../../../../core";
 
 export class NewMapperStoryResolver extends StoryResolver<ApiJson> {
   resolve(timeline: TimelineFrame[]): ApiJson {
@@ -39,8 +39,10 @@ export class NewMapperStoryboard extends Storyboard<ApiJson> {
       new NewMapperStoryResolver()
     );
 
+    const writeMethods = WriteMethodResolver.resolveWriteMethods(command);
+
     this.addFrame(new SelectMapperStoragesFrame(config, texts)).addFrame(
-      new CreateMappersFrame(config, command, texts),
+      new CreateMappersFrame(config, command, writeMethods, texts),
       (t) => ({ storages: t.prevFrame.output })
     );
   }

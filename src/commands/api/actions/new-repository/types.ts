@@ -13,6 +13,7 @@ export type NewRepositoryOptions = DefaultCliOptions & {
   endpoint?: string;
   storage?: string[];
   impl?: boolean;
+  collection?: boolean;
   entity?: string;
   model?: string;
 };

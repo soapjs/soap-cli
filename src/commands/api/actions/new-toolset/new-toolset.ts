@@ -3,15 +3,21 @@ import { NewToolsetOptionsStrategy } from "./strategies/new-toolset.options-stra
 import { NewToolsetInteractiveStrategy } from "./strategies/new-toolset.interactive-strategy";
 import chalk from "chalk";
 import { Config } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../core";
+import {
+  CliOptionsParser,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../core";
 
 export const newToolset = async (
-  options: NewToolsetOptions,
+  rawOptions: NewToolsetOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
+  const options = CliOptionsParser.parse<NewToolsetOptions>(rawOptions);
+
   if (Object.keys(options).includes("name")) {
     new NewToolsetOptionsStrategy(config, command, compilation).apply(
       options,

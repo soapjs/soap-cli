@@ -5,35 +5,61 @@ import {
   ComponentRegistry,
   Config,
   EntityJson,
+  Model,
   Texts,
   WriteMethod,
 } from "@soapjs/soap-cli-common";
 import { ModelFactory } from "../new-model";
 import { TestSuiteFactory } from "../new-test-suite";
 import { EntityFactory } from "./entity.factory";
-import { CommandConfig, DependencyTools } from "../../../../core";
+import {
+  CommandConfig,
+  DependencyResolver,
+  WriteMethodsAssignment,
+} from "../../../../core";
 
 export class EntityJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {}
 
-  parse(
-    list: EntityJson[],
-    writeMethod?: WriteMethod
-  ): {
+  private ensureModel(data: EntityJson, registry: ComponentRegistry): Model {
+    const { name, endpoint, props } = data;
+    const { config, apiSchema, writeMethods } = this;
+    let model = apiSchema.get({ component: "model", name, type: "json" });
+
+    if (!model) {
+      model = ModelFactory.create(
+        {
+          name,
+          endpoint,
+          type: "json",
+          props,
+          write_method: writeMethods.relatedComponentsMethods.model,
+          rank: 2,
+        },
+        config
+      );
+      registry.add(model);
+    }
+
+    return model;
+  }
+
+  parse(list: EntityJson[]): {
     components: Component[];
   } {
-    const { config, texts, command, apiSchema } = this;
+    const { config, texts, command, apiSchema, writeMethods } = this;
     const registry = new ComponentRegistry();
 
     for (const data of list) {
-      const { name, endpoint, has_model, props } = data;
-      let model;
+      const { name, endpoint } = data;
+      const rank = data.rank || 0;
+      const write_method = data.write_method || command.write_method;
 
       if (!endpoint && config.presets.entity.isEndpointRequired()) {
         console.log(chalk.red(texts.get("missing_endpoint")));
@@ -46,44 +72,28 @@ export class EntityJsonParser {
       if (registry.entities.find((e) => e.type.ref === name)) {
         continue;
       }
-      model = apiSchema.get({ component: "model", name, type: "json" });
-
-      if (has_model && !model) {
-        model = ModelFactory.create(
-          {
-            name,
-            endpoint,
-            type: "json",
-            props,
-            write_method: this.writeMethod.dependency,
-          },
-          config
-        );
-
-        registry.add(model);
-      }
-
+      const model = data.has_model ? this.ensureModel(data, registry) : null;
       const entity = EntityFactory.create(
-        { ...data, write_method: writeMethod || this.writeMethod.component },
+        { ...data, write_method, rank },
         model,
         config,
         []
       );
 
-      if (!command.skip_tests && entity.element.methods.length > 0) {
+      if (!command.no_tests && entity.element.methods.length > 0) {
         const suite = TestSuiteFactory.create(
           { name, endpoint, type: "unit_tests" },
           entity,
-          this.writeMethod.component,
+          write_method,
           config
         );
         registry.add(suite);
       }
 
-      const resolved = DependencyTools.resolveMissingDependnecies(
+      const resolved = DependencyResolver.resolveMissingDependencies(
         entity,
         config,
-        this.writeMethod.dependency,
+        writeMethods.relatedComponentsMethods,
         apiSchema
       );
 

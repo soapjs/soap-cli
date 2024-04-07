@@ -3,7 +3,11 @@ import { NewEntityOptions } from "../types";
 import { ApiJsonParser } from "../../../common/api-json.parser";
 import { ApiGenerator } from "../../../common";
 import { Config, EntityJson, Strategy, Texts } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../../core";
+import {
+  CliOptionsParser,
+  CommandConfig,
+  CompilationConfig,
+} from "../../../../../core";
 
 export class NewEntityOptionsStrategy extends Strategy {
   constructor(
@@ -28,6 +32,8 @@ export class NewEntityOptionsStrategy extends Strategy {
       endpoint,
       has_model,
       props,
+      write_method: command.write_method,
+      rank: 0,
     };
     const schema = new ApiJsonParser(config, command, texts).build({
       models: [],

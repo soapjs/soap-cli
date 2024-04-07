@@ -27,7 +27,6 @@ const start = async () => {
      * INIT
      */
     initCommand
-      .option("-f, --force", texts.get("option_force"))
       .option("-l, --lang <value>", texts.get("option_project_lang"))
       .option("-s, --source <value>", texts.get("option_project_source"))
       .option("-i, --di <value>", texts.get("option_ioc"))
@@ -63,10 +62,11 @@ const start = async () => {
      * API
      */
     newCommand
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-j, --json <value>", texts.get("option_json"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_components"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options);
@@ -74,13 +74,14 @@ const start = async () => {
 
     newCommand
       .command("model")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-t, --type [values...]", texts.get("option_model_type"))
       .option("-p, --props [values...]", texts.get("option_model_props"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_model"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "model");
@@ -88,13 +89,14 @@ const start = async () => {
 
     newCommand
       .command("entity")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-p, --props [values...]", texts.get("option_entity_props"))
       .option("-m, --with-model", texts.get("option_entity_with_model"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_entity"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "entity");
@@ -102,13 +104,14 @@ const start = async () => {
 
     newCommand
       .command("toolset")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-l, --layer <value>", texts.get("option_toolset_layer"))
       .option("-m, --methods [values...]", texts.get("option_toolset_methods"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_toolset"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "toolset");
@@ -116,12 +119,13 @@ const start = async () => {
 
     newCommand
       .command("service")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-m, --methods [values...]", texts.get("option_service_methods"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_service"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "service");
@@ -129,14 +133,15 @@ const start = async () => {
 
     newCommand
       .command("mapper")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-s, --storage [values...]", texts.get("option_mapper_storages"))
       .option("-t, --entity <value>", texts.get("option_mapper_entity"))
       .option("-m, --model <value>", texts.get("option_mapper_model"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_mapper"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "mapper");
@@ -144,13 +149,14 @@ const start = async () => {
 
     newCommand
       .command("use-case")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-i, --input [values...]", texts.get("option_use_case_input"))
       .option("-o, --output <type>", texts.get("option_use_case_output"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_use_case"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "use-case");
@@ -158,7 +164,8 @@ const start = async () => {
 
     newCommand
       .command("collection")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option(
@@ -167,8 +174,8 @@ const start = async () => {
       )
       .option("-t, --table <value>", texts.get("option_collection_table"))
       .option("-m, --model <value>", texts.get("option_collection_model_name"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_collection"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "collection");
@@ -176,7 +183,8 @@ const start = async () => {
 
     newCommand
       .command("repository")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-t, --entity <value>", texts.get("option_repository_entity"))
@@ -185,9 +193,10 @@ const start = async () => {
         "-s, --storage [values...]",
         texts.get("option_repository_storages")
       )
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .option("-i, --impl", texts.get("option_repository_impl"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
+      .option("-c, --collection", texts.get("option_collection"))
+      .option("--no-tests", texts.get("option_no_tests"))
       .description(texts.get("description_new_repository"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "repository");
@@ -195,7 +204,8 @@ const start = async () => {
 
     newCommand
       .command("route")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option("-m, --method <value>", texts.get("option_route_method"))
       .option("-p, --path <value>", texts.get("option_route_path"))
@@ -208,8 +218,8 @@ const start = async () => {
       .option("-r, --limiter", texts.get("option_route_limiter"))
       .option("-b, --body <value>", texts.get("option_route_body"))
       .option("-r, --response <value>", texts.get("option_route_reposnse"))
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_route"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "route");
@@ -217,15 +227,16 @@ const start = async () => {
 
     newCommand
       .command("controller")
-      .option("-f, --force", texts.get("option_force"))
+      .option("--force", texts.get("option_force"))
+      .option("--patch", texts.get("option_patch"))
       .option("-e, --endpoint <value>", texts.get("option_endpoint"))
       .option("-n, --name <value>", texts.get("option_name"))
       .option(
         "-h, --handlers [values...]",
         texts.get("option_controller_handlers")
       )
-      .option("--skip-tests", texts.get("option_skip_tests"))
-      .option("-w, --with-deps", texts.get("option_with_deps"))
+      .option("--no-tests", texts.get("option_no_tests"))
+      .option("--no-rel [values...]", texts.get("option_no_rel"))
       .description(texts.get("description_new_controller"))
       .action((options) => {
         Commands.Api.Actions.newComponent(options, "controller");

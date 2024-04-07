@@ -6,10 +6,10 @@ import {
   ComponentTools,
   Config,
   Controller,
-  Entity,
   MethodSchema,
   Model,
   RouteJson,
+  RouteModel,
   Texts,
   TypeInfo,
   WriteMethod,
@@ -22,7 +22,7 @@ import { PathParamsJsonParser } from "./path-params.json-parser";
 import { QueryParamsJsonParser } from "./query-params.json-parser";
 import { RequestBodyJsonParser } from "./request-body.json-parser";
 import { ResponseBodyJsonParser } from "./response-body.json-parser";
-import { CommandConfig } from "../../../../../core";
+import { CommandConfig, WriteMethodsAssignment } from "../../../../../core";
 import { RouteSchemaFactory } from "../factories/route-schema.factory";
 
 export class RouteJsonParser {
@@ -34,20 +34,20 @@ export class RouteJsonParser {
   constructor(
     private config: Config,
     private command: CommandConfig,
+    private writeMethods: WriteMethodsAssignment,
     private texts: Texts,
-    private writeMethod: { component: WriteMethod; dependency: WriteMethod },
     private apiSchema: ApiSchema
   ) {
-    this.pathParamsParser = new PathParamsJsonParser(config, writeMethod);
-    this.queryParamsParser = new QueryParamsJsonParser(config, writeMethod);
+    this.pathParamsParser = new PathParamsJsonParser(config);
+    this.queryParamsParser = new QueryParamsJsonParser(config);
     this.responseBodyParser = new ResponseBodyJsonParser(
       config,
-      writeMethod,
+      writeMethods,
       apiSchema
     );
     this.requestBodyParser = new RequestBodyJsonParser(
       config,
-      writeMethod,
+      writeMethods,
       apiSchema
     );
   }
@@ -91,17 +91,18 @@ export class RouteJsonParser {
   parse(list: RouteJson[]): {
     components: Component[];
   } {
-    const { config, texts, writeMethod, command } = this;
+    const { config, texts, command, writeMethods } = this;
     const registry = new ComponentRegistry();
 
     for (const data of list) {
-      let pathParams: Model;
-      let queryParams: Model;
-      let requestBody: Model;
-      let responseBody: Model;
+      let pathParams: RouteModel;
+      let queryParams: RouteModel;
+      let requestBody: RouteModel;
+      let responseBody: RouteModel;
       let controller: Controller;
       let io;
-      const { name, endpoint, request, response } = data;
+      const { name, endpoint, request, response, rank } = data;
+      const write_method = data.write_method || command.write_method;
 
       if (
         registry.routes.find(
@@ -129,18 +130,19 @@ export class RouteJsonParser {
       if (hasParams(request.path)) {
         pathParams = this.pathParamsParser.parse(data);
         queryParams = this.queryParamsParser.parse(data);
+        registry.add(pathParams, queryParams);
       }
 
       if (hasBody(request.body)) {
         const { model, components } = this.requestBodyParser.parse(data);
         requestBody = model;
-        registry.add(...components);
+        registry.add(requestBody, ...components);
       }
 
       if (hasBody(response)) {
         const { model, components } = this.responseBodyParser.parse(data);
         responseBody = model;
-        registry.add(...components);
+        registry.add(responseBody, ...components);
       }
 
       /**
@@ -164,7 +166,7 @@ export class RouteJsonParser {
           (ioData.output && responseBody)
         ) {
           io = RouteIOFactory.create(
-            { ...data, write_method: writeMethod.component },
+            { ...data, write_method, rank },
             ioData.input,
             ioData.output,
             pathParams,
@@ -175,12 +177,12 @@ export class RouteJsonParser {
           );
           registry.add(io);
 
-          if (!command.skip_tests && io.element.methods.length > 0) {
+          if (!command.no_tests && io.element.methods.length > 0) {
             //
             const suite = TestSuiteFactory.create(
               { name, endpoint, type: "unit_tests" },
               io,
-              writeMethod.component,
+              command.write_method,
               config
             );
             registry.add(suite);
@@ -197,7 +199,7 @@ export class RouteJsonParser {
         pathParams,
         queryParams,
         requestBody,
-        writeMethod.component,
+        write_method,
         config
       );
       registry.add(schema);
@@ -206,7 +208,7 @@ export class RouteJsonParser {
        * Route
        */
       const route = RouteFactory.create(
-        { ...data, write_method: writeMethod.component },
+        { ...data, write_method, rank },
         controller,
         io,
         schema,

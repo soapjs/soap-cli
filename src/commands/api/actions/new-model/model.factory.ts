@@ -23,20 +23,18 @@ export class ModelFactory {
     config: Config,
     dependencies?: Component[]
   ): Model {
-    const _dependencies = dependencies || [];
     const { id, type, endpoint, write_method } = input;
-    const addons = { modelType: type };
     const dbConfig = config.databases.find((d) => d.alias === type);
-
+    const references = {
+      addons: { modelType: type },
+      dependencies: dependencies || [],
+    };
     const parser = new InputToDataParser(config);
     const data = parser.parse<TypeData>(
       "model",
       input,
       new DefaultGroups(["common", type]),
-      {
-        addons,
-        dependencies: _dependencies,
-      }
+      references
     );
 
     if (dbConfig) {
@@ -53,10 +51,7 @@ export class ModelFactory {
     const element = TypeSchema.create<ModelElement>(
       new DataProvider(data.element),
       config,
-      {
-        addons,
-        dependencies: _dependencies,
-      }
+      references
     );
 
     const component = Component.create<ModelElement, ModelAddons>(config, {
@@ -65,9 +60,10 @@ export class ModelFactory {
       endpoint,
       path: data.path,
       writeMethod: write_method,
-      addons,
+      addons: references.addons,
       element,
-      dependencies: _dependencies,
+      dependencies: references.dependencies,
+      rank: data.element.rank,
     });
 
     return component;

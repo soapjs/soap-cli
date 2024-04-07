@@ -3,15 +3,17 @@ import { NewMapperInteractiveStrategy } from "./strategies/new-mapper.interactiv
 import { NewMapperOptionsStrategy } from "./strategies/new-mapper.options-strategy";
 import { NewMapperOptions } from "./types";
 import { Config } from "@soapjs/soap-cli-common";
-import { CommandConfig, CompilationConfig } from "../../../../core";
+import { CliOptionsParser, CommandConfig, CompilationConfig } from "../../../../core";
 
 export const newMapper = async (
-  options: NewMapperOptions,
+  rawOptions: NewMapperOptions,
   config: Config,
   command: CommandConfig,
   compilation: CompilationConfig,
   cliPluginPackageName: string
 ) => {
+  const options = CliOptionsParser.parse<NewMapperOptions>(rawOptions);
+  
   if (Object.keys(options).includes("name")) {
     new NewMapperOptionsStrategy(config, command, compilation).apply(
       options,
