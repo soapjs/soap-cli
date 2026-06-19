@@ -1,14 +1,14 @@
 {
-  "name": "@soapjs/soap-cli",
-  "version": "0.0.4",
-  "description": "An extensible command-line interface for streamlined project setup, configuration, and management, supporting interactive sessions and a variety of development environments.",
+  "name": "@soapjs/cli",
+  "version": "0.1.0",
+  "description": "Deterministic project and code generator for SoapJS services.",
   "homepage": "https://docs.soapjs.com",
   "repository": "https://github.com/soapjs/soap-cli",
   "bin": {
-    "soap": "./build/soap.js"
+    "soap": "./build/index.js"
   },
-  "main": "build/soap.js",
-  "types": "build/soap.d.ts",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
   "license": "MIT",
   "author": "Radoslaw Kamysz <radoslaw.kamysz@gmail.com>",
   "keywords": [
@@ -25,19 +25,14 @@
     "cli"
   ],
   "scripts": {
-    "test:unit": "jest --config=jest.config.unit.js",
     "clean": "rm -rf ./build",
-    "build": "npm run clean && tsc -b && chmod +x ./build/soap.js",
+    "build": "npm run clean && tsc -b && chmod +x ./build/index.js",
     "prepublish": "npm run clean && tsc --project tsconfig.build.json"
   },
   "dependencies": {
-    "@soapjs/soap-cli-common": "^0.0.6",
-    "@soapjs/soap-cli-interactive": "^0.0.5",
-    "axios": "^1.6.7",
-    "chalk": "4.1.2",
+    "@inquirer/prompts": "^3.3.2",
     "change-case": "^4.1.2",
-    "commander": "^10.0.0",
-    "nanoid": "3.3.4"
+    "commander": "^10.0.0"
   },
   "devDependencies": {
     "@types/node": "^18.14.1",
