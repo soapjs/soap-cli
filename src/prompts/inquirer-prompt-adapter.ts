@@ -27,7 +27,7 @@ export class InquirerPromptAdapter implements PromptAdapter {
   }
 
   async multiSelect<T extends string>(question: MultiSelectQuestion<T>): Promise<T[]> {
-    return checkbox<T>({
+    const selected = await checkbox<T>({
       message: question.message,
       choices: question.choices.map((choice) => ({
         ...toInquirerChoice(choice),
@@ -35,7 +35,17 @@ export class InquirerPromptAdapter implements PromptAdapter {
       })),
       required: question.required,
     });
+
+    return normalizeNoneSelection(selected);
   }
+}
+
+function normalizeNoneSelection<T extends string>(values: T[]): T[] {
+  if (values.length <= 1 || !values.includes("none" as T)) {
+    return values;
+  }
+
+  return values.filter((value) => value !== "none");
 }
 
 function toInquirerChoice<T extends string>(choice: PromptChoice<T>): {

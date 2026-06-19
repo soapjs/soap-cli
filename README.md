@@ -6,6 +6,11 @@ The CLI creates a runnable TypeScript service, records generated artifacts in `.
 
 ## Installation
 
+Requirements:
+
+- Node.js `>=24.17.0` (Node 24 LTS or newer)
+- Generated projects include `.nvmrc` with `24.17.0`
+
 ```bash
 npm install -g @soapjs/cli
 soap --help

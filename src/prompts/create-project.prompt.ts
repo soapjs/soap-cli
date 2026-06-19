@@ -187,7 +187,7 @@ export async function promptCreateProject(
 }
 
 function withNoneDefault<T extends string>(values: T[] | undefined): Array<T | "none"> {
-  return values && values.length > 0 ? values : ["none"];
+  return values && values.length > 0 ? values : [];
 }
 
 function withDefault<T extends string>(values: T[] | undefined, fallback: T[]): T[] {

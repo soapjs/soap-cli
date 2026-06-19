@@ -154,6 +154,9 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
     name: plan.name,
     version: "0.1.0",
     private: true,
+    engines: {
+      node: ">=24.17.0",
+    },
     scripts: {
       dev: "tsx src/index.ts",
       "dev:watch": "tsx watch src/index.ts",
@@ -205,6 +208,11 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
       path: ".gitignore",
       type: "project",
       content: ["node_modules", "build", ".env", "*.log", ".DS_Store"].join("\n"),
+    },
+    {
+      path: ".nvmrc",
+      type: "project",
+      content: "24.17.0\n",
     },
     {
       path: ".dockerignore",

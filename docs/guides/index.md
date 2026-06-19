@@ -2,6 +2,9 @@
 
 Use these guides when building a service with SoapJS CLI.
 
+SoapJS CLI and generated projects require Node.js `>=24.17.0` (Node 24 LTS or newer).
+Generated projects include `.nvmrc` with `24.17.0`.
+
 ## Start Here
 
 - [Regular CRUD API](regular-api.md): create a standard Express CRUD API with storage, auth, contracts, tests, Bruno, and OpenAPI.
@@ -19,4 +22,3 @@ Use these guides when building a service with SoapJS CLI.
 ## Command Reference
 
 See [CLI reference](../cli/index.md) for command-level docs.
-

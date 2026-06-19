@@ -16,7 +16,7 @@ export function resolveDependencies(capabilities: ProjectCapabilities): Resolved
 
   const devDependencies: Record<string, string> = {
     "@types/express": "^4.17.21",
-    "@types/node": "^20.11.30",
+    "@types/node": "^24.0.0",
     tsx: "^4.7.1",
     typescript: "^5.4.0",
   };
@@ -79,7 +79,7 @@ export function resolveDependencies(capabilities: ProjectCapabilities): Resolved
   }
 
   if (capabilities.apiClient.includes("bruno")) {
-    devDependencies["@usebruno/cli"] = "^1.32.0";
+    devDependencies["@usebruno/cli"] = "^3.4.2";
   }
 
   return { dependencies, devDependencies };

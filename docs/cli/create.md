@@ -2,6 +2,9 @@
 
 Create a new SoapJS project.
 
+Generated projects require Node.js `>=24.17.0` (Node 24 LTS or newer).
+The generator writes `.nvmrc` with `24.17.0` so `nvm use` selects the supported runtime.
+
 ```bash
 soap create users-api --skip-install
 soap create users-api --install
