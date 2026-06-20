@@ -28,7 +28,7 @@ Prompts cover the supported MVP capabilities:
 - auth
 - messaging
 - realtime
-- telemetry
+- telemetry (`logs`, `otel-noop`, `metrics`, `memory`)
 - OpenAPI docs
 - contracts
 - Bruno API client
@@ -67,6 +67,9 @@ In interactive mode, preset values become prompt defaults. Explicit CLI flags st
 
 - Only `express` is currently supported.
 - `--contracts zod` enables generated contracts backed by Zod.
+- Auth projects use `@soapjs/soap-auth` 1.x recipe configs and the `@soapjs/soap-express/auth` router/middleware helpers.
+- Security defaults are generated through soap-express security config. Auth projects include route-specific throttling for login, refresh, and OAuth callbacks.
+- `--telemetry metrics` exposes `/metrics`; `--telemetry memory` exposes `/memory`. Minimal projects keep these monitoring endpoints disabled.
 - Database capabilities include `mongo`, `postgres`, `mysql`, `sqlite`, and `redis`. Resource repositories are generated for Mongo and SQL adapters; Redis is infrastructure-only for now.
 - `--install` runs the selected package manager after files are written. `--skip-install` always skips installation.
 - `--git-init` runs `git init` after files are written. It does not commit or push.

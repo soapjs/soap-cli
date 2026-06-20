@@ -73,7 +73,7 @@ export function createRepositoryFiles(plan: AddRepositoryPlan): PlannedFile[] {
 }
 
 function createRepositoryPortTs(className: string): string {
-  return `import { ReadWriteRepository } from '@soapjs/soap';
+  return `import { ReadWriteRepository } from '@soapjs/soap/data';
 
 export interface ${className}Record {
   id: string;
@@ -115,7 +115,7 @@ function createMapperTs(names: ReturnType<typeof createNameVariants>, db: Reposi
       ? `import { ${names.pascalName}Model } from './${names.kebabName}.model';`
       : `import { ${names.pascalName}Row } from './${names.kebabName}.row';`;
 
-  return `import { Mapper } from '@soapjs/soap';
+  return `import { Mapper } from '@soapjs/soap/data';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 ${persistenceImport}
 
@@ -146,7 +146,7 @@ import {
   DatabaseSessionRegistry,
   ReadWriteRepository,
   TransactionScope,
-} from '@soapjs/soap';
+} from '@soapjs/soap/data';
 import { MongoSource } from '@soapjs/soap-node-mongo';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 import { ${names.camelName}Mapper } from './${names.kebabName}.mapper';
@@ -222,7 +222,7 @@ import {
   DatabaseSessionRegistry,
   ReadWriteRepository,
   TransactionScope,
-} from '@soapjs/soap';
+} from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-node-sql';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 import { ${names.camelName}Mapper } from './${names.kebabName}.mapper';

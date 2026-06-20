@@ -9,3 +9,6 @@ coverage/
 tsconfig.build.json
 tsconfig.json
 nodemon.json
+SOAP_CLI_UPDATE_TASKS.md
+*.tgz
+*.tsbuildinfo

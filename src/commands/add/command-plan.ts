@@ -123,7 +123,7 @@ export class ${className}Command extends BaseCommand<${className}Result> {
 }
 
 function createCommandHandlerTs(className: string, kebabName: string): string {
-  return `import { Result } from '@soapjs/soap';
+  return `import { Result } from '@soapjs/soap/common';
 import { CommandHandler as SoapCommandHandler } from '@soapjs/soap/cqrs';
 import { CommandHandler } from '@soapjs/soap-express/cqrs';
 import { ${className}Command, ${className}Result } from './${kebabName}.command';
@@ -154,7 +154,7 @@ export class ${className}Handler implements SoapCommandHandler<${className}Comma
 function createCommandHandlerSpecTs(className: string, kebabName: string): string {
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Result } from '@soapjs/soap';
+import { Result } from '@soapjs/soap/common';
 import { InMemoryCommandBus } from '@soapjs/soap/cqrs';
 import { ${className}Command, ${className}Result } from './${kebabName}.command';
 import { ${className}Handler, ${className}Repository } from './${kebabName}.handler';

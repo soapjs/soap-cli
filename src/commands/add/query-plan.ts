@@ -92,7 +92,7 @@ export class ${className}Query extends BaseQuery<${className}Result> {
 }
 
 function createQueryHandlerTs(className: string, kebabName: string): string {
-  return `import { Result } from '@soapjs/soap';
+  return `import { Result } from '@soapjs/soap/common';
 import { QueryHandler as SoapQueryHandler } from '@soapjs/soap/cqrs';
 import { QueryHandler } from '@soapjs/soap-express/cqrs';
 import { ${className}Query, ${className}Result } from './${kebabName}.query';
@@ -123,7 +123,7 @@ export class ${className}Handler implements SoapQueryHandler<${className}Query, 
 function createQueryHandlerSpecTs(className: string, kebabName: string): string {
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Result } from '@soapjs/soap';
+import { Result } from '@soapjs/soap/common';
 import { InMemoryQueryBus } from '@soapjs/soap/cqrs';
 import { ${className}Query, ${className}Result } from './${kebabName}.query';
 import { ${className}Handler, ${className}Repository } from './${kebabName}.handler';

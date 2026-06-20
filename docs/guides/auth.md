@@ -1,6 +1,7 @@
 # Guide: Auth And Route Policies
 
 SoapJS CLI supports project-level auth capabilities and route-level policies.
+Generated auth bootstrap is based on `@soapjs/soap-auth` 1.x recipe configs and `@soapjs/soap-express/auth` helpers. The CLI registers `SoapAuth.create(...)` with the Express app and exposes generated auth routes through `createAuthRouter(...)`.
 
 ## Enable Auth
 
@@ -24,6 +25,14 @@ Supported auth capabilities:
 - `local`
 
 For routes, `local` is normalized to `jwt`.
+
+JWT projects include a local development login strategy so `/auth/login` can issue JWT access and refresh tokens. API key projects use `createApiKeyAuthConfig(...)` with a development `retrieveUserByApiKey` implementation. Generated `.env.example` includes `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and API key variables when relevant.
+
+Auth projects also enable route-specific throttling for:
+
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `GET /auth/oauth/:provider/callback`
 
 ## Add Protected CRUD Routes
 
@@ -87,4 +96,3 @@ soap check routes
 ```
 
 This checks unknown auth strategies, disabled auth capabilities, invalid zones, policy-without-auth, contracts, and Bruno files.
-

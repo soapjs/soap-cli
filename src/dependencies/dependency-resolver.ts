@@ -7,8 +7,8 @@ export interface ResolvedDependencies {
 
 export function resolveDependencies(capabilities: ProjectCapabilities): ResolvedDependencies {
   const dependencies: Record<string, string> = {
-    "@soapjs/soap": "^0.12.1",
-    "@soapjs/soap-express": "^0.5.1",
+    "@soapjs/soap": "^0.14.0",
+    "@soapjs/soap-express": "^0.6.0",
     dotenv: "^16.4.5",
     express: "^4.18.2",
     "reflect-metadata": "^0.2.2",
@@ -45,14 +45,12 @@ export function resolveDependencies(capabilities: ProjectCapabilities): Resolved
   }
 
   if (capabilities.databases.includes("redis")) {
-    dependencies["@soapjs/soap-node-redis"] = "^0.1.0";
+    dependencies["@soapjs/soap-node-redis"] = "^0.1.1";
     dependencies.redis = "^4.6.13";
   }
 
   if (capabilities.auth.length > 0) {
-    dependencies["@soapjs/soap-auth"] = "^0.4.4";
-    dependencies.jsonwebtoken = "^9.0.2";
-    devDependencies["@types/jsonwebtoken"] = "^9.0.6";
+    dependencies["@soapjs/soap-auth"] = "^1.0.1";
   }
 
   if (capabilities.messaging.includes("kafka")) {

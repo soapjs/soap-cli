@@ -136,7 +136,7 @@ const sqlDatabaseOptions: Array<Extract<DatabaseCapability, "postgres" | "mysql"
 export const authOptions: AuthCapability[] = ["jwt", "api-key", "local"];
 export const messagingOptions: MessagingCapability[] = ["in-memory", "kafka"];
 export const realtimeOptions: RealtimeCapability[] = ["ws"];
-export const telemetryOptions: TelemetryCapability[] = ["logs", "otel-noop"];
+export const telemetryOptions: TelemetryCapability[] = ["logs", "otel-noop", "metrics", "memory"];
 export const docsOptions: DocsCapability[] = ["openapi"];
 export const contractsOptions: ContractsCapability[] = ["zod"];
 export const zonesOptions: ApiZone[] = ["public", "private", "admin"];
@@ -293,6 +293,12 @@ function createIndexTs(plan: ProjectPlan): string {
   const docsImports = plan.capabilities.docs.includes("openapi")
     ? "import { DocumentationPlugin } from '@soapjs/soap-openapi';\n"
     : "";
+  const expressImport = plan.capabilities.telemetry.includes("memory")
+    ? "import { createApp, MemoryMonitoringPlugin } from '@soapjs/soap-express';"
+    : "import { createApp } from '@soapjs/soap-express';";
+  const authImport = plan.capabilities.auth.length > 0
+    ? "import { createAuthRouter } from '@soapjs/soap-express/auth';\n"
+    : "";
   const socketImport = plan.capabilities.realtime.includes("ws")
     ? "import { createSocketRuntime } from './common/sockets/socket.setup';\n"
     : "";
@@ -301,33 +307,52 @@ function createIndexTs(plan: ProjectPlan): string {
     ? `\n    plugins: [\n      {\n        plugin: new DocumentationPlugin(),\n        options: {\n          info: {\n            title: '${plan.name} API',\n            version: '0.1.0',\n          },\n          servers: [{ url: \`http://localhost:\${config.port}\`, description: 'Local' }],\n          interactivePath: '/docs',\n          openApiPath: '/openapi.json',\n        },\n      },\n    ],`
     : "";
   const cqrsOption = plan.architecture === "cqrs" ? "\n    cqrs: true," : "";
+  const authRegistration = plan.capabilities.auth.length > 0
+    ? `\n  app.registerAuth(auth);\n  app.getApp().use(createAuthRouter(auth, {\n    basePath: '/auth',\n    strategy: '${defaultAuthStrategy(plan)}',\n    routes: {\n      login: { path: '/auth/login', strategy: '${loginAuthStrategy(plan)}' },\n      logout: { path: '/auth/logout', strategy: '${loginAuthStrategy(plan)}' },\n      refresh: { path: '/auth/refresh', strategy: 'jwt', enabled: ${usesJwtAuth(plan)} },\n      me: { path: '/auth/me', strategy: '${defaultAuthStrategy(plan)}' },\n      verify: { path: '/auth/verify', strategy: '${defaultAuthStrategy(plan)}' },\n    },\n  }));\n`
+    : "";
+  const metrics = plan.capabilities.telemetry.includes("metrics")
+    ? `\n  app.useMetrics({\n    enabled: true,\n    exposeEndpoint: true,\n    metricsPath: '/metrics',\n    metricsFormat: 'prometheus',\n  });\n`
+    : "";
+  const memory = plan.capabilities.telemetry.includes("memory")
+    ? `\n  const memoryMonitoringOptions = {\n    enabled: true,\n    exposeEndpoints: true,\n    basePath: '/memory',\n    includeInRequest: false,\n  };\n  let memoryMonitoringPlugin: MemoryMonitoringPlugin | undefined;\n\n  try {\n    app.useMemoryMonitoring(memoryMonitoringOptions);\n  } catch (error) {\n    memoryMonitoringPlugin = new MemoryMonitoringPlugin(memoryMonitoringOptions, logger);\n    (memoryMonitoringPlugin as { version?: string }).version ??= '0.1.0';\n    app.usePlugin(memoryMonitoringPlugin, memoryMonitoringOptions);\n  }\n\n  const getMemorySummary = () => app.getMemorySummary() ?? memoryMonitoringPlugin?.getMemorySummary();\n  app.getApp().get('/memory', (_req, res) => res.json(getMemorySummary()));\n  app.getApp().get('/memory/summary', (_req, res) => res.json(getMemorySummary()));\n  app.getApp().get('/memory/health', (_req, res) => {\n    const summary = getMemorySummary();\n    res.status(summary?.status === 'critical' ? 503 : 200).json({ status: summary?.status ?? 'unknown', summary });\n  });\n`
+    : "";
+  const socketRuntime = plan.capabilities.realtime.includes("ws")
+    ? `\n  const socketRuntime = createSocketRuntime(config, app.getServer());\n  app.registerDrainable(socketRuntime);\n`
+    : "";
 
   return `import 'reflect-metadata';
-import { bootstrap } from '@soapjs/soap-express';
-${docsImports}${socketImport}${cqrsImport}import './features';
+${expressImport}
+${docsImports}${authImport}${socketImport}${cqrsImport}import './features';
 import { config } from './config/config';
 import { controllers } from './config/controllers';
 import { buildContainer } from './config/dependencies';
 
 async function main(): Promise<void> {
-  const { container, drainables, logger, authStrategies } = await buildContainer(config);
+  const { container, drainables, logger, auth } = await buildContainer(config);
 
-  const app = await bootstrap({
-    port: config.port,
+  const app = createApp({
     container,
     logger,
     drainables,
     controllers,
     middleware: {
-      cors: true,
-      helmet: true,
       logging: true,
       compression: true,
     },
-    auth: authStrategies,
+    app: {
+      security: ${createSecurityConfig(plan)},
+    },
     healthCheck: true,${cqrsOption}${docsPlugin}
   });
-${plan.capabilities.realtime.includes("ws") ? `\n  const socketRuntime = createSocketRuntime(config, app.getServer());\n  app.registerDrainable(socketRuntime);\n` : ""}
+${authRegistration}${metrics}${memory}
+
+  const cqrsReady = (app as unknown as { cqrsReady?: Promise<void> }).cqrsReady;
+  if (cqrsReady) {
+    await cqrsReady;
+  }
+
+  await app.start(config.port);
+${socketRuntime}
 
   logger.info('${plan.name} API ready', { port: config.port });
 }
@@ -337,6 +362,40 @@ main().catch((error) => {
   process.exit(1);
 });
 `;
+}
+
+function defaultAuthStrategy(plan: ProjectPlan): string {
+  if (plan.capabilities.auth.includes("jwt")) return "jwt";
+  if (plan.capabilities.auth.includes("local")) return "local";
+  if (plan.capabilities.auth.includes("api-key")) return "api-key";
+  return "jwt";
+}
+
+function loginAuthStrategy(plan: ProjectPlan): string {
+  if (plan.capabilities.auth.includes("local") || plan.capabilities.auth.includes("jwt")) return "local";
+  if (plan.capabilities.auth.includes("api-key")) return "api-key";
+  return defaultAuthStrategy(plan);
+}
+
+function createSecurityConfig(plan: ProjectPlan): string {
+  const throttle = plan.capabilities.auth.length > 0
+    ? `{
+        global: { windowMs: 60_000, max: 300 },
+        routes: {
+          'POST /auth/login': { windowMs: 60_000, max: 5 },
+          'POST /auth/refresh': { windowMs: 60_000, max: 20, keyBy: 'user' },
+          'GET /auth/oauth/:provider/callback': { windowMs: 60_000, max: 30 },
+        },
+      }`
+    : "{ global: { windowMs: 60_000, max: 300 } }";
+
+  return `{
+      disablePoweredBy: true,
+      trustProxy: 1,
+      helmet: true,
+      cors: true,
+      throttle: ${throttle},
+    }`;
 }
 
 function createConfigTs(plan: ProjectPlan): string {
@@ -361,10 +420,10 @@ function createConfigTs(plan: ProjectPlan): string {
   const sockets = plan.capabilities.realtime.includes("ws")
     ? "\n  wsPath: readEnv('WS_PATH', '/ws'),\n  wsHeartbeatMs: Number(readEnv('WS_HEARTBEAT_MS', '30000')),"
     : "";
-  const jwt = plan.capabilities.auth.includes("jwt") || plan.capabilities.auth.includes("local")
-    ? "\n  jwtSecret: readEnv('JWT_SECRET', 'dev-secret'),"
+  const jwt = plan.capabilities.auth.length > 0
+    ? "\n  jwtAccessSecret: readEnv('JWT_ACCESS_SECRET', 'dev-access-secret'),\n  jwtRefreshSecret: readEnv('JWT_REFRESH_SECRET', 'dev-refresh-secret'),"
     : "";
-  const apiKey = plan.capabilities.auth.includes("api-key")
+  const apiKey = plan.capabilities.auth.length > 0
     ? "\n  apiKeyHeader: readEnv('API_KEY_HEADER', 'x-api-key'),\n  devApiKey: readEnv('DEV_API_KEY', 'dev-api-key'),"
     : "";
 
@@ -392,7 +451,7 @@ export type AppConfig = typeof config;
 
 function createDependenciesTs(plan: ProjectPlan): string {
   const authImport = plan.capabilities.auth.length > 0
-    ? "import { createAuthStrategies } from '../features/auth/auth.setup';\n"
+    ? "import { SoapAuth } from '@soapjs/soap-auth';\nimport { createAuthProvider } from '../features/auth/auth.setup';\n"
     : "";
   const mongoImport = plan.capabilities.databases.includes("mongo")
     ? "import { SoapMongo } from '@soapjs/soap-node-mongo';\nimport { createMongoClient } from '../common/data/mongo/mongo.client';\n"
@@ -406,7 +465,7 @@ ${sqlDatabases.map((database) => `import { create${createNameVariants(database).
   const eventImport = plan.capabilities.messaging.length > 0
     ? "import { DomainEventBus } from '@soapjs/soap/cqrs';\nimport { createEventBus } from '../common/events/event-bus.setup';\n"
     : "";
-  const authStrategies = plan.capabilities.auth.length > 0 ? "createAuthStrategies(_config)" : "[]";
+  const authProvider = plan.capabilities.auth.length > 0 ? "await createAuthProvider(_config, logger)" : "undefined";
   const resourceContextType = [
     plan.capabilities.databases.includes("mongo") ? "  mongo?: SoapMongo;" : undefined,
     sqlDatabases.length > 0 ? "  sql?: Partial<Record<'postgres' | 'mysql' | 'sqlite', SoapSQL>>;" : undefined,
@@ -426,10 +485,10 @@ ${sqlDatabases.map((database) => {
   const eventSetup = plan.capabilities.messaging.length > 0
     ? `\n  const eventBusRuntime = await createEventBus(_config, logger);\n  container.bindValue(DomainEventBus.Token, eventBusRuntime.bus);\n  if (eventBusRuntime.drainable) {\n    drainables.push(eventBusRuntime.drainable);\n  }\n`
     : "";
+  const authReturnType = plan.capabilities.auth.length > 0 ? "  auth: SoapAuth;" : "  auth?: undefined;";
 
   return `import { ConsoleLogger, DIContainer } from '@soapjs/soap-express';
 import { Drainable } from '@soapjs/soap/events';
-import { AuthStrategy } from '@soapjs/soap/http';
 import { AppConfig } from './config';
 import { registerResources } from './resources';
 ${mongoImport}${sqlImport}${eventImport}${authImport}
@@ -442,13 +501,13 @@ export async function buildContainer(_config: AppConfig): Promise<{
   container: DIContainer;
   drainables: Drainable[];
   logger: ConsoleLogger;
-  authStrategies: AuthStrategy[];
+${authReturnType}
 }> {
   const container = new DIContainer();
   const logger = new ConsoleLogger();
   const drainables: Drainable[] = [];
   const resources: ResourceContext = {};
-  const authStrategies: AuthStrategy[] = ${authStrategies};
+  const auth = ${authProvider};
 ${mongoSetup}${sqlSetup}${eventSetup}
 
   await registerResources(container, resources);
@@ -457,7 +516,7 @@ ${mongoSetup}${sqlSetup}${eventSetup}
     container,
     drainables,
     logger,
-    authStrategies,
+    auth,
   };
 }
 `;
@@ -634,14 +693,6 @@ function createCqrsFiles(plan: ProjectPlan): PlannedFile[] {
       type: "config",
       content: `// Generated CQRS handler imports. Updated by soap add command/query.
 export {};
-`,
-    },
-    {
-      path: "src/types/soap-express-cqrs.d.ts",
-      type: "config",
-      content: `declare module '@soapjs/soap-express/cqrs' {
-  export * from '@soapjs/soap-express/build/cqrs';
-}
 `,
     },
   ];
@@ -855,16 +906,8 @@ ${names}
 }
 
 function createInitialControllers(plan: ProjectPlan): ControllerRegistration[] {
-  if (!usesJwtAuth(plan)) {
-    return [];
-  }
-
-  return [
-    {
-      className: "AuthController",
-      importPath: "../features/auth/api/auth.controller",
-    },
-  ];
+  void plan;
+  return [];
 }
 
 function createEnvExample(plan: ProjectPlan): string {
@@ -891,7 +934,7 @@ function createEnvExample(plan: ProjectPlan): string {
   }
 
   if (plan.capabilities.auth.includes("jwt") || plan.capabilities.auth.includes("local")) {
-    lines.push("JWT_SECRET=change-me");
+    lines.push("JWT_ACCESS_SECRET=change-me-access", "JWT_REFRESH_SECRET=change-me-refresh");
   }
 
   if (plan.capabilities.auth.includes("api-key")) {
@@ -950,6 +993,7 @@ curl http://localhost:3000/openapi.json
 `
     : "";
   const authSection = createReadmeAuthSection(plan);
+  const monitoringSection = createReadmeMonitoringSection(plan);
   const addCommands = `## Add More Code
 
 \`\`\`bash
@@ -963,6 +1007,8 @@ soap update config --add-api-client bruno
   return `# ${plan.name}
 
 Generated SoapJS service.
+
+Requires Node.js 24.17.0 or newer. The generated runtime uses SoapJS 0.14, soap-auth 1.x, and the soap-express security/auth helpers.
 
 ## Capabilities
 
@@ -996,7 +1042,7 @@ Build:
 ${buildCommand}
 \`\`\`
 
-${dockerSection}${brunoSection}${openApiSection}${authSection}## Folder Structure
+${dockerSection}${brunoSection}${openApiSection}${authSection}${monitoringSection}## Folder Structure
 
 \`\`\`txt
 src/
@@ -1022,6 +1068,30 @@ ${addCommands}
 `;
 }
 
+function createReadmeMonitoringSection(plan: ProjectPlan): string {
+  const endpoints: string[] = [];
+
+  if (plan.capabilities.telemetry.includes("metrics")) {
+    endpoints.push("- Metrics: http://localhost:3000/metrics");
+  }
+
+  if (plan.capabilities.telemetry.includes("memory")) {
+    endpoints.push("- Memory monitoring: http://localhost:3000/memory");
+  }
+
+  if (endpoints.length === 0) {
+    return "";
+  }
+
+  return `## Monitoring
+
+Monitoring endpoints are opt-in and were generated because telemetry includes \`${plan.capabilities.telemetry.filter((item) => item === "metrics" || item === "memory").join(", ")}\`.
+
+${endpoints.join("\n")}
+
+`;
+}
+
 function createReadmeAuthSection(plan: ProjectPlan): string {
   const sections: string[] = [];
 
@@ -1033,7 +1103,7 @@ Default Bruno login variables:
 - email: \`admin@example.com\`
 - password: \`admin123\`
 
-Set \`JWT_SECRET\` in \`.env.example\` or your local \`.env\`.
+Auth is registered through \`SoapAuth.create(...)\` and \`createAuthRouter(...)\`. Set \`JWT_ACCESS_SECRET\` and \`JWT_REFRESH_SECRET\` in \`.env.example\` or your local \`.env\`.
 
 `);
   }
@@ -1046,14 +1116,20 @@ Default header and key:
 - \`API_KEY_HEADER=x-api-key\`
 - \`DEV_API_KEY=dev-api-key\`
 
+API key auth uses \`createApiKeyAuthConfig(...)\` with a development \`retrieveUserByApiKey\` implementation.
+
 `);
   }
 
-  return sections.length > 0 ? `## Auth\n\n${sections.join("\n")}` : "";
+  const security = sections.length > 0
+    ? `Route-specific throttling is enabled for \`POST /auth/login\`, \`POST /auth/refresh\`, and OAuth callbacks through soap-express security config.\n\n`
+    : "";
+
+  return sections.length > 0 ? `## Auth\n\n${security}${sections.join("\n")}` : "";
 }
 
 function createDockerfile(): string {
-  return `FROM node:20-alpine
+  return `FROM node:24-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
@@ -1192,19 +1268,26 @@ function createAuthFiles(plan: ProjectPlan): PlannedFile[] {
       path: "src/features/auth/domain/auth-user.ts",
       type: "config",
       owner: "auth",
-      content: `export interface AuthUser {
-  id: string;
-  email: string;
-  name: string;
-  roles: string[];
+      content: `import { AuthUser as SoapAuthUser } from '@soapjs/soap/http';
+
+export interface AuthUser extends SoapAuthUser {
+  name?: string;
+}
+`,
+    },
+    {
+      path: "src/types/soap-express-auth.d.ts",
+      type: "config",
+      owner: "auth",
+      content: `declare module '@soapjs/soap-express/auth' {
+  export * from '@soapjs/soap-express/build/auth';
 }
 `,
     },
   ];
 
-  if (usesJwtAuth(plan)) {
-    files.push(
-      {
+  if (usesJwtAuth(plan) || plan.capabilities.auth.includes("api-key")) {
+    files.push({
       path: "src/features/auth/data/dev-users.ts",
       type: "config",
       owner: "auth",
@@ -1226,156 +1309,6 @@ export const devUsers: DevUser[] = [
 
 export function findDevUser(email: string): DevUser | undefined {
   return devUsers.find((user) => user.email === email);
-}
-`,
-      },
-      {
-      path: "src/features/auth/auth.tokens.ts",
-      type: "config",
-      owner: "auth",
-      content: `import jwt from 'jsonwebtoken';
-import { AuthUser } from './domain/auth-user';
-
-export interface AuthTokenPayload {
-  sub: string;
-  email: string;
-  name: string;
-  roles: string[];
-}
-
-export function signAccessToken(user: AuthUser, secret: string): string {
-  return jwt.sign(
-    {
-      sub: user.id,
-      email: user.email,
-      name: user.name,
-      roles: user.roles,
-    },
-    secret,
-    { expiresIn: '1h' }
-  );
-}
-
-export function verifyAccessToken(token: string, secret: string): AuthUser {
-  const payload = jwt.verify(token, secret) as AuthTokenPayload;
-
-  return {
-    id: payload.sub,
-    email: payload.email,
-    name: payload.name,
-    roles: payload.roles ?? [],
-  };
-}
-`,
-      },
-      {
-      path: "src/features/auth/jwt.strategy.ts",
-      type: "config",
-      owner: "auth",
-      content: `import { AuthStrategy, HttpContext } from '@soapjs/soap/http';
-import { verifyAccessToken } from './auth.tokens';
-import { AuthUser } from './domain/auth-user';
-
-export class JwtAuthStrategy implements AuthStrategy<AuthUser> {
-  readonly name = 'jwt';
-
-  constructor(private readonly secret: string) {}
-
-  async authenticate(ctx: HttpContext) {
-    const authorization = ctx.req.headers.authorization;
-    const header = Array.isArray(authorization) ? authorization[0] : authorization;
-
-    if (!header?.startsWith('Bearer ')) {
-      return null;
-    }
-
-    const token = header.slice('Bearer '.length);
-    const user = verifyAccessToken(token, this.secret);
-
-    return { user };
-  }
-}
-`,
-      },
-      {
-      path: "src/features/auth/api/auth.controller.ts",
-      type: "config",
-      owner: "auth",
-      content: `import { Request } from 'express';
-import { Auth, Controller, Get, Post } from '@soapjs/soap-express';
-import { config } from '../../../config/config';
-import { signAccessToken } from '../auth.tokens';
-import { findDevUser } from '../data/dev-users';
-
-@Controller('/auth', {
-  apiDoc: {
-    tags: ['Auth'],
-    description: 'Development auth endpoints generated by SoapJS CLI',
-  },
-})
-export class AuthController {
-  @Post('/login')
-  async login(req: Request): Promise<unknown> {
-    const { email, password } = req.body ?? {};
-    const user = typeof email === 'string' ? findDevUser(email) : undefined;
-
-    if (!user || user.password !== password) {
-      return { error: 'Invalid credentials' };
-    }
-
-    const { password: _password, ...safeUser } = user;
-    const accessToken = signAccessToken(safeUser, config.jwtSecret);
-
-    return {
-      accessToken,
-      user: safeUser,
-    };
-  }
-
-  @Get('/me')
-  @Auth('jwt')
-  async me(req: Request): Promise<unknown> {
-    return (req as Request & { user?: unknown }).user;
-  }
-}
-`,
-      }
-    );
-  }
-
-  if (plan.capabilities.auth.includes("api-key")) {
-    files.push({
-      path: "src/features/auth/api-key.strategy.ts",
-      type: "config",
-      owner: "auth",
-      content: `import { AuthStrategy, HttpContext } from '@soapjs/soap/http';
-import { AuthUser } from './domain/auth-user';
-
-export class ApiKeyAuthStrategy implements AuthStrategy<AuthUser> {
-  readonly name = 'api-key';
-
-  constructor(
-    private readonly headerName: string,
-    private readonly expectedApiKey: string
-  ) {}
-
-  async authenticate(ctx: HttpContext) {
-    const value = ctx.req.headers[this.headerName.toLowerCase()];
-    const apiKey = Array.isArray(value) ? value[0] : value;
-
-    if (!apiKey || apiKey !== this.expectedApiKey) {
-      return null;
-    }
-
-    return {
-      user: {
-        id: 'api-key-client',
-        email: 'api-key@example.com',
-        name: 'API Key Client',
-        roles: ['admin'],
-      },
-    };
-  }
 }
 `,
     });
@@ -1405,41 +1338,144 @@ function usesJwtAuth(plan: ProjectPlan): boolean {
 
 function createAuthSetupTs(plan: ProjectPlan): string {
   const imports = [
-    "import { AuthStrategy } from '@soapjs/soap/http';",
+    "import { SoapAuth } from '@soapjs/soap-auth';",
+    "import { createApiKeyAuthConfig, createJwtAuthConfig, createLocalAuthConfig } from '@soapjs/soap-auth/recipes';",
+    "import { Logger } from '@soapjs/soap/common';",
     "import { AppConfig } from '../../config/config';",
+    "import { AuthUser } from './domain/auth-user';",
+    "import { devUsers, findDevUser } from './data/dev-users';",
   ];
-  const body: string[] = ["  const strategies: AuthStrategy[] = [];"];
+  const httpConfigs: string[] = [];
 
-  if (usesJwtAuth(plan)) {
-    imports.push("import { JwtAuthStrategy } from './jwt.strategy';");
-    body.push("", "  strategies.push(new JwtAuthStrategy(config.jwtSecret));");
+  if (plan.capabilities.auth.includes("jwt")) {
+    httpConfigs.push(`    jwt: createJwtConfig(config),`);
+  }
+
+  if (plan.capabilities.auth.includes("local") || plan.capabilities.auth.includes("jwt")) {
+    httpConfigs.push(`    local: createLocalConfig(config),`);
   }
 
   if (plan.capabilities.auth.includes("api-key")) {
-    imports.push("import { ApiKeyAuthStrategy } from './api-key.strategy';");
-    body.push("", "  strategies.push(new ApiKeyAuthStrategy(config.apiKeyHeader, config.devApiKey));");
+    httpConfigs.push(`    apiKey: createApiKeyConfig(config),`);
   }
-
-  body.push("", "  return strategies;");
 
   return `${imports.join("\n")}
 
-export function createAuthStrategies(config: AppConfig): AuthStrategy[] {
-${body.join("\n")}
+interface DevLoginPayload {
+  identifier?: string;
+  email?: string;
+  password?: string;
+}
+
+function safeUser(user: AuthUser & { password?: string }): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    roles: user.roles,
+  };
+}
+
+async function fetchUser(payload: unknown): Promise<AuthUser | null> {
+  const id = typeof payload === 'object' && payload !== null && 'id' in payload ? String((payload as { id: unknown }).id) : undefined;
+  const email = typeof payload === 'string'
+    ? payload
+    : typeof payload === 'object' && payload !== null && 'email' in payload
+      ? String((payload as { email: unknown }).email)
+      : undefined;
+  const user = id
+    ? devUsers.find((candidate) => candidate.id === id)
+    : email
+      ? findDevUser(email)
+      : undefined;
+
+  return user ? safeUser(user) : null;
+}
+
+function createJwtConfig(config: AppConfig) {
+  return createJwtAuthConfig({
+    accessSecret: config.jwtAccessSecret,
+    refreshSecret: config.jwtRefreshSecret,
+    user: { fetchUser },
+    accessToken: {
+      options: { expiresIn: '15m' },
+      buildPayload: (user: AuthUser) => ({ id: user.id, email: user.email, roles: user.roles }),
+    },
+    refreshToken: {
+      options: { expiresIn: '7d' },
+      buildPayload: (user: AuthUser) => ({ id: user.id }),
+    },
+    routes: {
+      login: { path: '/auth/login' },
+      refresh: { path: '/auth/refresh' },
+      logout: { path: '/auth/logout' },
+    },
+  });
+}
+
+function createLocalConfig(_config: AppConfig) {
+  return createLocalAuthConfig({
+    basePath: '/auth',
+    credentials: {
+      extractCredentials: <TCredentials>(context: unknown): TCredentials => {
+        const authContext = context as { body?: DevLoginPayload; req?: { body?: DevLoginPayload } };
+        const body = authContext.body ?? authContext.req?.body ?? {};
+        return {
+          identifier: body.identifier ?? body.email ?? '',
+          password: body.password ?? '',
+        } as TCredentials;
+      },
+      verifyCredentials: async (identifier: string, password: string) => {
+        const user = findDevUser(identifier);
+        return user?.password === password;
+      },
+    },
+    user: { fetchUser },
+    routes: {
+      login: { path: '/auth/login' },
+      logout: { path: '/auth/logout' },
+    },
+  });
+}
+
+function createApiKeyConfig(config: AppConfig) {
+  return createApiKeyAuthConfig({
+    keyType: 'long-term',
+    extractApiKey: (context: unknown) => {
+      const authContext = context as { req?: { headers?: Record<string, string | string[] | undefined> }; headers?: Record<string, string | string[] | undefined> };
+      const headers = authContext.req?.headers ?? authContext.headers ?? {};
+      const value = headers[config.apiKeyHeader.toLowerCase()];
+      return Array.isArray(value) ? value[0] ?? null : value ?? null;
+    },
+    retrieveUserByApiKey: async (apiKey: string): Promise<AuthUser | null> => {
+      if (apiKey !== config.devApiKey) {
+        return null;
+      }
+
+      return {
+        id: 'api-key-client',
+        email: 'api-key@example.com',
+        name: 'API Key Client',
+        roles: ['admin'],
+      };
+    },
+    trackApiKeyUsage: async (_apiKey: string) => undefined,
+  });
+}
+
+export async function createAuthProvider(config: AppConfig, logger?: Logger): Promise<SoapAuth> {
+  return SoapAuth.create({
+    logger,
+    http: {
+${httpConfigs.join("\n")}
+    },
+  });
 }
 `;
 }
 
 function createAuthIndexTs(plan: ProjectPlan): string {
   const exports = ["export * from './auth.setup';", "export * from './domain/auth-user';"];
-
-  if (usesJwtAuth(plan)) {
-    exports.push("export * from './api/auth.controller';", "export * from './auth.tokens';", "export * from './jwt.strategy';");
-  }
-
-  if (plan.capabilities.auth.includes("api-key")) {
-    exports.push("export * from './api-key.strategy';");
-  }
 
   return `${exports.join("\n")}\n`;
 }

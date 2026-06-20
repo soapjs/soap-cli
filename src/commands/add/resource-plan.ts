@@ -565,7 +565,7 @@ export class ${action.classBase}Query extends BaseQuery<${action.classBase}Resul
 function createCqrsCrudCommandHandlerTs(action: RegularCrudAction, itemNames: ReturnType<typeof createNameVariants>): string {
   const repositoryCall = createCqrsCrudCommandRepositoryCall(action, itemNames);
 
-  return `import { Result } from '@soapjs/soap';
+  return `import { Result } from '@soapjs/soap/common';
 import { CommandHandler as SoapCommandHandler } from '@soapjs/soap/cqrs';
 import { CommandHandler } from '@soapjs/soap-express/cqrs';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
@@ -590,7 +590,7 @@ ${repositoryCall}
 function createCqrsCrudQueryHandlerTs(action: RegularCrudAction, itemNames: ReturnType<typeof createNameVariants>): string {
   const repositoryCall = createCqrsCrudQueryRepositoryCall(action);
 
-  return `import { Result } from '@soapjs/soap';
+  return `import { Result } from '@soapjs/soap/common';
 import { QueryHandler as SoapQueryHandler } from '@soapjs/soap/cqrs';
 import { QueryHandler } from '@soapjs/soap-express/cqrs';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
@@ -649,7 +649,7 @@ function createCqrsCrudQueryRepositoryCall(action: RegularCrudAction): string {
 function createCqrsCrudCommandSpecTs(action: RegularCrudAction): string {
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Result } from '@soapjs/soap';
+import { Result } from '@soapjs/soap/common';
 import { InMemoryCommandBus } from '@soapjs/soap/cqrs';
 import { ${action.classBase}Command, ${action.classBase}Result } from './${action.name}.command';
 import { ${action.classBase}Handler } from './${action.name}.handler';
@@ -668,7 +668,7 @@ test('${action.classBase}Command can be dispatched through a CQRS command bus', 
 function createCqrsCrudQuerySpecTs(action: RegularCrudAction): string {
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Result } from '@soapjs/soap';
+import { Result } from '@soapjs/soap/common';
 import { InMemoryQueryBus } from '@soapjs/soap/cqrs';
 import { ${action.classBase}Query, ${action.classBase}Result } from './${action.name}.query';
 import { ${action.classBase}Handler } from './${action.name}.handler';
@@ -1340,7 +1340,7 @@ function createRegularCrudUseCaseTs(
   const executeInput = action.kind === "list" ? "" : `input: ${inputInterface}`;
   const repositoryCall = createRegularCrudRepositoryCall(action.kind, itemNames);
 
-  return `import { Injectable, Result, UseCase } from '@soapjs/soap';
+  return `import { Injectable, Result, UseCase } from '@soapjs/soap/common';
 import { ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
 

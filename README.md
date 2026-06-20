@@ -101,6 +101,7 @@ Common options:
 - `--db mongo|postgres|mysql|sqlite|redis|none`
 - `--auth jwt|api-key|local|none`
 - `--messaging in-memory|kafka|none`
+- `--telemetry logs|otel-noop|metrics|memory|none`
 - `--docs openapi|none`
 - `--contracts zod|none`
 - `--api-client bruno|none`
@@ -110,6 +111,8 @@ Common options:
 - `--install` to install dependencies after generation
 - `--git-init` to initialize a local git repository without committing or pushing
 - `--force` and `--write-new` for generated file conflicts
+
+Generated projects use `@soapjs/soap-auth` 1.x with `SoapAuth.create(...)` and the `@soapjs/soap-express/auth` router/middleware helpers. Security defaults are generated through soap-express security config, including disabled `x-powered-by`, trust proxy, helmet, cors, and auth route throttling when auth is enabled.
 
 ## `soap add resource`
 

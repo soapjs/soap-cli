@@ -30,7 +30,7 @@ export function createUseCaseFiles(plan: AddUseCasePlan): PlannedFile[] {
 }
 
 function createUseCaseTs(className: string, constantName: string): string {
-  return `import { Inject, Injectable, Result, UseCase } from '@soapjs/soap';
+  return `import { Inject, Injectable, Result, UseCase } from '@soapjs/soap/common';
 
 export interface ${className}Input {
   [key: string]: unknown;

@@ -104,6 +104,8 @@ export async function promptCreateProject(
       choices: [
         { label: "Logs", value: "logs" },
         { label: "OTel noop", value: "otel-noop" },
+        { label: "Metrics endpoint", value: "metrics" },
+        { label: "Memory monitoring", value: "memory" },
         { label: "None", value: "none" },
       ],
       defaultValues: withDefault(preset.capabilities?.telemetry, ["logs"]),

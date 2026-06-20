@@ -58,7 +58,7 @@ export function registerCreateCommand(program: Command): void {
     .option("--db <database>", "database capability: mongo, postgres, mysql, sqlite, redis, none", collect, [])
     .option("--auth <auth>", "auth capability: jwt, api-key, local, none", collect, [])
     .option("--messaging <messaging>", "messaging capability: in-memory, kafka, none", collect, [])
-    .option("--telemetry <telemetry>", "telemetry capability: logs, otel-noop, none", collect, [])
+    .option("--telemetry <telemetry>", "telemetry capability: logs, otel-noop, metrics, memory, none", collect, [])
     .option("--docs <docs>", "docs capability: openapi, none", collect, [])
     .option("--contracts <contracts>", "contract capability: zod, none", collect, [])
     .option("--api-client <client>", "api client capability: bruno, none", collect, [])

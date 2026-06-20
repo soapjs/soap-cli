@@ -1,9 +1,20 @@
-import { checkbox, confirm, input, select } from "@inquirer/prompts";
 import { PromptAdapter } from "./prompt-adapter";
 import { ConfirmQuestion, InputQuestion, MultiSelectQuestion, PromptChoice, SelectQuestion } from "./prompt.types";
 
+type InquirerPrompts = typeof import("@inquirer/prompts");
+
+const importModule = new Function("specifier", "return import(specifier)") as (specifier: string) => Promise<InquirerPrompts>;
+let prompts: Promise<InquirerPrompts> | undefined;
+
+function loadPrompts(): Promise<InquirerPrompts> {
+  prompts ??= importModule("@inquirer/prompts");
+  return prompts;
+}
+
 export class InquirerPromptAdapter implements PromptAdapter {
   async input(question: InputQuestion): Promise<string> {
+    const { input } = await loadPrompts();
+
     return input({
       message: question.message,
       default: question.defaultValue,
@@ -12,6 +23,8 @@ export class InquirerPromptAdapter implements PromptAdapter {
   }
 
   async confirm(question: ConfirmQuestion): Promise<boolean> {
+    const { confirm } = await loadPrompts();
+
     return confirm({
       message: question.message,
       default: question.defaultValue,
@@ -19,6 +32,8 @@ export class InquirerPromptAdapter implements PromptAdapter {
   }
 
   async select<T extends string>(question: SelectQuestion<T>): Promise<T> {
+    const { select } = await loadPrompts();
+
     return select<T>({
       message: question.message,
       choices: question.choices.map(toInquirerChoice),
@@ -27,6 +42,7 @@ export class InquirerPromptAdapter implements PromptAdapter {
   }
 
   async multiSelect<T extends string>(question: MultiSelectQuestion<T>): Promise<T[]> {
+    const { checkbox } = await loadPrompts();
     const selected = await checkbox<T>({
       message: question.message,
       choices: question.choices.map((choice) => ({

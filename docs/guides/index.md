@@ -4,6 +4,7 @@ Use these guides when building a service with SoapJS CLI.
 
 SoapJS CLI and generated projects require Node.js `>=24.17.0` (Node 24 LTS or newer).
 Generated projects include `.nvmrc` with `24.17.0`.
+Generated auth projects use `@soapjs/soap-auth` 1.x with the soap-express auth router and middleware helpers. Security defaults are emitted through soap-express security config, and metrics/memory endpoints are opt-in telemetry capabilities.
 
 ## Start Here
 
