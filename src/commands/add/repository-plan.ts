@@ -147,7 +147,7 @@ import {
   ReadWriteRepository,
   TransactionScope,
 } from '@soapjs/soap/data';
-import { MongoSource } from '@soapjs/soap-node-mongo';
+import { MongoSource } from '@soapjs/soap-mongo';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 import { ${names.camelName}Mapper } from './${names.kebabName}.mapper';
 import { ${names.pascalName}Model } from './${names.kebabName}.model';
@@ -197,7 +197,7 @@ function createSqlSchemaTs(names: ReturnType<typeof createNameVariants>, db: Rep
   const createdAtColumn = db === "mysql" ? "`createdAt`" : "\"createdAt\"";
   const updatedAtColumn = db === "mysql" ? "`updatedAt`" : "\"updatedAt\"";
 
-  return `import { SqlDataSource } from '@soapjs/soap-node-sql';
+  return `import { SqlDataSource } from '@soapjs/soap-sql';
 import { ${names.pascalName}Row } from './${names.kebabName}.row';
 
 export const ${names.constantName}_TABLE = '${tableName}';
@@ -223,7 +223,7 @@ import {
   ReadWriteRepository,
   TransactionScope,
 } from '@soapjs/soap/data';
-import { SqlDataSource } from '@soapjs/soap-node-sql';
+import { SqlDataSource } from '@soapjs/soap-sql';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 import { ${names.camelName}Mapper } from './${names.kebabName}.mapper';
 import { ${names.pascalName}Row } from './${names.kebabName}.row';

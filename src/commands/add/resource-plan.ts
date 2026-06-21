@@ -1174,7 +1174,7 @@ function createRegularCrudMongoRepositoryTs(
   const documentFields = createInterfaceFields(fields);
 
   return `import { randomUUID } from 'crypto';
-import { MongoSource } from '@soapjs/soap-node-mongo';
+import { MongoSource } from '@soapjs/soap-mongo';
 import { Document } from 'mongodb';
 import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
@@ -1241,7 +1241,7 @@ function createRegularCrudSqlRepositoryTs(
   const sql = createSqlFieldMetadata(fields, db);
 
   return `import { randomUUID } from 'crypto';
-import { SqlDataSource } from '@soapjs/soap-node-sql';
+import { SqlDataSource } from '@soapjs/soap-sql';
 import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 
@@ -2016,7 +2016,7 @@ function createMongoRepositoryTs(name: string, fields: ResourceFieldDefinition[]
   const documentFields = createInterfaceFields(fields);
 
   return `import { randomUUID } from 'crypto';
-import { MongoSource } from '@soapjs/soap-node-mongo';
+import { MongoSource } from '@soapjs/soap-mongo';
 import { Document } from 'mongodb';
 import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}.repository';
@@ -2080,7 +2080,7 @@ function createSqlRepositoryTs(name: string, db: SqlDatabaseCapability, fields: 
   const sql = createSqlFieldMetadata(fields, db);
 
   return `import { randomUUID } from 'crypto';
-import { SqlDataSource } from '@soapjs/soap-node-sql';
+import { SqlDataSource } from '@soapjs/soap-sql';
 import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}.repository';
 

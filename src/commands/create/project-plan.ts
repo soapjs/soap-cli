@@ -454,11 +454,11 @@ function createDependenciesTs(plan: ProjectPlan): string {
     ? "import { SoapAuth } from '@soapjs/soap-auth';\nimport { createAuthProvider } from '../features/auth/auth.setup';\n"
     : "";
   const mongoImport = plan.capabilities.databases.includes("mongo")
-    ? "import { SoapMongo } from '@soapjs/soap-node-mongo';\nimport { createMongoClient } from '../common/data/mongo/mongo.client';\n"
+    ? "import { SoapMongo } from '@soapjs/soap-mongo';\nimport { createMongoClient } from '../common/data/mongo/mongo.client';\n"
     : "";
   const sqlDatabases = enabledSqlDatabases(plan.capabilities);
   const sqlImport = sqlDatabases.length > 0
-    ? `import { SoapSQL } from '@soapjs/soap-node-sql';
+    ? `import { SoapSQL } from '@soapjs/soap-sql';
 ${sqlDatabases.map((database) => `import { create${createNameVariants(database).pascalName}Client } from '../common/data/${database}/${database}.client';`).join("\n")}
 `
     : "";
@@ -558,7 +558,7 @@ function createMongoFiles(plan: ProjectPlan): PlannedFile[] {
     {
       path: "src/config/mongo.config.ts",
       type: "config",
-      content: `import { MongoConfig } from '@soapjs/soap-node-mongo';
+      content: `import { MongoConfig } from '@soapjs/soap-mongo';
 import { AppConfig } from './config';
 
 export function createMongoConfig(config: Pick<AppConfig, 'mongoUri'>): MongoConfig {
@@ -579,7 +579,7 @@ export function createMongoConfig(config: Pick<AppConfig, 'mongoUri'>): MongoCon
     {
       path: "src/common/data/mongo/mongo.client.ts",
       type: "config",
-      content: `import { SoapMongo } from '@soapjs/soap-node-mongo';
+      content: `import { SoapMongo } from '@soapjs/soap-mongo';
 import { AppConfig } from '../../../config/config';
 import { createMongoConfig } from '../../../config/mongo.config';
 
@@ -591,7 +591,7 @@ export async function createMongoClient(config: AppConfig): Promise<SoapMongo> {
     {
       path: "src/common/data/mongo/mongo.source-factory.ts",
       type: "config",
-      content: `import { MongoSource, SoapMongo } from '@soapjs/soap-node-mongo';
+      content: `import { MongoSource, SoapMongo } from '@soapjs/soap-mongo';
 import { Document } from 'mongodb';
 
 export function createMongoSource<T extends Document = Document>(mongo: SoapMongo, collectionName: string): MongoSource<T> {
@@ -614,7 +614,7 @@ function createSqlFiles(plan: ProjectPlan): PlannedFile[] {
     {
       path: "src/common/data/sql/sql.source-factory.ts",
       type: "config",
-      content: `import { SoapSQL, SqlDataSource } from '@soapjs/soap-node-sql';
+      content: `import { SoapSQL, SqlDataSource } from '@soapjs/soap-sql';
 
 export function createSqlSource<T = Record<string, unknown>>(sql: SoapSQL, tableName: string): SqlDataSource<T> {
   return new SqlDataSource<T>(sql, tableName);
@@ -637,7 +637,7 @@ function createSqlDatabaseFiles(database: Extract<DatabaseCapability, "postgres"
     {
       path: `src/config/${database}.config.ts`,
       type: "config",
-      content: `import { SqlDatabaseConfig } from '@soapjs/soap-node-sql';
+      content: `import { SqlDatabaseConfig } from '@soapjs/soap-sql';
 import { AppConfig } from './config';
 
 export function create${names.pascalName}Config(config: Pick<AppConfig, '${configProperty}'>): SqlDatabaseConfig {
@@ -651,7 +651,7 @@ ${createSqlConfigProperties(database, configProperty)}
     {
       path: `src/common/data/${database}/${database}.client.ts`,
       type: "config",
-      content: `import { SoapSQL } from '@soapjs/soap-node-sql';
+      content: `import { SoapSQL } from '@soapjs/soap-sql';
 import { AppConfig } from '../../../config/config';
 import { create${names.pascalName}Config } from '../../../config/${database}.config';
 
@@ -669,6 +669,11 @@ function createSqlConfigProperties(
 ): string {
   if (database === "sqlite") {
     return `    type: 'sqlite',
+    host: 'localhost',
+    port: 0,
+    database: config.${configProperty}.filename,
+    username: '',
+    password: '',
     filename: config.${configProperty}.filename,`;
   }
 
@@ -780,7 +785,7 @@ export function createKafkaConfig(config: Pick<AppConfig, 'kafkaBrokers'>) {
       {
         path: "src/common/events/kafka/kafka.client.ts",
         type: "config",
-        content: `import { KafkaEventBus } from '@soapjs/soap-node-kafka';
+        content: `import { KafkaEventBus } from '@soapjs/soap-kafka';
 import { AppConfig } from '../../../config/config';
 import { createKafkaConfig } from '../../../config/kafka.config';
 
@@ -792,7 +797,7 @@ export function createKafkaClient(config: AppConfig): KafkaEventBus<Record<strin
       {
         path: "src/common/events/kafka/kafka-event-bus.ts",
         type: "config",
-        content: `import { KafkaDomainEventBus } from '@soapjs/soap-node-kafka';
+        content: `import { KafkaDomainEventBus } from '@soapjs/soap-kafka';
 import { Logger } from '@soapjs/soap/common';
 import { AppConfig } from '../../../config/config';
 import { createKafkaClient } from './kafka.client';
@@ -831,7 +836,7 @@ export const socketHandlers: AppSocketHandler[] = [];
       type: "config",
       content: `import { Server } from 'http';
 import { Drainable } from '@soapjs/soap/events';
-import { SocketMessage, SocketServer, WebSocketServerAdapter } from '@soapjs/soap-node-socket';
+import { SocketMessage, SocketServer, WebSocketServerAdapter } from '@soapjs/soap-socket';
 import { AppConfig } from '../../config/config';
 import { socketHandlers } from '../../config/sockets';
 

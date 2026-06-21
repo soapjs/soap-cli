@@ -36,7 +36,7 @@ export async function createSocketFiles(root: string, plan: AddSocketPlan): Prom
 function createSocketTs(className: string, exportName: string, eventName: string, auth: "none" | AuthCapability): string {
   const authComment = auth === "none" ? "" : "\n    // TODO: validate socket auth before handling this message.\n";
 
-  return `import { SocketMessage, SocketServer } from '@soapjs/soap-node-socket';
+  return `import { SocketMessage, SocketServer } from '@soapjs/soap-socket';
 import { AppSocketHandler } from '../../../../common/sockets/socket.setup';
 
 export class ${className} implements AppSocketHandler {
