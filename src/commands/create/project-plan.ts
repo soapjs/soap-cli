@@ -1145,6 +1145,8 @@ CMD ["npm", "start"]
 }
 
 function createDockerCompose(plan: ProjectPlan): string {
+  const apiEnvironment = createDockerApiEnvironment(plan);
+  const apiDependsOn = createDockerApiDependsOn(plan);
   const services = [
     "services:",
     "  api:",
@@ -1153,6 +1155,8 @@ function createDockerCompose(plan: ProjectPlan): string {
     "      - \"3000:3000\"",
     "    env_file:",
     "      - .env.example",
+    ...apiEnvironment,
+    ...apiDependsOn,
   ];
 
   if (plan.capabilities.databases.includes("mongo")) {
@@ -1162,7 +1166,12 @@ function createDockerCompose(plan: ProjectPlan): string {
       "    ports:",
       "      - \"27017:27017\"",
       "    volumes:",
-      "      - mongo-data:/data/db"
+      "      - mongo-data:/data/db",
+      "    healthcheck:",
+      "      test: [\"CMD\", \"mongosh\", \"--quiet\", \"--eval\", \"db.adminCommand('ping')\"]",
+      "      interval: 5s",
+      "      timeout: 5s",
+      "      retries: 10"
     );
   }
 
@@ -1177,7 +1186,12 @@ function createDockerCompose(plan: ProjectPlan): string {
       "    ports:",
       "      - \"5432:5432\"",
       "    volumes:",
-      "      - postgres-data:/var/lib/postgresql/data"
+      "      - postgres-data:/var/lib/postgresql/data",
+      "    healthcheck:",
+      "      test: [\"CMD-SHELL\", \"pg_isready -U app -d app\"]",
+      "      interval: 5s",
+      "      timeout: 5s",
+      "      retries: 10"
     );
   }
 
@@ -1193,21 +1207,57 @@ function createDockerCompose(plan: ProjectPlan): string {
       "    ports:",
       "      - \"3306:3306\"",
       "    volumes:",
-      "      - mysql-data:/var/lib/mysql"
+      "      - mysql-data:/var/lib/mysql",
+      "    healthcheck:",
+      "      test: [\"CMD\", \"mysqladmin\", \"ping\", \"-h\", \"localhost\", \"-uapp\", \"-papp\"]",
+      "      interval: 5s",
+      "      timeout: 5s",
+      "      retries: 10"
     );
   }
 
   if (plan.capabilities.databases.includes("redis")) {
-    services.push("  redis:", "    image: redis:7", "    ports:", "      - \"6379:6379\"");
+    services.push(
+      "  redis:",
+      "    image: redis:7",
+      "    ports:",
+      "      - \"6379:6379\"",
+      "    healthcheck:",
+      "      test: [\"CMD\", \"redis-cli\", \"ping\"]",
+      "      interval: 5s",
+      "      timeout: 5s",
+      "      retries: 10"
+    );
   }
 
   if (plan.capabilities.messaging.includes("kafka")) {
     services.push(
       "  redpanda:",
       "    image: redpandadata/redpanda:v24.1.1",
-      "    command: redpanda start --overprovisioned --smp 1 --memory 512M --reserve-memory 0M --node-id 0 --check=false",
+      "    command:",
+      "      - redpanda",
+      "      - start",
+      "      - --overprovisioned",
+      "      - --smp",
+      "      - \"1\"",
+      "      - --memory",
+      "      - 512M",
+      "      - --reserve-memory",
+      "      - 0M",
+      "      - --node-id",
+      "      - \"0\"",
+      "      - --check=false",
+      "      - --kafka-addr",
+      "      - internal://0.0.0.0:9092,external://0.0.0.0:19092",
+      "      - --advertise-kafka-addr",
+      "      - internal://redpanda:9092,external://localhost:9092",
       "    ports:",
-      "      - \"9092:9092\""
+      "      - \"9092:19092\"",
+      "    healthcheck:",
+      "      test: [\"CMD\", \"rpk\", \"cluster\", \"info\", \"--brokers\", \"redpanda:9092\"]",
+      "      interval: 5s",
+      "      timeout: 5s",
+      "      retries: 10"
     );
   }
 
@@ -1217,6 +1267,58 @@ function createDockerCompose(plan: ProjectPlan): string {
   if (plan.capabilities.databases.includes("mysql")) volumes.push("  mysql-data:");
 
   return `${services.join("\n")}\n${volumes.length > 1 ? volumes.join("\n") : ""}\n`;
+}
+
+function createDockerApiEnvironment(plan: ProjectPlan): string[] {
+  const environment = ["    environment:"];
+
+  if (plan.capabilities.databases.includes("mongo")) {
+    environment.push("      MONGO_URI: mongodb://mongo:27017/app");
+  }
+
+  if (plan.capabilities.databases.includes("postgres")) {
+    environment.push("      POSTGRES_HOST: postgres");
+  }
+
+  if (plan.capabilities.databases.includes("mysql")) {
+    environment.push("      MYSQL_HOST: mysql");
+  }
+
+  if (plan.capabilities.databases.includes("redis")) {
+    environment.push("      REDIS_URL: redis://redis:6379");
+  }
+
+  if (plan.capabilities.messaging.includes("kafka")) {
+    environment.push("      EVENT_BUS: kafka", "      KAFKA_BROKERS: redpanda:9092");
+  }
+
+  return environment.length > 1 ? environment : [];
+}
+
+function createDockerApiDependsOn(plan: ProjectPlan): string[] {
+  const dependencies = ["    depends_on:"];
+
+  if (plan.capabilities.databases.includes("mongo")) {
+    dependencies.push("      mongo:", "        condition: service_healthy");
+  }
+
+  if (plan.capabilities.databases.includes("postgres")) {
+    dependencies.push("      postgres:", "        condition: service_healthy");
+  }
+
+  if (plan.capabilities.databases.includes("mysql")) {
+    dependencies.push("      mysql:", "        condition: service_healthy");
+  }
+
+  if (plan.capabilities.databases.includes("redis")) {
+    dependencies.push("      redis:", "        condition: service_healthy");
+  }
+
+  if (plan.capabilities.messaging.includes("kafka")) {
+    dependencies.push("      redpanda:", "        condition: service_healthy");
+  }
+
+  return dependencies.length > 1 ? dependencies : [];
 }
 
 function createMakefile(): string {
