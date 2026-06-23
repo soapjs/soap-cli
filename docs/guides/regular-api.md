@@ -111,8 +111,8 @@ soap generate openapi --output openapi.json
 
 ```bash
 soap remove route invoice approve
-soap remove resource invoice --dry-run
-soap remove resource invoice
+soap remove feature invoice --dry-run
+soap remove feature invoice
 ```
 
 Modified generated files are skipped unless you use `--force` or `--on-conflict overwrite`.

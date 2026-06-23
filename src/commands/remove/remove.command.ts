@@ -48,7 +48,7 @@ interface RemovePreview {
 }
 
 export function registerRemoveCommand(program: Command): void {
-  const remove = program.command("remove").description("Safely remove generated resources and routes.");
+  const remove = program.command("remove").description("Safely remove generated features and routes.");
 
   addConflictOption(addInteractiveOption(remove
     .command("route <resource> <route>")
@@ -105,26 +105,27 @@ export function registerRemoveCommand(program: Command): void {
     });
 
   addConflictOption(addInteractiveOption(remove
-    .command("resource <resource>")
-    .description("Remove a generated resource from a SoapJS project.")
+    .command("feature <feature>")
+    .alias("resource")
+    .description("Remove a generated feature from a SoapJS project. Deprecated alias: resource.")
     .option("--force", "delete modified generated files", false)
     .option("--yes", "skip interactive confirmation prompts", false)))
-    .action(async (resourceInput: string, options: RemoveOptions, command: Command) => {
+    .action(async (featureInput: string, options: RemoveOptions, command: Command) => {
       assertInteractiveTerminal(options);
 
       const context = getCommandContext(command);
       const config = await loadSoapConfig(context.cwd);
-      const resource = resolveResource(config, resourceInput);
+      const resource = resolveResource(config, featureInput);
       const targetEntries = config.registry.generatedFiles.filter((entry) => entry.owner === resource.name);
       const conflictPolicy = resolveRemoveConflictPolicy(options);
       const routeCount = config.registry.routes.filter((entry) => entry.resource === resource.name).length;
       const preview = await createRemovePreview(config, targetEntries, [
-        `resource ${resource.name}`,
+        `feature ${resource.name}`,
         `${routeCount} route${routeCount === 1 ? "" : "s"} for ${resource.name}`,
       ]);
 
       if (options.interactive) {
-        context.output.info(formatRemovePreview(`Remove resource ${resource.name}`, preview));
+        context.output.info(formatRemovePreview(`Remove feature ${resource.name}`, preview));
 
         if (hasModifiedFiles(preview) && conflictPolicy !== "overwrite") {
           throw new CliError("Refusing to delete modified generated files. Use --force or --on-conflict overwrite to delete them.");
@@ -137,7 +138,7 @@ export function registerRemoveCommand(program: Command): void {
           });
 
           if (!confirmed) {
-            context.output.warn("Resource removal aborted.");
+            context.output.warn("Feature removal aborted.");
             return;
           }
         }
@@ -145,7 +146,7 @@ export function registerRemoveCommand(program: Command): void {
 
       const removePlan = await removeTrackedFiles(config, targetEntries, conflictPolicy, context);
       if (removePlan.skipped.length > 0) {
-        reportRemoveResult(context, `Skipped resource ${resource.name}`, removePlan);
+        reportRemoveResult(context, `Skipped feature ${resource.name}`, removePlan);
         return;
       }
 
@@ -158,7 +159,7 @@ export function registerRemoveCommand(program: Command): void {
       });
       await writeSoapConfig(config.root, config, context);
 
-      reportRemoveResult(context, `Removed resource ${resource.name}`, removePlan);
+      reportRemoveResult(context, `Removed feature ${resource.name}`, removePlan);
     });
 }
 
@@ -168,7 +169,7 @@ function resolveResource(config: SoapConfig, input: string): ResourceRegistryEnt
   const resource = config.registry.resources.find((entry) => candidates.has(entry.name) || candidates.has(entry.path.replace(/^\//, "")));
 
   if (!resource) {
-    throw new CliError(`Resource "${input}" was not found in the route registry.`);
+    throw new CliError(`Feature "${input}" was not found in the route registry.`);
   }
 
   return resource;

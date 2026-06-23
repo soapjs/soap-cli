@@ -76,12 +76,12 @@ soap check routes
 
 ## Remove Generated Code
 
-- [`soap remove`](remove.md) safely removes generated routes or resources tracked in `.soap/registry.json`.
+- [`soap remove`](remove.md) safely removes generated routes or features tracked in `.soap/registry.json`.
 
 ```bash
 soap remove route invoice create
-soap remove resource invoice
-soap remove resource invoice -i
+soap remove feature invoice
+soap remove feature invoice -i
 ```
 
 ## Interactive Mode

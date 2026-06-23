@@ -1,10 +1,12 @@
 # `soap remove`
 
-Safely remove generated routes and resources.
+Safely remove generated routes and features.
+
+`soap remove resource` is a deprecated compatibility alias for `soap remove feature`.
 
 ```bash
 soap remove route invoice create
-soap remove resource invoice
+soap remove feature invoice
 ```
 
 Remove commands only delete files tracked in `.soap/registry.json`.
@@ -13,7 +15,7 @@ Remove commands only delete files tracked in `.soap/registry.json`.
 
 ```bash
 soap remove route invoice create -i
-soap remove resource invoice -i
+soap remove feature invoice -i
 ```
 
 Interactive mode shows a preview before deletion:
@@ -38,8 +40,7 @@ Use `--force` or `--on-conflict overwrite` to delete modified generated files:
 
 ```bash
 soap remove route invoice create --force
-soap remove resource invoice --on-conflict overwrite
+soap remove feature invoice --on-conflict overwrite
 ```
 
 `--dry-run` prints planned deletes and registry updates without changing files.
-

@@ -43,7 +43,7 @@ Use `--dry-run` before risky writes or deletes.
 
 ```bash
 soap add feature invoice --crud --dry-run
-soap remove resource invoice --dry-run
+soap remove feature invoice --dry-run
 soap update config --add-db mysql --dry-run
 ```
 
@@ -61,7 +61,7 @@ Examples:
 
 ```bash
 soap generate bruno --write-new
-soap remove resource invoice --force
+soap remove feature invoice --force
 soap add feature invoice --crud --on-conflict abort
 ```
 
@@ -69,8 +69,8 @@ soap add feature invoice --crud --on-conflict abort
 
 ```bash
 soap remove route invoice create
-soap remove resource invoice
-soap remove resource invoice -i
+soap remove feature invoice
+soap remove feature invoice -i
 ```
 
 Remove only touches files tracked in the registry. If a generated file was modified, it is skipped unless you explicitly force deletion.

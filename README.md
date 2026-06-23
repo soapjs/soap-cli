@@ -332,7 +332,7 @@ Safe removal:
 
 ```bash
 soap remove route users create-user
-soap remove resource users
+soap remove feature users
 soap remove route users create-user --force
 ```
 
