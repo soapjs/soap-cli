@@ -317,6 +317,7 @@ soap update config --add-auth api-key
 soap update config --add-docs openapi
 soap update config --add-contracts zod
 soap update config --add-api-client bruno
+soap update config --refresh
 ```
 
 ## Safety and Overwrite Behavior

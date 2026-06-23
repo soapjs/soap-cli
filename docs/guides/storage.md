@@ -32,7 +32,11 @@ soap update config --add-db sqlite
 soap update config --add-db redis
 ```
 
-`update config` is add-only.
+`update config` can also refresh generated infrastructure without adding capabilities:
+
+```bash
+soap update config --refresh
+```
 
 ## Add Resources With Storage
 

@@ -4,10 +4,12 @@ import { CliError } from "../../core/errors";
 import { loadSoapConfig } from "../../config/load-soap-config";
 import { writeSoapConfig } from "../../config/write-soap-config";
 import { ApiZone, AuthCapability, AuthPolicy, DatabaseCapability, RouteRegistryEntry, SoapConfig } from "../../config/schemas/types";
-import { writePlannedFiles } from "../../io/file-writer";
+import { resolveDependencies } from "../../dependencies/dependency-resolver";
+import { PlannedFile, writePlannedFiles } from "../../io/file-writer";
 import { createNameVariants } from "../../templates/naming";
 import { parseAuthPolicy } from "../../config/auth-policy";
 import { createBrunoFiles } from "../generate/bruno-plan";
+import { createProjectFiles, ProjectPlan } from "../create/project-plan";
 import {
   commandFeatureFromPath,
   commandNameFromPath,
@@ -268,6 +270,7 @@ export function registerAddCommand(program: Command): void {
         ? createBrunoFiles(config)
         : [];
       const files = [
+        ...createFeatureInfrastructureFiles(config),
         ...createResourceFiles(resourcePlan),
         createResourcesFile(config.registry.resources, config.structure.featuresRoot),
         createDatabaseFile(config.registry.resources, config.structure.featuresRoot),
@@ -1038,6 +1041,33 @@ function queryFeatures(generatedPaths: string[], featuresRoot: string, nextFeatu
   }
 
   return Array.from(new Set(features));
+}
+
+function createFeatureInfrastructureFiles(config: SoapConfig): PlannedFile[] {
+  const hasDatabaseSeeds = config.registry.resources.some(
+    (resource) => resource.crud && (resource.db === "mongo" || resource.db === "postgres" || resource.db === "mysql" || resource.db === "sqlite")
+  );
+
+  if (!hasDatabaseSeeds) {
+    return [];
+  }
+
+  const plan: ProjectPlan = {
+    name: config.project.name,
+    root: config.root,
+    framework: config.project.framework,
+    architecture: config.project.architecture,
+    packageManager: config.project.packageManager,
+    capabilities: config.project.capabilities,
+    zones: config.project.zones,
+    dependencies: resolveDependencies(config.project.capabilities),
+  };
+
+  return createProjectFiles(plan).filter((file) =>
+    file.path === "package.json" ||
+    file.path === "Makefile" ||
+    file.path === "src/config/dependencies.ts"
+  );
 }
 
 function collect(value: string, previous: string[]): string[] {

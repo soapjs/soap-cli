@@ -58,6 +58,7 @@ soap update config --add-docs openapi
 soap update config --add-contracts zod
 soap update config --add-api-client bruno
 soap update config --add-realtime ws
+soap update config --refresh
 ```
 
 Updates are add-only. They do not remove existing capabilities.

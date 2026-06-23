@@ -37,6 +37,7 @@ interface UpdateConfigOptions extends ConflictCommandOptions {
   addContracts?: string[];
   addApiClient?: string[];
   addRealtime?: string[];
+  refresh?: boolean;
   force?: boolean;
 }
 
@@ -52,6 +53,7 @@ export function registerUpdateCommand(program: Command): void {
     .option("--add-contracts <contracts>", "add contract capability: zod", collect, [])
     .option("--add-api-client <client>", "add API client capability: bruno", collect, [])
     .option("--add-realtime <realtime>", "add realtime capability: ws", collect, [])
+    .option("--refresh", "rewrite generated infrastructure without adding capabilities", false)
     .option("--force", "overwrite generated infra files even when modified", false))
     .action(async (options: UpdateConfigOptions, command: Command) => {
       const context = getCommandContext(command);
@@ -66,8 +68,8 @@ export function registerUpdateCommand(program: Command): void {
       addCapabilities(nextCapabilities.apiClient, parseCsvOption(options.addApiClient, ["bruno"] as ApiClientCapability[]), "api-client", changes);
       addCapabilities(nextCapabilities.realtime, parseCsvOption(options.addRealtime, realtimeOptions), "realtime", changes);
 
-      if (changes.length === 0) {
-        throw new CliError("No new capabilities requested. Use --add-db, --add-auth, --add-docs, --add-contracts, --add-api-client, or --add-realtime.");
+      if (changes.length === 0 && !options.refresh) {
+        throw new CliError("No new capabilities requested. Use --add-db, --add-auth, --add-docs, --add-contracts, --add-api-client, --add-realtime, or --refresh.");
       }
 
       config.project.capabilities = nextCapabilities;
@@ -77,7 +79,7 @@ export function registerUpdateCommand(program: Command): void {
       const files = createUpdateFiles(config, plan);
 
       if (context.dryRun) {
-        context.output.info(`Capabilities: ${changes.join(", ")}`);
+        context.output.info(`Capabilities: ${changes.join(", ") || "refresh"}`);
         context.output.info(`Files: ${files.length}`);
       }
 
@@ -94,7 +96,9 @@ export function registerUpdateCommand(program: Command): void {
       );
       await writeSoapConfig(config.root, config, context);
 
-      context.output.success(`Updated project capabilities: ${changes.join(", ")}.`);
+      context.output.success(changes.length > 0
+        ? `Updated project capabilities: ${changes.join(", ")}.`
+        : "Refreshed generated project infrastructure.");
     });
 }
 
