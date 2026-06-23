@@ -2,7 +2,7 @@
 
 Deterministic project and code generator for SoapJS services.
 
-The CLI creates a runnable TypeScript service, records generated artifacts in `.soap`, and can add resources, routes, API clients, OpenAPI docs, auth, databases, messaging, and realtime support without relying on interactive prompts.
+The CLI creates a runnable TypeScript service, records generated artifacts in `.soap`, and can add features, routes, API clients, OpenAPI docs, auth, databases, messaging, and realtime support without relying on interactive prompts.
 
 ## Installation
 
@@ -55,7 +55,7 @@ Supported commands accept `-i` for guided prompts:
 
 ```bash
 soap create users-api -i
-soap add resource invoice -i
+soap add feature invoice -i
 soap add route invoice approve -i
 soap generate bruno -i
 soap remove route invoice approve -i
@@ -68,7 +68,7 @@ Detailed docs:
 - [CLI reference](docs/cli/index.md)
 - [Interactive mode](docs/cli/interactive-mode.md)
 - [Create](docs/cli/create.md)
-- [Add resource](docs/cli/add-resource.md)
+- [Add feature](docs/cli/add-resource.md)
 - [Add route](docs/cli/add-route.md)
 - [Bruno](docs/cli/bruno.md)
 - [Remove](docs/cli/remove.md)
@@ -114,31 +114,31 @@ Common options:
 
 Generated projects use `@soapjs/soap-auth` 1.x with `SoapAuth.create(...)` and the `@soapjs/soap-express/auth` router/middleware helpers. Security defaults are generated through soap-express security config, including disabled `x-powered-by`, trust proxy, helmet, cors, and auth route throttling when auth is enabled.
 
-## `soap add resource`
+## `soap add feature`
 
-Add a resource to an existing SoapJS project:
+Add a feature to an existing SoapJS project. `soap add resource` remains available as a deprecated compatibility alias.
 
 ```bash
-soap add resource user --crud
-soap add resource invoice --crud --db postgres --auth jwt --zone private
-soap add resource invoice --crud --db mysql --auth jwt --zone private
-soap add resource note --crud --db sqlite
-soap add resource audit-log --db mongo --zone admin
-soap add resource product --crud --field title:string --field price:number --field active:boolean:optional
-soap add resource report --crud --auth jwt --policy roles:admin,editor
-soap add resource report --crud --crud-route list:get:/search:jwt:private:admin:no-bruno
+soap add feature user --crud
+soap add feature invoice --crud --db postgres --auth jwt --zone private
+soap add feature invoice --crud --db mysql --auth jwt --zone private
+soap add feature note --crud --db sqlite
+soap add feature audit-log --db mongo --zone admin
+soap add feature product --crud --field title:string --field price:number --field active:boolean:optional
+soap add feature report --crud --auth jwt --policy roles:admin,editor
+soap add feature report --crud --crud-route list:get:/search:jwt:private:admin:no-bruno
 ```
 
 Use `--dry-run` to inspect the expanded plan before writing:
 
 ```bash
-soap add resource order --crud --db postgres --dry-run
-soap add resource order --crud --db postgres --yes
+soap add feature order --crud --db postgres --dry-run
+soap add feature order --crud --db postgres --yes
 ```
 
-CRUD resources generate domain, repository, use-case or CQRS files, route controllers, route contracts, registry entries, and Bruno requests when Bruno is enabled.
+CRUD features generate domain, repository, use-case or CQRS files, route controllers, route contracts, registry entries, and Bruno requests when Bruno is enabled.
 
-Use `--field name:type` to store resource field metadata in the registry. Supported field types are `string`, `number`, `boolean`, and `date`. Add `:optional` to make a field optional.
+Use `--field name:type` to store feature field metadata in the registry. Supported field types are `string`, `number`, `boolean`, and `date`. Add `:optional` to make a field optional.
 
 Use `--policy admin`, `--policy roles:a,b`, or `--policy custom:name` to attach an auth policy to generated protected routes. Policies require route auth.
 

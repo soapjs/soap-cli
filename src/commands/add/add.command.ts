@@ -134,22 +134,23 @@ interface AddSocketOptions extends ConflictCommandOptions {
 }
 
 export function registerAddCommand(program: Command): void {
-  const add = program.command("add").description("Add resources, routes, and project components.");
+  const add = program.command("add").description("Add features, routes, and project components.");
 
   addConflictOption(addInteractiveOption(add
-    .command("resource <name>")
-    .description("Add a resource to an existing SoapJS project.")
+    .command("feature <name>")
+    .alias("resource")
+    .description("Add a feature to an existing SoapJS project. Deprecated alias: resource.")
     .option("--crud", "generate CRUD route placeholders", false)
-    .option("--db <database>", "resource storage target: none, mongo, postgres, mysql, sqlite, redis")
-    .option("--auth <auth>", "resource auth strategy: none, jwt, api-key, local")
+    .option("--db <database>", "feature storage target: none, mongo, postgres, mysql, sqlite, redis")
+    .option("--auth <auth>", "feature auth strategy: none, jwt, api-key, local")
     .option("--zone <zone>", "API zone: public, private, admin", "public")
     .option("--policy <policy>", "auth policy: admin, roles:a,b, custom:name, none")
-    .option("--field <field>", "resource field metadata as name:type or name:type:optional", collect, [])
+    .option("--field <field>", "feature field metadata as name:type or name:type:optional", collect, [])
     .option("--crud-route <route>", "CRUD route override as operation:method:path[:auth][:zone][:bruno|no-bruno]", collect, [])
-    .option("--dry-run", "print the expanded resource plan without writing files", false)
+    .option("--dry-run", "print the expanded feature plan without writing files", false)
     .option("--bruno", "generate Bruno requests when Bruno is enabled", false)
-    .option("--enable-bruno", "enable Bruno API client before adding the resource", false)
-    .option("--yes", "run the expanded resource plan without prompting", false)
+    .option("--enable-bruno", "enable Bruno API client before adding the feature", false)
+    .option("--yes", "run the expanded feature plan without prompting", false)
     .option("--force", "overwrite generated files even when modified", false)
     .option("--write-new", "write modified generated files as .new", false)))
     .action(async (name: string, options: AddResourceOptions, command: Command) => {
@@ -161,7 +162,7 @@ export function registerAddCommand(program: Command): void {
       const names = createNameVariants(name);
 
       if (config.registry.resources.some((resource) => resource.name === names.kebabName)) {
-        throw new CliError(`Resource "${names.kebabName}" already exists.`);
+        throw new CliError(`Feature "${names.kebabName}" already exists.`);
       }
 
       const prompt = options.interactive ? new InquirerPromptAdapter() : undefined;
@@ -206,7 +207,7 @@ export function registerAddCommand(program: Command): void {
 
       if (context.dryRun || promptAnswers?.dryRunFirst) {
         context.output.info(formatResourceAddPlanningSummary(planningSummary));
-        context.output.success(`Planned resource ${names.kebabName} at /${names.pluralName}`);
+        context.output.success(`Planned feature ${names.kebabName} at /${names.pluralName}`);
         return;
       }
 
@@ -215,12 +216,12 @@ export function registerAddCommand(program: Command): void {
 
         if (!options.yes) {
           const confirmed = await prompt!.confirm({
-            message: "Add resource?",
+            message: "Add feature?",
             defaultValue: true,
           });
 
           if (!confirmed) {
-            context.output.warn("Resource generation aborted.");
+            context.output.warn("Feature generation aborted.");
             return;
           }
         }
@@ -291,7 +292,7 @@ export function registerAddCommand(program: Command): void {
       );
       await writeSoapConfig(config.root, config, context);
 
-      context.output.success(`Added resource ${names.kebabName} at ${resource.path}`);
+      context.output.success(`Added feature ${names.kebabName} at ${resource.path}`);
     });
 
   addConflictOption(addInteractiveOption(add
@@ -319,7 +320,7 @@ export function registerAddCommand(program: Command): void {
       }
 
       if (options.interactive && config.registry.resources.length === 0) {
-        throw new CliError("No resources found. Run `soap add resource <name>` first.");
+        throw new CliError("No features found. Run `soap add feature <name>` first.");
       }
 
       const initialResourceNames = resourceName ? createNameVariants(resourceName) : undefined;
@@ -328,7 +329,7 @@ export function registerAddCommand(program: Command): void {
         : undefined;
 
       if (resourceName && !initialResource) {
-        throw new CliError(`Resource "${initialResourceNames!.kebabName}" does not exist. Run \`soap add resource ${initialResourceNames!.kebabName}\` first.`);
+        throw new CliError(`Feature "${initialResourceNames!.kebabName}" does not exist. Run \`soap add feature ${initialResourceNames!.kebabName}\` first.`);
       }
 
       const prompt = options.interactive ? new InquirerPromptAdapter() : undefined;
@@ -348,7 +349,7 @@ export function registerAddCommand(program: Command): void {
       const resource = config.registry.resources.find((entry) => entry.name === resourceNames.kebabName);
 
       if (!resource) {
-        throw new CliError(`Resource "${resourceNames.kebabName}" does not exist. Run \`soap add resource ${resourceNames.kebabName}\` first.`);
+        throw new CliError(`Feature "${resourceNames.kebabName}" does not exist. Run \`soap add feature ${resourceNames.kebabName}\` first.`);
       }
 
       if (config.registry.routes.some((route) => route.resource === resource.name && route.name === routeNames.kebabName)) {

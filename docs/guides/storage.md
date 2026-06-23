@@ -37,11 +37,11 @@ soap update config --add-db redis
 ## Add Resources With Storage
 
 ```bash
-soap add resource invoice --crud --db postgres
-soap add resource invoice --crud --db mysql
-soap add resource note --crud --db sqlite
-soap add resource customer --crud --db mongo
-soap add resource task --crud --db none
+soap add feature invoice --crud --db postgres
+soap add feature invoice --crud --db mysql
+soap add feature note --crud --db sqlite
+soap add feature customer --crud --db mongo
+soap add feature task --crud --db none
 ```
 
 Generated SQL repositories use the same repository template with adapter-specific config:
@@ -98,4 +98,3 @@ make down
 ```
 
 Generated Docker Compose includes services for Mongo, Postgres, MySQL, Redis, and Kafka/Redpanda when those capabilities are enabled.
-

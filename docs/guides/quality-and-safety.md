@@ -42,7 +42,7 @@ Use these commands after changing capabilities, adding routes, or removing gener
 Use `--dry-run` before risky writes or deletes.
 
 ```bash
-soap add resource invoice --crud --dry-run
+soap add feature invoice --crud --dry-run
 soap remove resource invoice --dry-run
 soap update config --add-db mysql --dry-run
 ```
@@ -62,7 +62,7 @@ Examples:
 ```bash
 soap generate bruno --write-new
 soap remove resource invoice --force
-soap add resource invoice --crud --on-conflict abort
+soap add feature invoice --crud --on-conflict abort
 ```
 
 ## Remove Generated Code
@@ -85,4 +85,3 @@ soap create users-api --git-init --skip-install
 ```
 
 `--git-init` only runs `git init`. It does not commit or push.
-

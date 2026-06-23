@@ -33,7 +33,7 @@ Kafka support uses Redpanda in generated Docker Compose.
 ## Add A CQRS CRUD Resource
 
 ```bash
-soap add resource shipment \
+soap add feature shipment \
   --crud \
   --auth jwt \
   --zone private \
@@ -97,4 +97,3 @@ Generated Docker Compose includes the API and Redpanda when Kafka is enabled.
 npm test
 soap check routes
 ```
-

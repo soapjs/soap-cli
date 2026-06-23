@@ -169,6 +169,15 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
     },
     dependencies: plan.dependencies.dependencies,
     devDependencies: plan.dependencies.devDependencies,
+    ...(plan.capabilities.apiClient.includes("bruno")
+      ? {
+          overrides: {
+            axios: "^1.16.0",
+            "form-data": "^4.0.6",
+            uuid: "^11.1.1",
+          },
+        }
+      : {}),
   };
 
   const dockerServices = createDockerCompose(plan);

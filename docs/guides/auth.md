@@ -37,13 +37,13 @@ Auth projects also enable route-specific throttling for:
 ## Add Protected CRUD Routes
 
 ```bash
-soap add resource report --crud --auth jwt --zone private
+soap add feature report --crud --auth jwt --zone private
 ```
 
 Admin zone:
 
 ```bash
-soap add resource audit-log --crud --auth jwt --zone admin
+soap add feature audit-log --crud --auth jwt --zone admin
 ```
 
 Public route:
@@ -81,7 +81,7 @@ The CLI fails before writing files because policies require auth.
 Use matrix policies when each CRUD operation needs different auth.
 
 ```bash
-soap add resource report --crud \
+soap add feature report --crud \
   --crud-route list:get:/search:jwt:private:roles=admin,editor:bruno \
   --crud-route create:post:/submit:api-key:private:custom=report-writer:bruno \
   --crud-route delete:delete:/:id:jwt:admin:admin:no-bruno

@@ -50,7 +50,7 @@ curl http://localhost:3000/health
 ## Add A CRUD Resource
 
 ```bash
-soap add resource invoice \
+soap add feature invoice \
   --crud \
   --db postgres \
   --auth jwt \
@@ -116,4 +116,3 @@ soap remove resource invoice
 ```
 
 Modified generated files are skipped unless you use `--force` or `--on-conflict overwrite`.
-

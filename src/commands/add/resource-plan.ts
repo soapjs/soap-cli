@@ -1340,7 +1340,7 @@ function createRegularCrudUseCaseTs(
   const executeInput = action.kind === "list" ? "" : `input: ${inputInterface}`;
   const repositoryCall = createRegularCrudRepositoryCall(action.kind, itemNames);
 
-  return `import { Injectable, Result, UseCase } from '@soapjs/soap/common';
+  return `import { Injectable, Result, UseCase } from '@soapjs/soap';
 import { ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
 

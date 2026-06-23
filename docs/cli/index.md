@@ -16,11 +16,11 @@ soap create users-api -i
 
 ## Add Code
 
-- [`soap add resource`](add-resource.md) adds a resource, optional CRUD routes, storage, contracts, tests, and Bruno requests.
+- [`soap add feature`](add-resource.md) adds a feature, optional CRUD routes, storage, contracts, tests, and Bruno requests.
 - [`soap add route`](add-route.md) adds a custom route to an existing resource.
 
 ```bash
-soap add resource invoice --crud --db postgres --auth jwt --zone private
+soap add feature invoice --crud --db postgres --auth jwt --zone private
 soap add route invoice approve --method post --path :id/approve --auth jwt --policy custom:approver
 ```
 
@@ -89,4 +89,3 @@ soap remove resource invoice -i
 See [`interactive-mode.md`](interactive-mode.md).
 
 Interactive mode resolves inputs only. It uses the same deterministic planners and file writer as flag-based commands.
-
