@@ -77,6 +77,19 @@ Feature repositories are generated for:
 
 `redis` is currently infrastructure-only and does not generate a feature repository adapter.
 
+CRUD features with `mongo`, `postgres`, `mysql`, or `sqlite` also generate a feature seed module under `data/`. The project-level `src/config/database.ts` runner imports those modules and exposes:
+
+```bash
+npm run db:init
+npm run db:seed
+npm run db:reset
+make db-init
+make db-seed
+make db-reset
+```
+
+For SQL features, `db:init` creates the generated table when it does not exist. `db:seed` runs init first and upserts sample data based on `--field` metadata. `db:reset` clears the generated feature table. For Mongo features, `db:seed` upserts sample documents by stable generated IDs and `db:reset` clears the feature collection.
+
 ## Auth Policies
 
 Attach a policy to protected generated routes:

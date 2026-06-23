@@ -28,6 +28,7 @@ if (violations.length > 0) {
 }
 
 const {
+  createDatabaseFile,
   createResourceFiles,
   parseCrudRouteMatrix,
 } = require("../build/commands/add/resource-plan");
@@ -55,6 +56,41 @@ try {
     fields: [],
     crudRoutes: parseCrudRouteMatrix([]),
   });
+  const postgresResourceFiles = createResourceFiles({
+    name: "invoices",
+    crud: true,
+    db: "postgres",
+    auth: "none",
+    zone: "public",
+    featuresRoot: "src/features",
+    architecture: "regular",
+    contracts: "plain",
+    fields: [{ name: "title", type: "string", required: true }],
+    crudRoutes: parseCrudRouteMatrix([]),
+  });
+  const databaseFile = createDatabaseFile(
+    [
+      {
+        name: "invoices",
+        path: "/invoices",
+        crud: true,
+        db: "postgres",
+        auth: "none",
+        zone: "public",
+        fields: [{ name: "title", type: "string", required: true }],
+        generatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    "src/features"
+  );
+
+  if (!postgresResourceFiles.some((file) => file.path === "src/features/invoices/data/invoice.seed.ts")) {
+    throw new Error("postgres CRUD feature should generate a database seed file");
+  }
+
+  if (!databaseFile.content.includes("seedInvoiceDatabase")) {
+    throw new Error("database runner should register generated feature seed functions");
+  }
 
   const generatedFiles = [
     ...standaloneUseCaseFiles.filter((file) => file.path.endsWith(".use-case.ts")),

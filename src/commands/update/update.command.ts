@@ -26,7 +26,7 @@ import {
   ProjectPlan,
   realtimeOptions,
 } from "../create/project-plan";
-import { createControllersFile, createFeaturesIndexFile, createResourcesFile } from "../add/resource-plan";
+import { createControllersFile, createDatabaseFile, createFeaturesIndexFile, createResourcesFile } from "../add/resource-plan";
 import { routeControllerIndexResourceFromPath } from "../add/route-plan";
 import { addConflictOption, ConflictCommandOptions } from "../shared/common-options";
 
@@ -166,6 +166,7 @@ function createUpdateFiles(config: SoapConfig, plan: ProjectPlan): PlannedFile[]
     .map((resource) => resource.name);
   const indexFiles = [
     createResourcesFile(config.registry.resources, config.structure.featuresRoot),
+    createDatabaseFile(config.registry.resources, config.structure.featuresRoot),
     createFeaturesIndexFile(config.registry.resources, config.project.capabilities.auth),
     createControllersFile(
       config.registry.resources,
@@ -184,12 +185,14 @@ function shouldUpdateFromProjectPlan(file: PlannedFile): boolean {
   if (
     [
       "package.json",
+      "Makefile",
       ".env.example",
       "README.md",
       "docker-compose.yml",
       "src/index.ts",
       "src/config/config.ts",
       "src/config/dependencies.ts",
+      "src/config/database.ts",
     ].includes(file.path)
   ) {
     return true;

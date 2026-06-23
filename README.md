@@ -233,6 +233,7 @@ Generated projects include `Dockerfile`, `docker-compose.yml`, and `Makefile`.
 
 ```bash
 make up
+make db-seed
 make logs
 curl http://localhost:3000/health
 make down
@@ -240,6 +241,8 @@ make down-clean
 ```
 
 Selected capabilities update Docker services. For example, Redis adds a `redis` service and `REDIS_URL`, Postgres adds a `postgres` service and volume, MySQL adds a `mysql` service and volume, SQLite adds `SQLITE_FILENAME`, and Kafka adds Redpanda.
+
+CRUD features with Mongo or SQL storage generate database init/seed/reset modules. Use `npm run db:init`, `npm run db:seed`, `npm run db:reset`, or the matching `make db-init`, `make db-seed`, and `make db-reset` targets. SQL seed runs create missing tables before inserting sample data based on feature fields.
 
 ## `.soap` Folder
 

@@ -14,6 +14,8 @@ import { PlannedFile } from "../../io/file-writer";
 import {
   createControllersTs,
   ControllerRegistration,
+  createDatabaseTs,
+  DatabaseFeatureRegistration,
   createResourcesTs,
   ResourceRegistration,
 } from "../create/project-plan";
@@ -52,7 +54,7 @@ export interface ResourceAddPlanningOptions extends AddResourcePlan {
 }
 
 export interface ResourceAddPlanningStep {
-  type: "entity" | "repository" | "use-case" | "command" | "query" | "route" | "contract" | "bruno";
+  type: "entity" | "repository" | "use-case" | "command" | "query" | "route" | "contract" | "bruno" | "seed";
   name: string;
 }
 
@@ -89,6 +91,9 @@ export function createResourceAddPlanningSummary(plan: ResourceAddPlanningOption
 
   if (plan.db !== "none") {
     steps.push({ type: "repository", name: `${itemName} ${plan.db} implementation` });
+    if (plan.db === "mongo" || isSqlDatabase(plan.db)) {
+      steps.push({ type: "seed", name: `${itemName} database init and seed` });
+    }
   } else {
     steps.push({ type: "repository", name: `${itemName} in-memory implementation` });
   }
@@ -253,6 +258,7 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       content: createRegularCrudRepositoryPortTs(itemNames),
     },
     ...createRegularCrudRepositoryAdapterFiles(root, featureNames, itemNames, plan),
+    ...createDatabaseSeedFiles(root, featureNames, itemNames, plan),
     ...commands.flatMap((action) => createCqrsCrudCommandFiles(root, featureNames, itemNames, action)),
     ...queries.flatMap((action) => createCqrsCrudQueryFiles(root, featureNames, itemNames, action)),
     {
@@ -332,6 +338,7 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       content: createRegularCrudRepositoryPortTs(itemNames),
     },
     ...createRegularCrudRepositoryAdapterFiles(root, featureNames, itemNames, plan),
+    ...createDatabaseSeedFiles(root, featureNames, itemNames, plan),
     ...actions.map((action) => ({
       path: `${root}/application/use-cases/${action.name}.use-case.ts`,
       type: "use-case" as const,
@@ -479,6 +486,37 @@ function createRegularCrudRepositoryAdapterFiles(
         type: "repository",
         owner: featureNames.kebabName,
         content: createRegularCrudSqlRepositorySpecTs(itemNames, plan.db, plan.fields),
+      },
+    ];
+  }
+
+  return [];
+}
+
+function createDatabaseSeedFiles(
+  root: string,
+  featureNames: ReturnType<typeof createNameVariants>,
+  itemNames: ReturnType<typeof createNameVariants>,
+  plan: AddResourcePlan
+): PlannedFile[] {
+  if (plan.db === "mongo") {
+    return [
+      {
+        path: `${root}/data/${itemNames.kebabName}.seed.ts`,
+        type: "config",
+        owner: featureNames.kebabName,
+        content: createMongoSeedTs(featureNames, itemNames, plan.fields),
+      },
+    ];
+  }
+
+  if (isSqlDatabase(plan.db)) {
+    return [
+      {
+        path: `${root}/data/${itemNames.kebabName}.seed.ts`,
+        type: "config",
+        owner: featureNames.kebabName,
+        content: createSqlSeedTs(featureNames, itemNames, plan.db, plan.fields),
       },
     ];
   }
@@ -812,6 +850,28 @@ export function createResourcesFile(resources: ResourceRegistryEntry[], features
     path: "src/config/resources.ts",
     type: "config",
     content: createResourcesTs(registrations),
+  };
+}
+
+export function createDatabaseFile(resources: ResourceRegistryEntry[], featuresRoot: string): PlannedFile {
+  const registrations: DatabaseFeatureRegistration[] = resources
+    .filter((resource) => resource.crud && (resource.db === "mongo" || isSqlDatabase(resource.db)))
+    .map((resource) => {
+      const featureNames = createNameVariants(resource.name);
+      const itemNames = createNameVariants(singularizeResourceName(featureNames.kebabName));
+
+      return {
+        initFunctionName: `init${itemNames.pascalName}Database`,
+        seedFunctionName: `seed${itemNames.pascalName}Database`,
+        resetFunctionName: `reset${itemNames.pascalName}Database`,
+        importPath: `../${featuresRoot.replace(/^src\//, "")}/${featureNames.kebabName}/data/${itemNames.kebabName}.seed`,
+      };
+    });
+
+  return {
+    path: "src/config/database.ts",
+    type: "config",
+    content: createDatabaseTs(registrations),
   };
 }
 
@@ -2079,6 +2139,137 @@ function createSampleFieldValue(field: ResourceFieldDefinition, variant: "create
 
   const prefix = variant === "create" ? "Sample" : "Updated";
   return JSON.stringify(`${prefix} ${field.name}`);
+}
+
+function createSeedRecordObject(
+  fields: ResourceFieldDefinition[] | undefined,
+  id: string,
+  indent: string
+): string {
+  return [
+    `${indent}id: '${id}',`,
+    createSampleInputObject(fields, "create", indent),
+    `${indent}createdAt: '2026-01-01T00:00:00.000Z',`,
+    `${indent}updatedAt: '2026-01-01T00:00:00.000Z',`,
+  ].join("\n");
+}
+
+function createMongoSeedTs(
+  featureNames: ReturnType<typeof createNameVariants>,
+  itemNames: ReturnType<typeof createNameVariants>,
+  fields: ResourceFieldDefinition[] | undefined
+): string {
+  const sampleId = `${itemNames.kebabName}-sample-1`;
+  const sample = createSeedRecordObject(fields, sampleId, "  ");
+
+  return `import { createMongoSource } from '../../../common/data/mongo/mongo.source-factory';
+import { ResourceContext } from '../../../config/dependencies';
+import { ${itemNames.pascalName}Document } from './${itemNames.kebabName}.repository.mongo';
+
+const sample${itemNames.pascalName}: ${itemNames.pascalName}Document = {
+${sample}
+};
+
+function get${itemNames.pascalName}Source(resources: ResourceContext) {
+  if (!resources.mongo) {
+    throw new Error('Mongo is not configured for ${featureNames.kebabName}.');
+  }
+
+  return createMongoSource<${itemNames.pascalName}Document>(resources.mongo, '${featureNames.kebabName}');
+}
+
+export async function init${itemNames.pascalName}Database(resources: ResourceContext): Promise<void> {
+  get${itemNames.pascalName}Source(resources);
+}
+
+export async function seed${itemNames.pascalName}Database(resources: ResourceContext): Promise<void> {
+  const source = get${itemNames.pascalName}Source(resources);
+  const [existing] = await source.find({ where: { id: sample${itemNames.pascalName}.id }, limit: 1 });
+
+  if (existing) {
+    await source.update({ where: { id: sample${itemNames.pascalName}.id }, update: sample${itemNames.pascalName} });
+    return;
+  }
+
+  await source.insert(sample${itemNames.pascalName});
+}
+
+export async function reset${itemNames.pascalName}Database(resources: ResourceContext): Promise<void> {
+  const source = get${itemNames.pascalName}Source(resources);
+  await source.remove({});
+}
+`;
+}
+
+function createSqlSeedTs(
+  featureNames: ReturnType<typeof createNameVariants>,
+  itemNames: ReturnType<typeof createNameVariants>,
+  db: SqlDatabaseCapability,
+  fields: ResourceFieldDefinition[] | undefined
+): string {
+  const sampleId = `${itemNames.kebabName}-sample-1`;
+  const sample = createSeedRecordObject(fields, sampleId, "  ");
+  const sql = createSqlFieldMetadata(fields, db);
+  const normalizedFields = normalizeResourceFields(fields);
+  const updateAssignments = [
+    ...normalizedFields.map((field, index) => `${quoteSqlIdentifier(field.name, db)} = ${createSqlPlaceholder(index + 1, db)}`),
+    `${quoteSqlIdentifier("updatedAt", db)} = ${createSqlPlaceholder(normalizedFields.length + 1, db)}`,
+  ].join(", ");
+  const updateValues = [
+    ...normalizedFields.map((field) => `sample${itemNames.pascalName}.${field.name}`),
+    `sample${itemNames.pascalName}.updatedAt`,
+    `sample${itemNames.pascalName}.id`,
+  ].join(", ");
+
+  return `import { createSqlSource } from '../../../common/data/sql/sql.source-factory';
+import { ResourceContext } from '../../../config/dependencies';
+import { ensure${itemNames.pascalName}Schema, ${itemNames.pascalName}Row } from './${itemNames.kebabName}.repository.sql';
+
+const sample${itemNames.pascalName}: ${itemNames.pascalName}Row = {
+${sample}
+};
+
+function get${itemNames.pascalName}Source(resources: ResourceContext) {
+  const sql = resources.sql?.${db};
+
+  if (!sql) {
+    throw new Error('${formatDatabaseName(db)} is not configured for ${featureNames.kebabName}.');
+  }
+
+  return createSqlSource<${itemNames.pascalName}Row>(sql, '${featureNames.snakeName}');
+}
+
+export async function init${itemNames.pascalName}Database(resources: ResourceContext): Promise<void> {
+  const source = get${itemNames.pascalName}Source(resources);
+  await ensure${itemNames.pascalName}Schema(source);
+}
+
+export async function seed${itemNames.pascalName}Database(resources: ResourceContext): Promise<void> {
+  const source = get${itemNames.pascalName}Source(resources);
+  await ensure${itemNames.pascalName}Schema(source);
+
+  const existing = await source.query('SELECT id FROM ${itemNames.snakeName} WHERE id = ${sql.firstPlaceholder} LIMIT 1', [sample${itemNames.pascalName}.id]);
+
+  if (existing.data.length > 0) {
+    await source.query(
+      'UPDATE ${itemNames.snakeName} SET ${updateAssignments} WHERE id = ${createSqlPlaceholder(normalizedFields.length + 2, db)}',
+      [${updateValues}]
+    );
+    return;
+  }
+
+  await source.query(
+    'INSERT INTO ${itemNames.snakeName} (${sql.insertColumns}) VALUES (${sql.insertPlaceholders})',
+    [${sql.insertValues.replaceAll("row.", `sample${itemNames.pascalName}.`)}]
+  );
+}
+
+export async function reset${itemNames.pascalName}Database(resources: ResourceContext): Promise<void> {
+  const source = get${itemNames.pascalName}Source(resources);
+  await ensure${itemNames.pascalName}Schema(source);
+  await source.query('DELETE FROM ${itemNames.snakeName}');
+}
+`;
 }
 
 function createSqlFieldMetadata(fields: ResourceFieldDefinition[] | undefined, db: SqlDatabaseCapability): {

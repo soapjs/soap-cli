@@ -26,6 +26,7 @@ import {
 import { createRepositoryFiles } from "./repository-plan";
 import {
   createControllersFile,
+  createDatabaseFile,
   createFeaturesIndexFile,
   createResourceAddPlanningSummary,
   createResourceEntry,
@@ -269,6 +270,7 @@ export function registerAddCommand(program: Command): void {
       const files = [
         ...createResourceFiles(resourcePlan),
         createResourcesFile(config.registry.resources, config.structure.featuresRoot),
+        createDatabaseFile(config.registry.resources, config.structure.featuresRoot),
         createFeaturesIndexFile(config.registry.resources, config.project.capabilities.auth),
         createControllersFile(
           config.registry.resources,

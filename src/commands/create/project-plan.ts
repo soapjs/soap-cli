@@ -162,6 +162,9 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
       "dev:watch": "tsx watch src/index.ts",
       build: "tsc -p tsconfig.json",
       start: "node build/index.js",
+      "db:init": "tsx src/config/database.ts init",
+      "db:seed": "tsx src/config/database.ts seed",
+      "db:reset": "tsx src/config/database.ts reset",
       test: "npm run build && find build -name '*.spec.js' -o -name '*.test.js' | xargs node --test",
       lint: "tsc -p tsconfig.json --noEmit",
       bruno: plan.capabilities.apiClient.includes("bruno") ? "cd bruno && bru run --env Local" : "echo \"Bruno is not enabled\"",
@@ -272,6 +275,11 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
       path: "src/config/resources.ts",
       type: "config",
       content: createResourcesTs([]),
+    },
+    {
+      path: "src/config/database.ts",
+      type: "config",
+      content: createDatabaseTs([]),
     },
     {
       path: "src/config/controllers.ts",
@@ -510,6 +518,7 @@ export async function buildContainer(_config: AppConfig): Promise<{
   container: DIContainer;
   drainables: Drainable[];
   logger: ConsoleLogger;
+  resources: ResourceContext;
 ${authReturnType}
 }> {
   const container = new DIContainer();
@@ -525,6 +534,7 @@ ${mongoSetup}${sqlSetup}${eventSetup}
     container,
     drainables,
     logger,
+    resources,
     auth,
   };
 }
@@ -533,6 +543,13 @@ ${mongoSetup}${sqlSetup}${eventSetup}
 
 export interface ResourceRegistration {
   functionName: string;
+  importPath: string;
+}
+
+export interface DatabaseFeatureRegistration {
+  initFunctionName: string;
+  seedFunctionName: string;
+  resetFunctionName: string;
   importPath: string;
 }
 
@@ -554,6 +571,101 @@ ${imports}
 
 export async function registerResources(container: DIContainer, resources: ResourceContext): Promise<void> {
 ${resources.map((resource) => `  await ${resource.functionName}(container, resources);`).join("\n")}
+}
+`;
+}
+
+export function createDatabaseTs(features: DatabaseFeatureRegistration[]): string {
+  const imports = features
+    .map((feature) => `import { ${feature.initFunctionName}, ${feature.seedFunctionName}, ${feature.resetFunctionName} } from '${feature.importPath}';`)
+    .join("\n");
+  const featureEntries = features.length === 0
+    ? ""
+    : features
+        .map((feature) => `  {
+    init: ${feature.initFunctionName},
+    seed: ${feature.seedFunctionName},
+    reset: ${feature.resetFunctionName},
+  },`)
+        .join("\n");
+
+  return `import { config } from './config';
+import { buildContainer, ResourceContext } from './dependencies';
+${imports}
+
+interface DatabaseFeature {
+  init(resources: ResourceContext): Promise<void>;
+  seed(resources: ResourceContext): Promise<void>;
+  reset(resources: ResourceContext): Promise<void>;
+}
+
+const databaseFeatures: DatabaseFeature[] = [
+${featureEntries}
+];
+
+async function withResources(run: (resources: ResourceContext) => Promise<void>): Promise<void> {
+  const runtime = await buildContainer(config);
+
+  try {
+    const resources = runtime.resources;
+    await run(resources);
+  } finally {
+    for (const drainable of runtime.drainables.reverse()) {
+      await drainable.close?.();
+    }
+  }
+}
+
+export async function initDatabase(): Promise<void> {
+  await withResources(async (resources) => {
+    for (const feature of databaseFeatures) {
+      await feature.init(resources);
+    }
+  });
+}
+
+export async function seedDatabase(): Promise<void> {
+  await withResources(async (resources) => {
+    for (const feature of databaseFeatures) {
+      await feature.seed(resources);
+    }
+  });
+}
+
+export async function resetDatabase(): Promise<void> {
+  await withResources(async (resources) => {
+    for (const feature of [...databaseFeatures].reverse()) {
+      await feature.reset(resources);
+    }
+  });
+}
+
+async function main(): Promise<void> {
+  const command = process.argv[2] ?? 'seed';
+
+  if (command === 'init') {
+    await initDatabase();
+    return;
+  }
+
+  if (command === 'seed') {
+    await seedDatabase();
+    return;
+  }
+
+  if (command === 'reset') {
+    await resetDatabase();
+    return;
+  }
+
+  throw new Error(\`Unknown database command "\${command}". Use init, seed, or reset.\`);
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }
 `;
 }
@@ -1331,7 +1443,7 @@ function createDockerApiDependsOn(plan: ProjectPlan): string[] {
 }
 
 function createMakefile(): string {
-  return `.PHONY: help up down down-clean logs build dev test lint bruno test-api openapi kafka-mode
+  return `.PHONY: help up down down-clean logs build dev test lint db-init db-seed db-reset bruno test-api openapi kafka-mode
 
 help:
 \t@grep -E '^[a-zA-Z_-]+:' Makefile
@@ -1356,6 +1468,15 @@ dev:
 
 test:
 \tnpm test
+
+db-init:
+\tnpm run db:init
+
+db-seed:
+\tnpm run db:seed
+
+db-reset:
+\tnpm run db:reset
 
 lint:
 \tnpm run lint

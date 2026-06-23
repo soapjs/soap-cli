@@ -49,6 +49,25 @@ Generated SQL repositories use the same repository template with adapter-specifi
 - PostgreSQL uses `$1`, `$2` placeholders.
 - MySQL and SQLite use `?` placeholders.
 
+## Init, Seed, And Reset
+
+Generated projects include database runner scripts:
+
+```bash
+npm run db:init
+npm run db:seed
+npm run db:reset
+make db-init
+make db-seed
+make db-reset
+```
+
+When a CRUD feature uses Mongo, PostgreSQL, MySQL, or SQLite, the CLI generates a seed module for that feature and registers it in `src/config/database.ts`.
+
+- `db:init` runs generated schema/index setup. SQL features create missing tables.
+- `db:seed` runs init first and then upserts sample records based on feature fields.
+- `db:reset` clears generated feature data so the seed can be replayed.
+
 ## Environment Variables
 
 PostgreSQL:
