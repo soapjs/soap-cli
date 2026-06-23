@@ -457,6 +457,12 @@ function createRegularCrudRepositoryAdapterFiles(
         owner: featureNames.kebabName,
         content: createRegularCrudMongoRepositoryTs(itemNames, plan.fields),
       },
+      {
+        path: `${root}/data/${itemNames.kebabName}.repository.mongo.spec.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudMongoRepositorySpecTs(itemNames, plan.fields),
+      },
     ];
   }
 
@@ -467,6 +473,12 @@ function createRegularCrudRepositoryAdapterFiles(
         type: "repository",
         owner: featureNames.kebabName,
         content: createRegularCrudSqlRepositoryTs(itemNames, plan.db, plan.fields),
+      },
+      {
+        path: `${root}/data/${itemNames.kebabName}.repository.sql.spec.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudSqlRepositorySpecTs(itemNames, plan.db, plan.fields),
       },
     ];
   }
@@ -1248,6 +1260,71 @@ export class Mongo${names.pascalName}Repository implements ${names.pascalName}Re
 `;
 }
 
+function createRegularCrudMongoRepositorySpecTs(
+  names: ReturnType<typeof createNameVariants>,
+  fields: ResourceFieldDefinition[] | undefined = []
+): string {
+  const input = createSampleInputObject(fields, "create", "  ");
+  const updateInput = createSampleInputObject(fields, "update", "  ");
+  const assertionField = normalizeResourceFields(fields)[0].name;
+  const expectedUpdatedValue = createSampleFieldValue(normalizeResourceFields(fields)[0], "update");
+
+  return `import assert from 'node:assert/strict';
+import test from 'node:test';
+import { MongoSource } from '@soapjs/soap-mongo';
+import { ${names.pascalName}Document, Mongo${names.pascalName}Repository } from './${names.kebabName}.repository.mongo';
+import { ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+
+test('Mongo${names.pascalName}Repository maps CRUD operations to MongoSource', async () => {
+  let documents: ${names.pascalName}Document[] = [];
+  const source = {
+    async find(query: { where?: { id?: string }; limit?: number } = {}) {
+      if (query.where?.id) {
+        return documents.filter((document) => document.id === query.where?.id).slice(0, query.limit);
+      }
+
+      return documents;
+    },
+    async insert(document: ${names.pascalName}Document) {
+      documents.push(document);
+      return [document];
+    },
+    async update(command: { where: { id: string }; update: ${names.pascalName}Document }) {
+      documents = documents.map((document) => document.id === command.where.id ? command.update : document);
+      return { modifiedCount: 1 };
+    },
+    async remove(command: { where: { id: string } }) {
+      const before = documents.length;
+      documents = documents.filter((document) => document.id !== command.where.id);
+      return { deletedCount: before - documents.length };
+    },
+  } as unknown as MongoSource<${names.pascalName}Document>;
+  const repository = new Mongo${names.pascalName}Repository(source);
+  const input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'> = {
+${input}
+  };
+
+  const created = await repository.create(input);
+  assert.equal(Boolean(created.id), true);
+
+  const listed = await repository.list();
+  assert.equal(listed.length, 1);
+
+  const found = await repository.findById(created.id);
+  assert.equal(found?.id, created.id);
+
+  const updated = await repository.update(created.id, {
+${updateInput}
+  });
+  assert.equal(updated?.props.${assertionField}, ${expectedUpdatedValue});
+
+  const deleted = await repository.delete(created.id);
+  assert.equal(deleted, true);
+  assert.equal(await repository.findById(created.id), undefined);
+});
+`;
+}
+
 function createRegularCrudSqlRepositoryTs(
   names: ReturnType<typeof createNameVariants>,
   db: SqlDatabaseCapability,
@@ -1331,6 +1408,110 @@ export class Sql${names.pascalName}Repository implements ${names.pascalName}Repo
   }
 }
 `;
+}
+
+function createRegularCrudSqlRepositorySpecTs(
+  names: ReturnType<typeof createNameVariants>,
+  db: SqlDatabaseCapability,
+  fields: ResourceFieldDefinition[] | undefined = []
+): string {
+  const input = createSampleInputObject(fields, "create", "  ");
+  const updateInput = createSampleInputObject(fields, "update", "  ");
+  const assertionField = normalizeResourceFields(fields)[0].name;
+  const expectedUpdatedValue = createSampleFieldValue(normalizeResourceFields(fields)[0], "update");
+  const rowFromInsertParams = createSqlRepositorySpecInsertRow(fields);
+  const updateRowFromParams = createSqlRepositorySpecUpdateRow(fields);
+
+  return `import assert from 'node:assert/strict';
+import test from 'node:test';
+import { SqlDataSource } from '@soapjs/soap-sql';
+import { ensure${names.pascalName}Schema, ${names.pascalName}Row, Sql${names.pascalName}Repository } from './${names.kebabName}.repository.sql';
+import { ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+
+test('Sql${names.pascalName}Repository maps CRUD operations to SqlDataSource', async () => {
+  let rows: ${names.pascalName}Row[] = [];
+  const source = {
+    async query(sql: string, params: unknown[] = []) {
+      if (sql.includes('CREATE TABLE')) {
+        return { data: [], count: 0 };
+      }
+
+      if (sql.startsWith('SELECT') && sql.includes('WHERE id')) {
+        return { data: rows.filter((row) => row.id === String(params[0])), count: 1 };
+      }
+
+      if (sql.startsWith('SELECT')) {
+        return { data: rows, count: rows.length };
+      }
+
+      if (sql.startsWith('INSERT')) {
+        const row: ${names.pascalName}Row = {
+${rowFromInsertParams}
+        };
+        rows.push(row);
+        return { data: [], count: 1 };
+      }
+
+      if (sql.startsWith('UPDATE')) {
+        rows = rows.map((row) => row.id === String(params[0])
+          ? {
+              ...row,
+${updateRowFromParams}
+            }
+          : row);
+        return { data: [], count: 1 };
+      }
+
+      if (sql.startsWith('DELETE')) {
+        const before = rows.length;
+        rows = rows.filter((row) => row.id !== String(params[0]));
+        return { data: [], count: before - rows.length };
+      }
+
+      return { data: [], count: 0 };
+    },
+  } as unknown as SqlDataSource<${names.pascalName}Row>;
+  await ensure${names.pascalName}Schema(source);
+  const repository = new Sql${names.pascalName}Repository(source);
+  const input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'> = {
+${input}
+  };
+
+  const created = await repository.create(input);
+  assert.equal(Boolean(created.id), true);
+
+  const listed = await repository.list();
+  assert.equal(listed.length, 1);
+
+  const found = await repository.findById(created.id);
+  assert.equal(found?.id, created.id);
+
+  const updated = await repository.update(created.id, {
+${updateInput}
+  });
+  assert.equal(updated?.props.${assertionField}, ${expectedUpdatedValue});
+
+  const deleted = await repository.delete(created.id);
+  assert.equal(deleted, true);
+  assert.equal(await repository.findById(created.id), undefined);
+});
+`;
+}
+
+function createSqlRepositorySpecInsertRow(fields: ResourceFieldDefinition[] | undefined): string {
+  return [
+    "          id: String(params[0]),",
+    ...normalizeResourceFields(fields).map((field, index) => `          ${field.name}: params[${index + 1}] as ${toTypescriptType(field.type)},`),
+    `          createdAt: String(params[${normalizeResourceFields(fields).length + 1}]),`,
+    `          updatedAt: String(params[${normalizeResourceFields(fields).length + 2}]),`,
+  ].join("\n");
+}
+
+function createSqlRepositorySpecUpdateRow(fields: ResourceFieldDefinition[] | undefined): string {
+  return [
+    ...normalizeResourceFields(fields).map((field, index) => `              ${field.name}: params[${index + 1}] as ${toTypescriptType(field.type)},`),
+    `              updatedAt: String(params[${normalizeResourceFields(fields).length + 1}]),`,
+  ].join("\n");
 }
 
 function createRegularCrudUseCaseTs(
