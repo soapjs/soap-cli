@@ -193,32 +193,7 @@ export function createResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       owner: names.kebabName,
       content: createRepositoryPortTs(plan.name),
     },
-    {
-      path: `${root}/data/${names.kebabName}.memory-repository.ts`,
-      type: "repository",
-      owner: names.kebabName,
-      content: createMemoryRepositoryTs(plan.name),
-    },
-    ...(plan.db === "mongo"
-      ? [
-          {
-            path: `${root}/data/${names.kebabName}.mongo-repository.ts`,
-            type: "repository" as const,
-            owner: names.kebabName,
-            content: createMongoRepositoryTs(plan.name, plan.fields),
-          },
-        ]
-      : []),
-    ...(isSqlDatabase(plan.db)
-      ? [
-          {
-            path: `${root}/data/${names.kebabName}.sql-repository.ts`,
-            type: "repository" as const,
-            owner: names.kebabName,
-            content: createSqlRepositoryTs(plan.name, plan.db, plan.fields),
-          },
-        ]
-      : []),
+    ...createBasicRepositoryAdapterFiles(root, names, plan),
     {
       path: `${root}/application/use-cases/${names.kebabName}.use-cases.ts`,
       type: "use-case",
@@ -241,7 +216,7 @@ export function createResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       path: `${root}/index.ts`,
       type: "resource",
       owner: names.kebabName,
-      content: createFeatureIndexTs(plan.name),
+      content: createFeatureIndexTs(plan.name, plan.db),
     },
   ];
 
@@ -277,38 +252,7 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       owner: featureNames.kebabName,
       content: createRegularCrudRepositoryPortTs(itemNames),
     },
-    {
-      path: `${root}/data/${itemNames.kebabName}.memory-repository.ts`,
-      type: "repository",
-      owner: featureNames.kebabName,
-      content: createRegularCrudMemoryRepositoryTs(itemNames),
-    },
-    {
-      path: `${root}/data/${itemNames.kebabName}.memory-repository.spec.ts`,
-      type: "repository",
-      owner: featureNames.kebabName,
-      content: createRegularCrudMemoryRepositorySpecTs(itemNames, plan.fields),
-    },
-    ...(plan.db === "mongo"
-      ? [
-          {
-            path: `${root}/data/${itemNames.kebabName}.repository.mongo.ts`,
-            type: "repository" as const,
-            owner: featureNames.kebabName,
-            content: createRegularCrudMongoRepositoryTs(itemNames, plan.fields),
-          },
-        ]
-      : []),
-    ...(isSqlDatabase(plan.db)
-      ? [
-          {
-            path: `${root}/data/${itemNames.kebabName}.repository.sql.ts`,
-            type: "repository" as const,
-            owner: featureNames.kebabName,
-            content: createRegularCrudSqlRepositoryTs(itemNames, plan.db, plan.fields),
-          },
-        ]
-      : []),
+    ...createRegularCrudRepositoryAdapterFiles(root, featureNames, itemNames, plan),
     ...commands.flatMap((action) => createCqrsCrudCommandFiles(root, featureNames, itemNames, action)),
     ...queries.flatMap((action) => createCqrsCrudQueryFiles(root, featureNames, itemNames, action)),
     {
@@ -328,6 +272,12 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       type: "route" as const,
       owner: featureNames.kebabName,
       content: createRegularCrudContractTs(action, plan),
+    })),
+    ...actions.map((action) => ({
+      path: `${root}/contracts/${action.name}.contract.spec.ts`,
+      type: "route" as const,
+      owner: featureNames.kebabName,
+      content: createRegularCrudContractSpecTs(action, plan.fields),
     })),
     ...actions.map((action) => ({
       path: `${root}/api/${action.name}.controller.ts`,
@@ -351,7 +301,7 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       path: `${root}/index.ts`,
       type: "resource",
       owner: featureNames.kebabName,
-      content: createCqrsCrudFeatureIndexTs(featureNames, itemNames),
+      content: createCqrsCrudFeatureIndexTs(featureNames, itemNames, plan.db),
     },
   ];
 }
@@ -381,38 +331,7 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       owner: featureNames.kebabName,
       content: createRegularCrudRepositoryPortTs(itemNames),
     },
-    {
-      path: `${root}/data/${itemNames.kebabName}.memory-repository.ts`,
-      type: "repository",
-      owner: featureNames.kebabName,
-      content: createRegularCrudMemoryRepositoryTs(itemNames),
-    },
-    {
-      path: `${root}/data/${itemNames.kebabName}.memory-repository.spec.ts`,
-      type: "repository",
-      owner: featureNames.kebabName,
-      content: createRegularCrudMemoryRepositorySpecTs(itemNames, plan.fields),
-    },
-    ...(plan.db === "mongo"
-      ? [
-          {
-            path: `${root}/data/${itemNames.kebabName}.repository.mongo.ts`,
-            type: "repository" as const,
-            owner: featureNames.kebabName,
-            content: createRegularCrudMongoRepositoryTs(itemNames, plan.fields),
-          },
-        ]
-      : []),
-    ...(isSqlDatabase(plan.db)
-      ? [
-          {
-            path: `${root}/data/${itemNames.kebabName}.repository.sql.ts`,
-            type: "repository" as const,
-            owner: featureNames.kebabName,
-            content: createRegularCrudSqlRepositoryTs(itemNames, plan.db, plan.fields),
-          },
-        ]
-      : []),
+    ...createRegularCrudRepositoryAdapterFiles(root, featureNames, itemNames, plan),
     ...actions.map((action) => ({
       path: `${root}/application/use-cases/${action.name}.use-case.ts`,
       type: "use-case" as const,
@@ -430,6 +349,12 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       type: "route" as const,
       owner: featureNames.kebabName,
       content: createRegularCrudContractTs(action, plan),
+    })),
+    ...actions.map((action) => ({
+      path: `${root}/contracts/${action.name}.contract.spec.ts`,
+      type: "route" as const,
+      owner: featureNames.kebabName,
+      content: createRegularCrudContractSpecTs(action, plan.fields),
     })),
     ...actions.map((action) => ({
       path: `${root}/api/${action.name}.controller.ts`,
@@ -453,11 +378,100 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       path: `${root}/index.ts`,
       type: "resource",
       owner: featureNames.kebabName,
-      content: createRegularCrudFeatureIndexTs(featureNames, itemNames),
+      content: createRegularCrudFeatureIndexTs(featureNames, itemNames, plan.db),
     },
   ];
 
   return files;
+}
+
+function createBasicRepositoryAdapterFiles(
+  root: string,
+  names: ReturnType<typeof createNameVariants>,
+  plan: AddResourcePlan
+): PlannedFile[] {
+  if (plan.db === "none") {
+    return [
+      {
+        path: `${root}/data/${names.kebabName}.memory-repository.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createMemoryRepositoryTs(plan.name),
+      },
+    ];
+  }
+
+  if (plan.db === "mongo") {
+    return [
+      {
+        path: `${root}/data/${names.kebabName}.mongo-repository.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createMongoRepositoryTs(plan.name, plan.fields),
+      },
+    ];
+  }
+
+  if (isSqlDatabase(plan.db)) {
+    return [
+      {
+        path: `${root}/data/${names.kebabName}.sql-repository.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createSqlRepositoryTs(plan.name, plan.db, plan.fields),
+      },
+    ];
+  }
+
+  return [];
+}
+
+function createRegularCrudRepositoryAdapterFiles(
+  root: string,
+  featureNames: ReturnType<typeof createNameVariants>,
+  itemNames: ReturnType<typeof createNameVariants>,
+  plan: AddResourcePlan
+): PlannedFile[] {
+  if (plan.db === "none") {
+    return [
+      {
+        path: `${root}/data/${itemNames.kebabName}.memory-repository.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudMemoryRepositoryTs(itemNames),
+      },
+      {
+        path: `${root}/data/${itemNames.kebabName}.memory-repository.spec.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudMemoryRepositorySpecTs(itemNames, plan.fields),
+      },
+    ];
+  }
+
+  if (plan.db === "mongo") {
+    return [
+      {
+        path: `${root}/data/${itemNames.kebabName}.repository.mongo.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudMongoRepositoryTs(itemNames, plan.fields),
+      },
+    ];
+  }
+
+  if (isSqlDatabase(plan.db)) {
+    return [
+      {
+        path: `${root}/data/${itemNames.kebabName}.repository.sql.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudSqlRepositoryTs(itemNames, plan.db, plan.fields),
+      },
+    ];
+  }
+
+  return [];
 }
 
 function createCqrsCrudCommandFiles(
@@ -760,14 +774,15 @@ function createCqrsCrudSetupTs(
 
 function createCqrsCrudFeatureIndexTs(
   featureNames: ReturnType<typeof createNameVariants>,
-  itemNames: ReturnType<typeof createNameVariants>
+  itemNames: ReturnType<typeof createNameVariants>,
+  db: "none" | DatabaseCapability
 ): string {
   return `export * from './api/${featureNames.kebabName}.controllers';
 export * from './domain/${itemNames.kebabName}.entity';
 export * from './application/ports/${itemNames.kebabName}-repository.port';
 export * from './application/commands';
 export * from './application/queries';
-export * from './data/${itemNames.kebabName}.memory-repository';
+${createRegularCrudRepositoryExport(itemNames, db)}
 export * from './setup';
 `;
 }
@@ -1549,6 +1564,79 @@ export function ${action.operationId}BodyContract(req: Request): ${action.classB
 `;
 }
 
+function createRegularCrudContractSpecTs(
+  action: RegularCrudAction,
+  fields: ResourceFieldDefinition[] | undefined = []
+): string {
+  const contractName = `${action.operationId}BodyContract`;
+  const request = createRegularCrudContractSpecRequest(action, fields);
+  const expected = createRegularCrudContractSpecExpected(action, fields);
+
+  return `import assert from 'node:assert/strict';
+import test from 'node:test';
+import { Request } from 'express';
+import { ${contractName} } from './${action.name}.contract';
+
+test('${contractName} maps request input', () => {
+  const req = ${request} as unknown as Request;
+
+  assert.deepEqual(${contractName}(req), ${expected});
+});
+`;
+}
+
+function createRegularCrudContractSpecRequest(
+  action: RegularCrudAction,
+  fields: ResourceFieldDefinition[] | undefined
+): string {
+  if (action.kind === "list") {
+    return "{ query: { page: '1', search: 'ada' } }";
+  }
+
+  if (action.kind === "create") {
+    return `{
+    body: {
+${createSampleInputObject(fields, "create", "      ")}
+    },
+  }`;
+  }
+
+  if (action.kind === "update") {
+    return `{
+    params: { id: 'existing-id' },
+    body: {
+${createSampleInputObject(fields, "update", "      ")}
+    },
+  }`;
+  }
+
+  return "{ params: { id: 'existing-id' }, query: { ignored: 'true' } }";
+}
+
+function createRegularCrudContractSpecExpected(
+  action: RegularCrudAction,
+  fields: ResourceFieldDefinition[] | undefined
+): string {
+  if (action.kind === "list") {
+    return "{ page: '1', search: 'ada' }";
+  }
+
+  if (action.kind === "create") {
+    return `{
+${createSampleInputObject(fields, "create", "    ")}
+  }`;
+  }
+
+  if (action.kind === "update") {
+    return `{
+    id: 'existing-id',
+${createSampleInputObject(fields, "update", "    ")}
+  }`;
+  }
+
+  return "{ id: 'existing-id', ignored: 'true' }";
+}
+
 function createRegularCrudControllerTs(
   action: RegularCrudAction,
   itemNames: ReturnType<typeof createNameVariants>,
@@ -1665,12 +1753,13 @@ ${useCaseBindings}
 
 function createRegularCrudFeatureIndexTs(
   featureNames: ReturnType<typeof createNameVariants>,
-  itemNames: ReturnType<typeof createNameVariants>
+  itemNames: ReturnType<typeof createNameVariants>,
+  db: "none" | DatabaseCapability
 ): string {
   return `export * from './api/${featureNames.kebabName}.controllers';
 export * from './domain/${itemNames.kebabName}.entity';
 export * from './application/ports/${itemNames.kebabName}-repository.port';
-export * from './data/${itemNames.kebabName}.memory-repository';
+${createRegularCrudRepositoryExport(itemNames, db)}
 export * from './setup';
 `;
 }
@@ -2337,14 +2426,44 @@ export function createRouteApiDocOptions(input: {
   }`;
 }
 
-function createFeatureIndexTs(name: string): string {
+function createFeatureIndexTs(name: string, db: "none" | DatabaseCapability): string {
   const names = createNameVariants(name);
 
   return `export * from './api/${names.kebabName}.controller';
 export * from './domain/${names.kebabName}.entity';
 export * from './application/ports/${names.kebabName}.repository';
 export * from './application/use-cases/${names.kebabName}.use-cases';
-export * from './data/${names.kebabName}.memory-repository';
+${createBasicRepositoryExport(names, db)}
 export * from './setup';
 `;
+}
+
+function createBasicRepositoryExport(
+  names: ReturnType<typeof createNameVariants>,
+  db: "none" | DatabaseCapability
+): string {
+  if (db === "mongo") {
+    return `export * from './data/${names.kebabName}.mongo-repository';`;
+  }
+
+  if (isSqlDatabase(db)) {
+    return `export * from './data/${names.kebabName}.sql-repository';`;
+  }
+
+  return `export * from './data/${names.kebabName}.memory-repository';`;
+}
+
+function createRegularCrudRepositoryExport(
+  names: ReturnType<typeof createNameVariants>,
+  db: "none" | DatabaseCapability
+): string {
+  if (db === "mongo") {
+    return `export * from './data/${names.kebabName}.repository.mongo';`;
+  }
+
+  if (isSqlDatabase(db)) {
+    return `export * from './data/${names.kebabName}.repository.sql';`;
+  }
+
+  return `export * from './data/${names.kebabName}.memory-repository';`;
 }

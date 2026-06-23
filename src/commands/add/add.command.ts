@@ -38,6 +38,7 @@ import {
 } from "./resource-plan";
 import {
   createRouteContractFile,
+  createRouteContractSpecFile,
   createRouteControllerFile,
   createRouteControllersIndexFile,
   createRouteEntry,
@@ -181,6 +182,7 @@ export function registerAddCommand(program: Command): void {
         promptAnswers,
         projectConfig: config,
       });
+      assertFeatureStorageSupported(resolved.db);
 
       const crudRoutes = parseCrudRouteMatrix(options.crudRoute);
       const policy = parseAuthPolicy(options.policy);
@@ -396,6 +398,7 @@ export function registerAddCommand(program: Command): void {
       };
       const controllerFile = createRouteControllerFile(routePlan);
       const contractFile = createRouteContractFile(routePlan);
+      const contractSpecFile = createRouteContractSpecFile(routePlan);
       const routeControllerNames = routeControllerNamesForResource(
         config.registry.generatedFiles.map((file) => file.path),
         config.structure.featuresRoot,
@@ -425,6 +428,7 @@ export function registerAddCommand(program: Command): void {
           files: [
             controllerFile,
             contractFile,
+            contractSpecFile,
             routeControllerIndex,
             controllersFile,
             ...(brunoEnabled ? brunoFiles : []),
@@ -828,6 +832,12 @@ function assertCrudRouteMatrixCapabilities(
     if (config.zone) {
       assertCapability("zone", config.zone, zones);
     }
+  }
+}
+
+function assertFeatureStorageSupported(db: "none" | DatabaseCapability): void {
+  if (db === "redis") {
+    throw new CliError("Redis is infrastructure-only and cannot generate a feature repository. Use --db none, mongo, postgres, mysql, or sqlite.");
   }
 }
 

@@ -117,6 +117,24 @@ export function createRouteContractFile(plan: AddRoutePlan): PlannedFile {
   };
 }
 
+export function createRouteContractSpecFile(plan: AddRoutePlan): PlannedFile {
+  const resourceNames = createNameVariants(plan.resource.name);
+  const routeNames = createNameVariants(plan.name);
+  const contractPath = path.posix.join(
+    plan.featuresRoot,
+    resourceNames.kebabName,
+    "contracts",
+    `${routeNames.kebabName}.contract.spec.ts`
+  );
+
+  return {
+    path: contractPath,
+    type: "route",
+    owner: resourceNames.kebabName,
+    content: createRouteContractSpecTs(routeNames.kebabName, routeNames.camelName, plan.method),
+  };
+}
+
 export function routeControllerNameFromPath(filePath: string): string | undefined {
   const match = filePath.match(/\/api\/([^/]+)\.controller\.ts$/);
   const name = match?.[1];
@@ -278,6 +296,32 @@ export interface ${className}RouteInput {
 export function ${camelName}BodyContract(req: Request): ${className}RouteInput {
   return ${sourceExpression};
 }
+`;
+}
+
+function createRouteContractSpecTs(
+  kebabName: string,
+  camelName: string,
+  method: RouteMethod
+): string {
+  const contractName = `${camelName}BodyContract`;
+  const request = method === "get" || method === "delete" || method === "head" || method === "options"
+    ? "{ params: { id: 'existing-id' }, query: { include: 'details' }, body: { ignored: true } }"
+    : "{ params: { id: 'existing-id' }, query: { mode: 'preview' }, body: { name: 'Ada' } }";
+  const expected = method === "get" || method === "delete" || method === "head" || method === "options"
+    ? "{ id: 'existing-id', include: 'details' }"
+    : "{ id: 'existing-id', mode: 'preview', name: 'Ada' }";
+
+  return `import assert from 'node:assert/strict';
+import test from 'node:test';
+import { Request } from 'express';
+import { ${contractName} } from './${kebabName}.contract';
+
+test('${contractName} maps request input', () => {
+  const req = ${request} as unknown as Request;
+
+  assert.deepEqual(${contractName}(req), ${expected});
+});
 `;
 }
 
