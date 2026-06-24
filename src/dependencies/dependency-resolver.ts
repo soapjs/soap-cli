@@ -27,7 +27,7 @@ export function resolveDependencies(capabilities: ProjectCapabilities): Resolved
   }
 
   if (capabilities.databases.includes("postgres") || capabilities.databases.includes("mysql") || capabilities.databases.includes("sqlite")) {
-    dependencies["@soapjs/soap-sql"] = "^1.0.1";
+    dependencies["@soapjs/soap-sql"] = "^1.0.2";
   }
 
   if (capabilities.databases.includes("postgres")) {
