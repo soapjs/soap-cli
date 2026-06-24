@@ -202,8 +202,8 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
         {
           compilerOptions: {
             target: "ES2022",
-            module: "commonjs",
-            moduleResolution: "node10",
+            module: "NodeNext",
+            moduleResolution: "nodenext",
             strict: true,
             esModuleInterop: true,
             skipLibCheck: true,

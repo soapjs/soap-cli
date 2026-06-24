@@ -1454,20 +1454,22 @@ import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 
 export interface ${names.pascalName}Document extends Document {
-  id: string;
+  id?: string;
 ${documentFields}
   createdAt: string;
   updatedAt: string;
 }
 
+function to${names.pascalName}Entity(document: ${names.pascalName}Document): ${names.pascalName} {
+  const { _id, ...props } = document as ${names.pascalName}Document & { _id?: unknown };
+  return new ${names.pascalName}({
+    ...props,
+    id: props.id || (_id ? String(_id) : ''),
+  });
+}
+
 const ${names.camelName}Mapper: Mapper<${names.pascalName}, ${names.pascalName}Document> = {
-  toEntity(document) {
-    const { _id, ...props } = document as ${names.pascalName}Document & { _id?: unknown };
-    return new ${names.pascalName}({
-      ...props,
-      id: props.id || (_id ? String(_id) : ''),
-    });
-  },
+  toEntity: to${names.pascalName}Entity,
 
   toModel(entity) {
     return entity.props as ${names.pascalName}Document;
@@ -1485,7 +1487,7 @@ export class Mongo${names.pascalName}Repository extends ReadWriteRepository<${na
   async findById(id: string): Promise<Result<${names.pascalName} | undefined>> {
     try {
       const [document] = await this.source.find({ where: { id }, limit: 1 });
-      return Result.withSuccess(document ? new ${names.pascalName}(document) : undefined);
+      return Result.withSuccess(document ? to${names.pascalName}Entity(document) : undefined);
     } catch (error) {
       return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
     }
@@ -1511,26 +1513,50 @@ import { ${names.pascalName}Document, Mongo${names.pascalName}Repository } from 
 import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 
 test('Mongo${names.pascalName}Repository maps CRUD operations to MongoSource', async () => {
+  type WhereLike = { id?: string } | { build?: () => { right?: unknown } } | Array<{ build?: () => { right?: unknown } }>;
+  type InsertLike = ${names.pascalName}Document | ${names.pascalName}Document[] | { documents?: ${names.pascalName}Document[] };
+  type UpdateLike = { where?: WhereLike; update?: ${names.pascalName}Document; updates?: ${names.pascalName}Document[] };
   let documents: ${names.pascalName}Document[] = [];
+  const documentId = (document: ${names.pascalName}Document) => document.id ?? String(document._id ?? '');
+  const whereId = (where?: WhereLike) => {
+    let condition: { id?: string; right?: unknown } | undefined;
+    if (Array.isArray(where)) {
+      condition = where[0]?.build?.();
+    } else if (where && 'id' in where) {
+      condition = where;
+    } else {
+      condition = (where as { build?: () => { right?: unknown } } | undefined)?.build?.();
+    }
+    const value = condition && 'id' in condition ? condition.id : condition?.right;
+    return typeof value === 'string' ? value : undefined;
+  };
   const source = {
-    async find(query: { where?: { id?: string }; limit?: number } = {}) {
-      if (query.where?.id) {
-        return documents.filter((document) => document.id === query.where?.id).slice(0, query.limit);
+    async find(query: { where?: WhereLike; limit?: number } = {}) {
+      const id = whereId(query.where);
+      if (id) {
+        return documents.filter((document) => documentId(document) === id).slice(0, query.limit);
       }
 
       return documents;
     },
-    async insert(document: ${names.pascalName}Document) {
-      documents.push(document);
-      return [document];
+    async insert(query: InsertLike) {
+      const inserted = Array.isArray(query) ? query : 'documents' in query && Array.isArray(query.documents) ? query.documents : [query];
+      const saved = inserted.map((document) => ({ _id: document.id, ...document } as ${names.pascalName}Document));
+      documents.push(...saved);
+      return saved;
     },
-    async update(command: { where: { id: string }; update: ${names.pascalName}Document }) {
-      documents = documents.map((document) => document.id === command.where.id ? command.update : document);
+    async update(command: UpdateLike) {
+      const update = command.update ?? command.updates?.[0];
+      const id = whereId(command.where) ?? (update ? documentId(update) : undefined);
+      if (update && id) {
+        documents = documents.map((document) => documentId(document) === id ? { _id: id, ...update } : document);
+      }
       return { modifiedCount: 1 };
     },
-    async remove(command: { where: { id: string } }) {
+    async remove(command: { where?: WhereLike }) {
+      const id = whereId(command.where);
       const before = documents.length;
-      documents = documents.filter((document) => document.id !== command.where.id);
+      documents = id ? documents.filter((document) => documentId(document) !== id) : documents;
       return { deletedCount: before - documents.length };
     },
   } as unknown as MongoSource<${names.pascalName}Document>;
@@ -1661,8 +1687,56 @@ import { ensure${names.pascalName}Schema, ${names.pascalName}Row, Sql${names.pas
 import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 
 test('Sql${names.pascalName}Repository maps CRUD operations to SqlDataSource', async () => {
+  type WhereLike = { id?: string } | { build?: () => { right?: unknown } } | Array<{ build?: () => { right?: unknown } }>;
+  type InsertLike = ${names.pascalName}Row | ${names.pascalName}Row[] | { documents?: ${names.pascalName}Row[]; data?: ${names.pascalName}Row | ${names.pascalName}Row[] };
+  type UpdateLike = { where?: WhereLike; update?: ${names.pascalName}Row; updates?: ${names.pascalName}Row[]; data?: ${names.pascalName}Row };
   let rows: ${names.pascalName}Row[] = [];
+  const whereId = (where?: WhereLike) => {
+    let condition: { id?: string; right?: unknown } | undefined;
+    if (Array.isArray(where)) {
+      condition = where[0]?.build?.();
+    } else if (where && 'id' in where) {
+      condition = where;
+    } else {
+      condition = (where as { build?: () => { right?: unknown } } | undefined)?.build?.();
+    }
+    const value = condition && 'id' in condition ? condition.id : condition?.right;
+    return typeof value === 'string' ? value : undefined;
+  };
   const source = {
+    async find(query: { where?: WhereLike; limit?: number } = {}) {
+      const id = whereId(query.where);
+      const result = id ? rows.filter((row) => row.id === id) : rows;
+      return result.slice(0, query.limit);
+    },
+    async insert(query: InsertLike) {
+      const data = Array.isArray(query)
+        ? query
+        : 'documents' in query && Array.isArray(query.documents)
+          ? query.documents
+          : 'data' in query && Array.isArray(query.data)
+            ? query.data
+            : 'data' in query && query.data
+              ? [query.data]
+              : [query as ${names.pascalName}Row];
+      const rowsToInsert = data as ${names.pascalName}Row[];
+      rows.push(...rowsToInsert);
+      return rowsToInsert;
+    },
+    async update(command: UpdateLike) {
+      const update = command.update ?? command.updates?.[0] ?? command.data;
+      const id = whereId(command.where) ?? update?.id;
+      if (update && id) {
+        rows = rows.map((row) => row.id === id ? update : row);
+      }
+      return { modifiedCount: update && id ? 1 : 0 };
+    },
+    async remove(command: { where?: WhereLike }) {
+      const id = whereId(command.where);
+      const before = rows.length;
+      rows = id ? rows.filter((row) => row.id !== id) : rows;
+      return { deletedCount: before - rows.length };
+    },
     async query(sql: string, params: unknown[] = []) {
       if (sql.includes('CREATE TABLE')) {
         return { data: [], count: 0 };
