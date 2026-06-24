@@ -30,6 +30,7 @@ import { resolveCreatePreset } from "../../presets";
 interface CreateOptions extends InteractiveCommandOptions, ConflictCommandOptions {
   framework?: string;
   architecture?: "regular" | "cqrs";
+  controllerLayout?: "per-route" | "per-feature";
   db?: string[];
   auth?: string[];
   messaging?: string[];
@@ -55,6 +56,7 @@ export function registerCreateCommand(program: Command): void {
     .description("Create a new SoapJS service project.")
     .option("--framework <framework>", "framework adapter", "express")
     .option("--architecture <architecture>", "architecture mode: regular, cqrs", "regular")
+    .option("--controller-layout <layout>", "controller layout: per-route, per-feature", "per-route")
     .option("--db <database>", "database capability: mongo, postgres, mysql, sqlite, redis, none", collect, [])
     .option("--auth <auth>", "auth capability: jwt, api-key, local, none", collect, [])
     .option("--messaging <messaging>", "messaging capability: in-memory, kafka, none", collect, [])
@@ -87,6 +89,10 @@ export function registerCreateCommand(program: Command): void {
         throw new CliError("Architecture must be regular or cqrs.");
       }
 
+      if (options.controllerLayout !== "per-route" && options.controllerLayout !== "per-feature") {
+        throw new CliError("Controller layout must be per-route or per-feature.");
+      }
+
       if (fs.existsSync(root) && !fs.statSync(root).isDirectory()) {
         throw new CliError(`Target path exists and is not a directory: ${root}`);
       }
@@ -110,6 +116,7 @@ export function registerCreateCommand(program: Command): void {
         root,
         framework: resolved.framework,
         architecture: resolved.architecture,
+        controllerLayout: resolved.controllerLayout,
         packageManager,
         capabilities: resolved.capabilities,
         zones: resolved.zones,
@@ -197,6 +204,7 @@ function createProvidedCreateOptions(command: Command): Record<string, boolean> 
   return {
     framework: isCliOption(command, "framework"),
     architecture: isCliOption(command, "architecture"),
+    controllerLayout: isCliOption(command, "controllerLayout"),
     db: isCliOption(command, "db"),
     auth: isCliOption(command, "auth"),
     messaging: isCliOption(command, "messaging"),
@@ -216,6 +224,7 @@ function createExplicitCreateFlags(options: CreateOptions, command: Command): Cr
   return {
     framework: isCliOption(command, "framework") ? options.framework : undefined,
     architecture: isCliOption(command, "architecture") ? options.architecture : undefined,
+    controllerLayout: isCliOption(command, "controllerLayout") ? options.controllerLayout : undefined,
     db: isCliOption(command, "db") ? options.db : undefined,
     auth: isCliOption(command, "auth") ? options.auth : undefined,
     messaging: isCliOption(command, "messaging") ? options.messaging : undefined,

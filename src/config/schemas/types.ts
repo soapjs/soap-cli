@@ -12,6 +12,7 @@ export type ApiClientCapability = "bruno";
 export type DocsCapability = "openapi";
 export type ContractsCapability = "zod";
 export type ApiZone = "public" | "private" | "admin";
+export type ControllerLayout = "per-route" | "per-feature";
 export type ResourceFieldType = "string" | "number" | "boolean" | "date";
 
 export interface ResourceFieldDefinition {
@@ -43,6 +44,7 @@ export interface SoapProjectConfig {
   architecture: Architecture;
   language: Language;
   packageManager: PackageManager;
+  controllerLayout: ControllerLayout;
   capabilities: ProjectCapabilities;
   zones: ApiZone[];
 }
@@ -122,6 +124,9 @@ export interface RouteRegistryEntry {
   name: string;
   method: string;
   path: string;
+  useCase?: string;
+  command?: string;
+  query?: string;
   auth: "none" | AuthCapability;
   zone: ApiZone;
   policy?: AuthPolicy;

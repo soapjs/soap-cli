@@ -6,6 +6,7 @@ import {
   Architecture,
   AuthCapability,
   ContractsCapability,
+  ControllerLayout,
   DatabaseCapability,
   DocsCapability,
   MessagingCapability,
@@ -30,6 +31,7 @@ import { CommandInputResolver } from "./resolver.types";
 export interface CreateConfigInput {
   framework?: string;
   architecture?: Architecture;
+  controllerLayout?: ControllerLayout;
   db?: string | string[];
   auth?: string | string[];
   messaging?: string | string[];
@@ -45,6 +47,7 @@ export interface CreateConfigInput {
 export interface CreateConfigResult {
   framework: "express";
   architecture: Architecture;
+  controllerLayout: ControllerLayout;
   capabilities: ProjectCapabilities;
   zones: ApiZone[];
   packageManager?: PackageManager;
@@ -71,6 +74,11 @@ export class CreateConfigResolver
     const architecture = pick(flags.architecture, promptAnswers.architecture, preset.architecture, "regular");
     if (architecture !== "regular" && architecture !== "cqrs") {
       throw new CliError("Architecture must be regular or cqrs.");
+    }
+
+    const controllerLayout = pick(flags.controllerLayout, promptAnswers.controllerLayout, preset.controllerLayout, "per-route");
+    if (controllerLayout !== "per-route" && controllerLayout !== "per-feature") {
+      throw new CliError("Controller layout must be per-route or per-feature.");
     }
 
     capabilities.databases = parseOptionList(
@@ -114,6 +122,7 @@ export class CreateConfigResolver
     return {
       framework,
       architecture,
+      controllerLayout,
       capabilities,
       zones: zones.length > 0 ? zones : ["public", "private", "admin"],
       packageManager: pick(flags.packageManager, promptAnswers.packageManager, preset.packageManager),

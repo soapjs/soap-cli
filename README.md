@@ -93,11 +93,13 @@ soap create users-api --git-init --skip-install
 soap create users-api --db mongo --auth api-key --api-client bruno --skip-install
 soap create users-api --db mysql --db sqlite --skip-install
 soap create users-api --architecture cqrs --messaging kafka --realtime ws --skip-install
+soap create users-api --controller-layout per-feature --skip-install
 ```
 
 Common options:
 
 - `--architecture regular|cqrs`
+- `--controller-layout per-route|per-feature`
 - `--db mongo|postgres|mysql|sqlite|redis|none`
 - `--auth jwt|api-key|local|none`
 - `--messaging in-memory|kafka|none`
@@ -136,7 +138,7 @@ soap add feature order --crud --db postgres --dry-run
 soap add feature order --crud --db postgres --yes
 ```
 
-CRUD features generate domain, repository, use-case or CQRS files, route controllers, route contracts, registry entries, and Bruno requests when Bruno is enabled.
+CRUD features generate domain, repository, use-case or CQRS files, route controllers, route contracts, registry entries, and Bruno requests when Bruno is enabled. Projects default to one controller file per route; `--controller-layout per-feature` generates one controller file per feature.
 
 Use `--field name:type` to store feature field metadata in the registry. Supported field types are `string`, `number`, `boolean`, and `date`. Add `:optional` to make a field optional.
 

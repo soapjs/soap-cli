@@ -12,6 +12,7 @@ soap create users-api --git-init --skip-install
 soap create users-api -i
 soap create users-api --preset express-postgres-api --skip-install
 soap create users-api --db mysql --db sqlite --skip-install
+soap create users-api --controller-layout per-feature --skip-install
 ```
 
 ## Interactive Flow
@@ -24,6 +25,7 @@ Prompts cover the supported MVP capabilities:
 
 - framework
 - architecture
+- controller layout
 - databases
 - auth
 - messaging
@@ -67,6 +69,7 @@ In interactive mode, preset values become prompt defaults. Explicit CLI flags st
 
 - Only `express` is currently supported.
 - `--contracts zod` enables generated contracts backed by Zod.
+- `--controller-layout per-route|per-feature` controls whether route controllers are generated as one controller per route or one controller per feature. The default is `per-route`.
 - Auth projects use `@soapjs/soap-auth` 1.x recipe configs and the `@soapjs/soap-express/auth` router/middleware helpers.
 - Security defaults are generated through soap-express security config. Auth projects include route-specific throttling for login, refresh, and OAuth callbacks.
 - `--telemetry metrics` exposes `/metrics`; `--telemetry memory` exposes `/memory`. Minimal projects keep these monitoring endpoints disabled.

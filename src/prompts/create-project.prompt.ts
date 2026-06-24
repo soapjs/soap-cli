@@ -3,6 +3,7 @@ import {
   Architecture,
   AuthCapability,
   ContractsCapability,
+  ControllerLayout,
   DatabaseCapability,
   MessagingCapability,
   RealtimeCapability,
@@ -44,6 +45,17 @@ export async function promptCreateProject(
         { label: "CQRS", value: "cqrs" },
       ],
       defaultValue: preset.architecture ?? "regular",
+    });
+  }
+
+  if (!options.provided.controllerLayout) {
+    answers.controllerLayout = await prompt.select<ControllerLayout>({
+      message: "Controller layout",
+      choices: [
+        { label: "Per route", value: "per-route" },
+        { label: "Per feature", value: "per-feature" },
+      ],
+      defaultValue: preset.controllerLayout ?? "per-route",
     });
   }
 

@@ -42,6 +42,7 @@ import {
 import {
   createRouteContractFile,
   createRouteContractSpecFile,
+  createFeatureRouteControllerFile,
   createRouteControllerFile,
   createRouteControllersIndexFile,
   createRouteEntry,
@@ -200,6 +201,7 @@ export function registerAddCommand(program: Command): void {
         zone: resolved.zone,
         featuresRoot: config.structure.featuresRoot,
         architecture: config.project.architecture,
+        controllerLayout: config.project.controllerLayout,
         contracts: config.project.capabilities.contracts.includes("zod") ? "zod" as const : "plain" as const,
         fields: parseResourceFieldDefinitions(options.field),
         crudRoutes,
@@ -241,7 +243,7 @@ export function registerAddCommand(program: Command): void {
 
       const generatedPaths = config.registry.generatedFiles.map((file) => file.path);
       const existingRouteControllerIndexes = routeControllerIndexResources(generatedPaths, config.structure.featuresRoot, "");
-      const usesCrudControllerIndex = resolved.crud;
+      const usesCrudControllerIndex = resolved.crud && config.project.controllerLayout === "per-route";
       const routeControllerIndexes = usesCrudControllerIndex
         ? [...existingRouteControllerIndexes, resource.name]
         : existingRouteControllerIndexes;
@@ -401,7 +403,14 @@ export function registerAddCommand(program: Command): void {
         featuresRoot: config.structure.featuresRoot,
         contracts: config.project.capabilities.contracts.includes("zod") ? "zod" as const : "plain" as const,
       };
-      const controllerFile = createRouteControllerFile(routePlan);
+      const controllerFile = config.project.controllerLayout === "per-feature"
+        ? createFeatureRouteControllerFile({
+            resource,
+            routes: config.registry.routes.filter((entry) => entry.resource === resource.name),
+            featuresRoot: config.structure.featuresRoot,
+            architecture: config.project.architecture,
+          })
+        : createRouteControllerFile(routePlan);
       const contractFile = createRouteContractFile(routePlan);
       const contractSpecFile = createRouteContractSpecFile(routePlan);
       const routeControllerNames = routeControllerNamesForResource(
@@ -410,17 +419,28 @@ export function registerAddCommand(program: Command): void {
         resource.name,
         controllerFile.path
       );
-      const routeControllerIndex = createRouteControllersIndexFile(resource, config.structure.featuresRoot, routeControllerNames);
-      const controllerIndexes = routeControllerIndexResources(
-        config.registry.generatedFiles.map((file) => file.path),
-        config.structure.featuresRoot,
-        resource.name
-      );
+      const routeControllerIndex = config.project.controllerLayout === "per-route"
+        ? createRouteControllersIndexFile(resource, config.structure.featuresRoot, routeControllerNames)
+        : undefined;
+      const controllerIndexes = config.project.controllerLayout === "per-route"
+        ? routeControllerIndexResources(
+            config.registry.generatedFiles.map((file) => file.path),
+            config.structure.featuresRoot,
+            resource.name
+          )
+        : routeControllerIndexResources(
+            config.registry.generatedFiles.map((file) => file.path),
+            config.structure.featuresRoot
+          ).filter((entry) => entry !== resource.name);
+      const mainControllerResources = config.registry.resources
+        .filter((entry) => !controllerIndexes.includes(entry.name))
+        .map((entry) => entry.name);
       const controllersFile = createControllersFile(
         config.registry.resources,
         config.structure.featuresRoot,
         config.project.capabilities.auth,
-        controllerIndexes
+        controllerIndexes,
+        mainControllerResources
       );
       const brunoEnabled = config.project.capabilities.apiClient.includes("bruno") || config.api.bruno.enabled;
       const brunoFiles = options.bruno || promptAnswers?.bruno
@@ -434,7 +454,7 @@ export function registerAddCommand(program: Command): void {
             controllerFile,
             contractFile,
             contractSpecFile,
-            routeControllerIndex,
+            ...(routeControllerIndex ? [routeControllerIndex] : []),
             controllersFile,
             ...(brunoEnabled ? brunoFiles : []),
           ],
@@ -1057,6 +1077,7 @@ function createFeatureInfrastructureFiles(config: SoapConfig): PlannedFile[] {
     root: config.root,
     framework: config.project.framework,
     architecture: config.project.architecture,
+    controllerLayout: config.project.controllerLayout,
     packageManager: config.project.packageManager,
     capabilities: config.project.capabilities,
     zones: config.project.zones,

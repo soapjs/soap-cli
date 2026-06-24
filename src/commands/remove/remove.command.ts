@@ -12,6 +12,7 @@ import { readFileHash } from "../../registry/registry.service";
 import { createNameVariants } from "../../templates/naming";
 import { createFeaturesIndexFile, createResourcesFile, createControllersFile } from "../add/resource-plan";
 import {
+  createFeatureRouteControllerFile,
   createRouteControllersIndexFile,
   routeControllerIndexResourceFromPath,
   routeControllerNameFromPath,
@@ -269,9 +270,11 @@ function hasModifiedFiles(preview: RemovePreview): boolean {
 
 function routeFileEntries(config: SoapConfig, resource: ResourceRegistryEntry, route: RouteRegistryEntry): GeneratedFileEntry[] {
   const resourceNames = createNameVariants(resource.name);
+  const singularResourceNames = createNameVariants(singularize(resourceNames.kebabName));
   const routeNames = createNameVariants(route.name);
   const routeFileNames = new Set([
     routeNames.kebabName,
+    `${routeNames.kebabName}-${singularResourceNames.kebabName}`,
     `${routeNames.kebabName}-${resourceNames.kebabName}`,
     `${routeNames.kebabName}-${resourceNames.pluralName}`,
   ]);
@@ -385,6 +388,43 @@ async function refreshGeneratedIndexes(
   ];
 
   if (options.changedResource && config.registry.resources.includes(options.changedResource)) {
+    if (config.project.controllerLayout === "per-feature") {
+      const routes = config.registry.routes.filter((route) => route.resource === options.changedResource!.name);
+      const controllerPath = path.posix.join(
+        config.structure.featuresRoot,
+        options.changedResource.name,
+        "api",
+        `${options.changedResource.name}.controller.ts`
+      );
+
+      if (routes.length > 0) {
+        files.push(createFeatureRouteControllerFile({
+          resource: options.changedResource,
+          routes,
+          featuresRoot: config.structure.featuresRoot,
+          architecture: config.project.architecture,
+        }));
+      } else {
+        const controllerEntry = config.registry.generatedFiles.find((entry) => entry.path === controllerPath && entry.type === "route");
+        if (controllerEntry) {
+          const removePlan = await removeTrackedFiles(config, [controllerEntry], force ? "overwrite" : "skip", context);
+          removeGeneratedEntries(config, removePlan.deleted);
+        }
+      }
+
+      await writePlannedFiles(
+        {
+          root: config.root,
+          files,
+          registry: config.registry,
+          force,
+          skipModified: !force,
+        },
+        context
+      );
+      return;
+    }
+
     const routeNames = routeControllerNamesForResource(generatedPaths, config.structure.featuresRoot, options.changedResource.name);
     const indexPath = path.posix.join(
       config.structure.featuresRoot,

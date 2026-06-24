@@ -5,6 +5,7 @@ import {
   Architecture,
   AuthCapability,
   ContractsCapability,
+  ControllerLayout,
   DatabaseCapability,
   DocsCapability,
   MessagingCapability,
@@ -25,6 +26,7 @@ export interface ProjectPlan {
   root: string;
   framework: "express";
   architecture: Architecture;
+  controllerLayout: ControllerLayout;
   packageManager: PackageManager;
   capabilities: ProjectCapabilities;
   zones: ApiZone[];
@@ -63,6 +65,7 @@ export function createSoapConfigBundle(plan: ProjectPlan): ProjectConfigBundle {
       architecture: plan.architecture,
       language: "typescript",
       packageManager: plan.packageManager,
+      controllerLayout: plan.controllerLayout,
       capabilities: plan.capabilities,
       zones: plan.zones,
     },
@@ -199,7 +202,7 @@ export function createProjectFiles(plan: ProjectPlan): PlannedFile[] {
           compilerOptions: {
             target: "ES2022",
             module: "commonjs",
-            moduleResolution: "node",
+            moduleResolution: "node10",
             strict: true,
             esModuleInterop: true,
             skipLibCheck: true,

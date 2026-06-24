@@ -10,6 +10,7 @@ soap create billing-api \
   --auth jwt \
   --docs openapi \
   --contracts zod \
+  --controller-layout per-route \
   --api-client bruno \
   --install \
   --git-init
@@ -28,6 +29,7 @@ In interactive mode, select:
 - auth: `jwt`
 - docs: `openapi`
 - contracts: `zod`
+- controller layout: `per-route`
 - API client: `bruno`
 - install dependencies: yes when wanted
 - git init: yes only when you want a new local repository
@@ -72,6 +74,8 @@ Generated output includes:
 - route controllers
 - resource setup registration
 - Bruno requests when Bruno is enabled
+
+Use `--controller-layout per-feature` at project creation when you prefer one generated controller file per feature instead of one controller file per route.
 
 ## Add A Custom Route
 

@@ -5,6 +5,7 @@ export function formatCreateSummary(plan: ProjectPlan): string {
     `Project: ${plan.name}`,
     `Framework: ${plan.framework}`,
     `Architecture: ${plan.architecture}`,
+    `Controller layout: ${plan.controllerLayout}`,
     `Databases: ${formatList(plan.capabilities.databases)}`,
     `Auth: ${formatList(plan.capabilities.auth)}`,
     `Messaging: ${formatList(plan.capabilities.messaging)}`,

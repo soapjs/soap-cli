@@ -3,6 +3,7 @@ import {
   ApiZone,
   AuthPolicy,
   AuthCapability,
+  ControllerLayout,
   DatabaseCapability,
   ResourceFieldDefinition,
   ResourceFieldType,
@@ -29,6 +30,7 @@ export interface AddResourcePlan {
   zone: ApiZone;
   featuresRoot: string;
   architecture?: "regular" | "cqrs";
+  controllerLayout?: ControllerLayout;
   contracts?: "plain" | "zod";
   fields?: ResourceFieldDefinition[];
   crudRoutes?: CrudRouteMatrix;
@@ -237,6 +239,27 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
   const commands = actions.filter((action) => action.kind === "create" || action.kind === "update" || action.kind === "delete");
   const queries = actions.filter((action) => action.kind === "list" || action.kind === "get");
   const resource = createResourceEntry(plan);
+  const controllerFiles: PlannedFile[] = plan.controllerLayout === "per-feature"
+    ? [{
+        path: `${root}/api/${featureNames.kebabName}.controller.ts`,
+        type: "route",
+        owner: featureNames.kebabName,
+        content: createCqrsCrudFeatureControllerTs(featureNames, actions, resource, plan),
+      }]
+    : [
+        ...actions.map((action) => ({
+          path: `${root}/api/${action.name}.controller.ts`,
+          type: "route" as const,
+          owner: featureNames.kebabName,
+          content: createCqrsCrudControllerTs(action, resource, plan),
+        })),
+        {
+          path: `${root}/api/${featureNames.kebabName}.controllers.ts`,
+          type: "config" as const,
+          owner: featureNames.kebabName,
+          content: createRegularCrudControllersIndexTs(featureNames, actions),
+        },
+      ];
 
   return [
     {
@@ -285,18 +308,7 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       owner: featureNames.kebabName,
       content: createRegularCrudContractSpecTs(action, plan.fields),
     })),
-    ...actions.map((action) => ({
-      path: `${root}/api/${action.name}.controller.ts`,
-      type: "route" as const,
-      owner: featureNames.kebabName,
-      content: createCqrsCrudControllerTs(action, resource, plan),
-    })),
-    {
-      path: `${root}/api/${featureNames.kebabName}.controllers.ts`,
-      type: "config",
-      owner: featureNames.kebabName,
-      content: createRegularCrudControllersIndexTs(featureNames, actions),
-    },
+    ...controllerFiles,
     {
       path: `${root}/setup.ts`,
       type: "resource",
@@ -307,7 +319,7 @@ function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       path: `${root}/index.ts`,
       type: "resource",
       owner: featureNames.kebabName,
-      content: createCqrsCrudFeatureIndexTs(featureNames, itemNames, plan.db),
+      content: createCqrsCrudFeatureIndexTs(featureNames, itemNames, plan.db, plan.controllerLayout),
     },
   ];
 }
@@ -318,6 +330,27 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
   const collectionNames = createNameVariants(itemNames.pluralName);
   const root = path.posix.join(plan.featuresRoot, featureNames.kebabName);
   const actions = createRegularCrudActions(itemNames, collectionNames, plan.crudRoutes);
+  const controllerFiles: PlannedFile[] = plan.controllerLayout === "per-feature"
+    ? [{
+        path: `${root}/api/${featureNames.kebabName}.controller.ts`,
+        type: "route",
+        owner: featureNames.kebabName,
+        content: createRegularCrudFeatureControllerTs(featureNames, actions, plan),
+      }]
+    : [
+        ...actions.map((action) => ({
+          path: `${root}/api/${action.name}.controller.ts`,
+          type: "route" as const,
+          owner: featureNames.kebabName,
+          content: createRegularCrudControllerTs(action, itemNames, featureNames, plan),
+        })),
+        {
+          path: `${root}/api/${featureNames.kebabName}.controllers.ts`,
+          type: "config" as const,
+          owner: featureNames.kebabName,
+          content: createRegularCrudControllersIndexTs(featureNames, actions),
+        },
+      ];
   const files: PlannedFile[] = [
     {
       path: `${root}/domain/${itemNames.kebabName}.entity.ts`,
@@ -363,18 +396,7 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       owner: featureNames.kebabName,
       content: createRegularCrudContractSpecTs(action, plan.fields),
     })),
-    ...actions.map((action) => ({
-      path: `${root}/api/${action.name}.controller.ts`,
-      type: "route" as const,
-      owner: featureNames.kebabName,
-      content: createRegularCrudControllerTs(action, itemNames, featureNames, plan),
-    })),
-    {
-      path: `${root}/api/${featureNames.kebabName}.controllers.ts`,
-      type: "config",
-      owner: featureNames.kebabName,
-      content: createRegularCrudControllersIndexTs(featureNames, actions),
-    },
+    ...controllerFiles,
     {
       path: `${root}/setup.ts`,
       type: "resource",
@@ -385,7 +407,7 @@ function createRegularCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
       path: `${root}/index.ts`,
       type: "resource",
       owner: featureNames.kebabName,
-      content: createRegularCrudFeatureIndexTs(featureNames, itemNames, plan.db),
+      content: createRegularCrudFeatureIndexTs(featureNames, itemNames, plan.db, plan.controllerLayout),
     },
   ];
 
@@ -806,6 +828,77 @@ ${authLine}  @${action.method}('${action.path}', ${createRouteApiDocOptions({
 `;
 }
 
+function createCqrsCrudFeatureControllerTs(
+  featureNames: ReturnType<typeof createNameVariants>,
+  actions: RegularCrudAction[],
+  resource: ResourceRegistryEntry,
+  plan: AddResourcePlan
+): string {
+  const imports = ["Controller", "Inject", ...actions.map((action) => action.method)];
+  const hasCommands = actions.some((action) => action.kind === "create" || action.kind === "update" || action.kind === "delete");
+  const hasQueries = actions.some((action) => action.kind === "list" || action.kind === "get");
+  const cqrsImports = [
+    hasCommands ? "CommandBus" : undefined,
+    hasQueries ? "QueryBus" : undefined,
+  ].filter(Boolean);
+
+  for (const action of actions) {
+    const authDecorator = createCqrsCrudAuthDecorator(action.auth ?? plan.auth, action.zone ?? plan.zone, action.policy ?? plan.policy);
+    if (authDecorator?.startsWith("@Public")) imports.push("Public");
+    if (authDecorator?.startsWith("@Auth")) imports.push("Auth");
+    if (authDecorator?.startsWith("@AdminOnly")) imports.push("AdminOnly");
+  }
+
+  const commandImports = actions
+    .filter((action) => action.kind === "create" || action.kind === "update" || action.kind === "delete")
+    .map((action) => `import { ${action.classBase}Command } from '../application/commands/${action.name}.command';`);
+  const queryImports = actions
+    .filter((action) => action.kind === "list" || action.kind === "get")
+    .map((action) => `import { ${action.classBase}Query } from '../application/queries/${action.name}.query';`);
+  const contractImports = actions.map((action) => `import { ${action.operationId}BodyContract } from '../contracts/${action.name}.contract';`);
+  const constructorArgs = [
+    hasCommands ? "    @Inject('CommandBus') private readonly commandBus: CommandBus," : undefined,
+    hasQueries ? "    @Inject('QueryBus') private readonly queryBus: QueryBus," : undefined,
+  ].filter(Boolean);
+  const methods = actions.map((action) => {
+    const isCommand = action.kind === "create" || action.kind === "update" || action.kind === "delete";
+    const messageType = isCommand ? "Command" : "Query";
+    const busProperty = isCommand ? "commandBus" : "queryBus";
+    const routeAuth = action.auth ?? plan.auth;
+    const authDecorator = createCqrsCrudAuthDecorator(routeAuth, action.zone ?? plan.zone, action.policy ?? plan.policy);
+    const authLine = authDecorator ? `  ${authDecorator}\n` : "";
+
+    return `${authLine}  @${action.method}('${action.path}', ${createRouteApiDocOptions({
+      summary: `${action.classBase} ${resource.name}`,
+      operationId: action.operationId,
+      auth: routeAuth,
+    })})
+  async ${action.operationId}(req: Request): Promise<unknown> {
+    return this.${busProperty}.dispatch(new ${action.classBase}${messageType}(${action.operationId}BodyContract(req)));
+  }`;
+  }).join("\n\n");
+
+  return `import { Request } from 'express';
+import { ${Array.from(new Set(imports)).sort().join(", ")} } from '@soapjs/soap-express';
+import { ${cqrsImports.join(", ")} } from '@soapjs/soap/cqrs';
+${[...commandImports, ...queryImports, ...contractImports].join("\n")}
+
+@Controller('${resource.path}', {
+  apiDoc: {
+    tags: ['${featureNames.pascalName}'],
+    description: '${featureNames.pascalName} routes generated by SoapJS CLI',
+  },
+})
+export class ${featureNames.pascalName}Controller {
+  constructor(
+${constructorArgs.join("\n")}
+  ) {}
+
+${methods}
+}
+`;
+}
+
 function createCqrsCrudAuthDecorator(auth: "none" | AuthCapability, zone: ApiZone, policy?: AuthPolicy): string | undefined {
   if (zone === "public") {
     return "@Public()";
@@ -825,9 +918,14 @@ function createCqrsCrudSetupTs(
 function createCqrsCrudFeatureIndexTs(
   featureNames: ReturnType<typeof createNameVariants>,
   itemNames: ReturnType<typeof createNameVariants>,
-  db: "none" | DatabaseCapability
+  db: "none" | DatabaseCapability,
+  controllerLayout: ControllerLayout | undefined
 ): string {
-  return `export * from './api/${featureNames.kebabName}.controllers';
+  const controllerExport = controllerLayout === "per-feature"
+    ? `export * from './api/${featureNames.kebabName}.controller';`
+    : `export * from './api/${featureNames.kebabName}.controllers';`;
+
+  return `${controllerExport}
 export * from './domain/${itemNames.kebabName}.entity';
 export * from './application/ports/${itemNames.kebabName}-repository.port';
 export * from './application/commands';
@@ -1917,6 +2015,53 @@ ${authLine}  @CallUseCase(${action.classBase}UseCase)
 `;
 }
 
+function createRegularCrudFeatureControllerTs(
+  featureNames: ReturnType<typeof createNameVariants>,
+  actions: RegularCrudAction[],
+  plan: AddResourcePlan
+): string {
+  const decoratorImports = ["CallUseCase", "Controller", "RouteIO", ...actions.map((action) => action.method)];
+
+  for (const action of actions) {
+    const authDecorator = createAuthDecorator(action.auth ?? plan.auth, action.zone ?? plan.zone, action.policy ?? plan.policy);
+    if (authDecorator?.startsWith("@Auth")) decoratorImports.push("Auth");
+    if (authDecorator?.startsWith("@AdminOnly")) decoratorImports.push("AdminOnly");
+  }
+
+  const useCaseImports = actions.map((action) => `import { ${action.classBase}UseCase } from '../application/use-cases/${action.name}.use-case';`);
+  const contractImports = actions.map((action) => `import { ${action.operationId}BodyContract } from '../contracts/${action.name}.contract';`);
+  const methods = actions.map((action) => {
+    const routeAuth = action.auth ?? plan.auth;
+    const routeZone = action.zone ?? plan.zone;
+    const routePolicy = action.policy ?? plan.policy;
+    const authDecorator = createAuthDecorator(routeAuth, routeZone, routePolicy);
+    const authLine = authDecorator ? `  ${authDecorator}\n` : "";
+
+    return `${authLine}  @CallUseCase(${action.classBase}UseCase)
+  @RouteIO({ from: ${action.operationId}BodyContract })
+  @${action.method}('${action.path}', ${createRouteApiDocOptions({
+      summary: `${action.classBase} ${featureNames.kebabName}`,
+      operationId: action.operationId,
+      auth: routeAuth,
+    })})
+  async ${action.operationId}(): Promise<void> {}`;
+  }).join("\n\n");
+
+  return `import { ${Array.from(new Set(decoratorImports)).sort().join(", ")} } from '@soapjs/soap-express';
+${[...useCaseImports, ...contractImports].join("\n")}
+
+@Controller('/${featureNames.kebabName}', {
+  apiDoc: {
+    tags: ['${featureNames.pascalName}'],
+    description: '${featureNames.pascalName} routes generated by SoapJS CLI',
+  },
+})
+export class ${featureNames.pascalName}Controller {
+${methods}
+}
+`;
+}
+
 function createRegularCrudControllersIndexTs(
   featureNames: ReturnType<typeof createNameVariants>,
   actions: RegularCrudAction[]
@@ -1995,9 +2140,14 @@ ${useCaseBindings}
 function createRegularCrudFeatureIndexTs(
   featureNames: ReturnType<typeof createNameVariants>,
   itemNames: ReturnType<typeof createNameVariants>,
-  db: "none" | DatabaseCapability
+  db: "none" | DatabaseCapability,
+  controllerLayout: ControllerLayout | undefined
 ): string {
-  return `export * from './api/${featureNames.kebabName}.controllers';
+  const controllerExport = controllerLayout === "per-feature"
+    ? `export * from './api/${featureNames.kebabName}.controller';`
+    : `export * from './api/${featureNames.kebabName}.controllers';`;
+
+  return `${controllerExport}
 export * from './domain/${itemNames.kebabName}.entity';
 export * from './application/ports/${itemNames.kebabName}-repository.port';
 ${createRegularCrudRepositoryExport(itemNames, db)}

@@ -152,6 +152,7 @@ function createPlan(config: SoapConfig): ProjectPlan {
     root: config.root,
     framework: config.project.framework,
     architecture: config.project.architecture,
+    controllerLayout: config.project.controllerLayout,
     packageManager: config.project.packageManager,
     capabilities: config.project.capabilities,
     zones: config.project.zones,

@@ -122,9 +122,15 @@ function enabledRouteAuthValues(values: AuthCapability[]): Array<"none" | "jwt" 
 
 function expectedContractPaths(config: SoapConfig, route: RouteRegistryEntry): string[] {
   const resourceNames = createNameVariants(route.resource);
+  const singularResourceNames = createNameVariants(singularizeResourceName(resourceNames.kebabName));
   const routeNames = createNameVariants(route.name);
   const contractNames = Array.from(
-    new Set([routeNames.kebabName, `${routeNames.kebabName}-${resourceNames.kebabName}`, `${routeNames.kebabName}-${resourceNames.pluralName}`])
+    new Set([
+      routeNames.kebabName,
+      `${routeNames.kebabName}-${singularResourceNames.kebabName}`,
+      `${routeNames.kebabName}-${resourceNames.kebabName}`,
+      `${routeNames.kebabName}-${resourceNames.pluralName}`,
+    ])
   );
 
   return contractNames.map((contractName) =>
@@ -135,6 +141,22 @@ function expectedContractPaths(config: SoapConfig, route: RouteRegistryEntry): s
       `${contractName}.contract.ts`
     )
   );
+}
+
+function singularizeResourceName(name: string): string {
+  if (name.endsWith("ies")) {
+    return `${name.slice(0, -3)}y`;
+  }
+
+  if (name.endsWith("ses") || name.endsWith("xes") || name.endsWith("zes") || name.endsWith("ches") || name.endsWith("shes")) {
+    return name.slice(0, -2);
+  }
+
+  if (name.endsWith("s") && name.length > 1) {
+    return name.slice(0, -1);
+  }
+
+  return name;
 }
 
 function expectedBrunoPath(config: SoapConfig, route: RouteRegistryEntry): string {

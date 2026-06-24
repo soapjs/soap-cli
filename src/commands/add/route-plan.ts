@@ -1,5 +1,5 @@
 import path from "path";
-import { ApiZone, AuthCapability, AuthPolicy, ResourceRegistryEntry, RouteRegistryEntry } from "../../config/schemas/types";
+import { ApiZone, Architecture, AuthCapability, AuthPolicy, ResourceRegistryEntry, RouteRegistryEntry } from "../../config/schemas/types";
 import { CliError } from "../../core/errors";
 import { PlannedFile } from "../../io/file-writer";
 import { createNameVariants } from "../../templates/naming";
@@ -23,6 +23,13 @@ export interface AddRoutePlan {
   contracts?: "plain" | "zod";
 }
 
+export interface FeatureRouteControllerPlan {
+  resource: ResourceRegistryEntry;
+  routes: RouteRegistryEntry[];
+  featuresRoot: string;
+  architecture: Architecture;
+}
+
 const decoratorByMethod: Record<RouteMethod, string> = {
   get: "Get",
   post: "Post",
@@ -44,10 +51,24 @@ export function createRouteEntry(plan: AddRoutePlan): RouteRegistryEntry {
     name: names.kebabName,
     method: plan.method.toUpperCase(),
     path: absolutePath,
+    useCase: plan.useCase,
+    command: plan.command,
+    query: plan.query,
     auth: plan.auth,
     zone: plan.zone,
     policy: plan.policy,
     generatedAt: new Date().toISOString(),
+  };
+}
+
+export function createFeatureRouteControllerFile(plan: FeatureRouteControllerPlan): PlannedFile {
+  const resourceNames = createNameVariants(plan.resource.name);
+
+  return {
+    path: path.posix.join(plan.featuresRoot, resourceNames.kebabName, "api", `${resourceNames.kebabName}.controller.ts`),
+    type: "route",
+    owner: resourceNames.kebabName,
+    content: createFeatureRouteControllerTs(plan),
   };
 }
 
@@ -222,6 +243,288 @@ ${constructor}${authLine}${useCaseDecorators}  @${decorator}('${routePath}', ${c
   async ${routeNames.camelName}(${methodArgs}): Promise<${returnType}> {${body}}
 }
 `;
+}
+
+function createFeatureRouteControllerTs(plan: FeatureRouteControllerPlan): string {
+  const resourceNames = createNameVariants(plan.resource.name);
+  const sortedRoutes = [...plan.routes].sort((left, right) => {
+    const order = ["list", "get", "create", "update", "delete"];
+    const leftIndex = order.indexOf(left.name);
+    const rightIndex = order.indexOf(right.name);
+
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex);
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+  const routeModels = sortedRoutes.map((route) => createFeatureRouteModel(plan, route));
+  const soapImports = new Set<string>(["Controller"]);
+  const useCaseImports = new Map<string, string>();
+  const commandImports = new Map<string, string>();
+  const queryImports = new Map<string, string>();
+  const contractImports = new Map<string, string>();
+  let needsRequest = false;
+  let needsCommandBus = false;
+  let needsQueryBus = false;
+
+  for (const model of routeModels) {
+    soapImports.add(model.decorator);
+
+    if (model.authDecorator?.startsWith("@Public")) soapImports.add("Public");
+    if (model.authDecorator?.startsWith("@Auth")) soapImports.add("Auth");
+    if (model.authDecorator?.startsWith("@AdminOnly")) soapImports.add("AdminOnly");
+
+    if (model.useCase) {
+      soapImports.add("CallUseCase");
+      soapImports.add("RouteIO");
+      useCaseImports.set(model.useCase.className, model.useCase.importPath);
+      contractImports.set(model.contract.functionName, model.contract.importPath);
+    }
+
+    if (model.command) {
+      soapImports.add("Inject");
+      needsRequest = true;
+      needsCommandBus = true;
+      commandImports.set(model.command.className, model.command.importPath);
+      contractImports.set(model.contract.functionName, model.contract.importPath);
+    }
+
+    if (model.query) {
+      soapImports.add("Inject");
+      needsRequest = true;
+      needsQueryBus = true;
+      queryImports.set(model.query.className, model.query.importPath);
+      contractImports.set(model.contract.functionName, model.contract.importPath);
+    }
+  }
+
+  const expressImport = needsRequest ? "import { Request } from 'express';\n" : "";
+  const soapImport = `import { ${Array.from(soapImports).sort().join(", ")} } from '@soapjs/soap-express';`;
+  const cqrsImports = [
+    needsCommandBus ? "CommandBus" : undefined,
+    needsQueryBus ? "QueryBus" : undefined,
+  ].filter(Boolean);
+  const cqrsImport = cqrsImports.length > 0 ? `\nimport { ${cqrsImports.join(", ")} } from '@soapjs/soap/cqrs';` : "";
+  const importLines = [
+    ...Array.from(useCaseImports.entries()).map(([className, importPath]) => `import { ${className} } from '${importPath}';`),
+    ...Array.from(commandImports.entries()).map(([className, importPath]) => `import { ${className} } from '${importPath}';`),
+    ...Array.from(queryImports.entries()).map(([className, importPath]) => `import { ${className} } from '${importPath}';`),
+    ...Array.from(contractImports.entries()).map(([functionName, importPath]) => `import { ${functionName} } from '${importPath}';`),
+  ].sort();
+  const constructorArgs = [
+    needsCommandBus ? "    @Inject('CommandBus') private readonly commandBus: CommandBus," : undefined,
+    needsQueryBus ? "    @Inject('QueryBus') private readonly queryBus: QueryBus," : undefined,
+  ].filter(Boolean);
+  const constructor = constructorArgs.length > 0
+    ? `
+  constructor(
+${constructorArgs.join("\n")}
+  ) {}
+`
+    : "";
+  const methods = routeModels.map(createFeatureRouteMethodTs).join("\n\n");
+
+  return `${expressImport}${soapImport}${cqrsImport}
+${importLines.length > 0 ? `${importLines.join("\n")}\n` : ""}
+@Controller('${plan.resource.path}', {
+  apiDoc: {
+    tags: ['${resourceNames.pascalName}'],
+    description: '${resourceNames.pascalName} routes generated by SoapJS CLI',
+  },
+})
+export class ${resourceNames.pascalName}Controller {${constructor}
+${methods}
+}
+`;
+}
+
+interface FeatureRouteModel {
+  decorator: string;
+  routePath: string;
+  methodName: string;
+  operationId: string;
+  summary: string;
+  auth: "none" | AuthCapability;
+  authDecorator?: string;
+  useCase?: {
+    className: string;
+    importPath: string;
+  };
+  command?: {
+    className: string;
+    importPath: string;
+  };
+  query?: {
+    className: string;
+    importPath: string;
+  };
+  contract: {
+    functionName: string;
+    importPath: string;
+  };
+}
+
+function createFeatureRouteModel(plan: FeatureRouteControllerPlan, route: RouteRegistryEntry): FeatureRouteModel {
+  const resourceNames = createNameVariants(plan.resource.name);
+  const routeNames = createNameVariants(route.name);
+  const crudAction = plan.resource.crud ? createCrudActionModel(route.name, resourceNames) : undefined;
+  const method = route.method.toLowerCase() as RouteMethod;
+  const decorator = decoratorByMethod[method] ?? "Get";
+  const routePath = toControllerRoutePath(plan.resource.path, route.path);
+  const authDecorator = createRouteAuthDecorator(route.auth, route.zone, route.policy);
+  const contractName = crudAction?.operationId ?? routeNames.camelName;
+  const contractFile = crudAction?.fileName ?? routeNames.kebabName;
+  const base: FeatureRouteModel = {
+    decorator,
+    routePath,
+    methodName: crudAction?.operationId ?? routeNames.camelName,
+    operationId: crudAction?.operationId ?? routeNames.camelName,
+    summary: crudAction ? `${crudAction.classBase} ${resourceNames.kebabName}` : `${routeNames.camelName} ${resourceNames.kebabName}`,
+    auth: route.auth,
+    authDecorator,
+    contract: {
+      functionName: `${contractName}BodyContract`,
+      importPath: `../contracts/${contractFile}.contract`,
+    },
+  };
+
+  if (plan.architecture === "regular") {
+    const useCaseName = route.useCase ? createNameVariants(route.useCase) : undefined;
+    const useCaseClass = useCaseName ? `${useCaseName.pascalName}UseCase` : crudAction ? `${crudAction.classBase}UseCase` : undefined;
+    const useCaseFile = useCaseName?.kebabName ?? crudAction?.fileName;
+
+    return useCaseClass && useCaseFile
+      ? {
+          ...base,
+          useCase: {
+            className: useCaseClass,
+            importPath: `../application/use-cases/${useCaseFile}.use-case`,
+          },
+        }
+      : base;
+  }
+
+  const commandName = route.command ? createNameVariants(route.command) : undefined;
+  const queryName = route.query ? createNameVariants(route.query) : undefined;
+  const cqrs = commandName
+    ? {
+        kind: "command" as const,
+        className: `${commandName.pascalName}Command`,
+        importPath: `../application/commands/${commandName.kebabName}.command`,
+      }
+    : queryName
+      ? {
+          kind: "query" as const,
+          className: `${queryName.pascalName}Query`,
+          importPath: `../application/queries/${queryName.kebabName}.query`,
+        }
+      : crudAction && (crudAction.kind === "create" || crudAction.kind === "update" || crudAction.kind === "delete")
+        ? {
+            kind: "command" as const,
+            className: `${crudAction.classBase}Command`,
+            importPath: `../application/commands/${crudAction.fileName}.command`,
+          }
+        : crudAction
+          ? {
+              kind: "query" as const,
+              className: `${crudAction.classBase}Query`,
+              importPath: `../application/queries/${crudAction.fileName}.query`,
+            }
+          : undefined;
+
+  if (cqrs?.kind === "command") {
+    return { ...base, command: { className: cqrs.className, importPath: cqrs.importPath } };
+  }
+
+  if (cqrs?.kind === "query") {
+    return { ...base, query: { className: cqrs.className, importPath: cqrs.importPath } };
+  }
+
+  return base;
+}
+
+function createFeatureRouteMethodTs(model: FeatureRouteModel): string {
+  const authLine = model.authDecorator ? `  ${model.authDecorator}\n` : "";
+  const apiDoc = createRouteApiDocOptions({
+    summary: model.summary,
+    operationId: model.operationId,
+    auth: model.auth,
+  });
+
+  if (model.useCase) {
+    return `${authLine}  @CallUseCase(${model.useCase.className})
+  @RouteIO({ from: ${model.contract.functionName} })
+  @${model.decorator}('${model.routePath}', ${apiDoc})
+  async ${model.methodName}(): Promise<void> {}`;
+  }
+
+  if (model.command) {
+    return `${authLine}  @${model.decorator}('${model.routePath}', ${apiDoc})
+  async ${model.methodName}(req: Request): Promise<unknown> {
+    return this.commandBus.dispatch(new ${model.command.className}(${model.contract.functionName}(req)));
+  }`;
+  }
+
+  if (model.query) {
+    return `${authLine}  @${model.decorator}('${model.routePath}', ${apiDoc})
+  async ${model.methodName}(req: Request): Promise<unknown> {
+    return this.queryBus.dispatch(new ${model.query.className}(${model.contract.functionName}(req)));
+  }`;
+  }
+
+  return `${authLine}  @${model.decorator}('${model.routePath}', ${apiDoc})
+  async ${model.methodName}(): Promise<unknown> {
+    return { resource: '${model.operationId}', action: '${model.methodName}' };
+  }`;
+}
+
+function createCrudActionModel(routeName: string, resourceNames: ReturnType<typeof createNameVariants>): {
+  fileName: string;
+  classBase: string;
+  operationId: string;
+  kind: "list" | "get" | "create" | "update" | "delete";
+} | undefined {
+  const itemNames = createNameVariants(singularizeResourceName(resourceNames.kebabName));
+  const collectionNames = createNameVariants(itemNames.pluralName);
+
+  if (routeName === "list") {
+    return {
+      fileName: `list-${collectionNames.kebabName}`,
+      classBase: `List${collectionNames.pascalName}`,
+      operationId: `list${collectionNames.pascalName}`,
+      kind: "list",
+    };
+  }
+
+  if (routeName === "get" || routeName === "create" || routeName === "update" || routeName === "delete") {
+    const names = createNameVariants(`${routeName}-${itemNames.kebabName}`);
+
+    return {
+      fileName: names.kebabName,
+      classBase: names.pascalName,
+      operationId: names.camelName,
+      kind: routeName,
+    };
+  }
+
+  return undefined;
+}
+
+function singularizeResourceName(name: string): string {
+  if (name.endsWith("ies")) {
+    return `${name.slice(0, -3)}y`;
+  }
+
+  if (name.endsWith("ses") || name.endsWith("xes") || name.endsWith("zes") || name.endsWith("ches") || name.endsWith("shes")) {
+    return name.slice(0, -2);
+  }
+
+  if (name.endsWith("s") && name.length > 1) {
+    return name.slice(0, -1);
+  }
+
+  return name;
 }
 
 function createSoapExpressImports(plan: AddRoutePlan, routeDecorator: string): string {

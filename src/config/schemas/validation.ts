@@ -8,6 +8,7 @@ import {
   DatabaseCapability,
   DocsCapability,
   ContractsCapability,
+  ControllerLayout,
   Framework,
   MessagingCapability,
   RealtimeCapability,
@@ -30,6 +31,7 @@ const apiClients = ["bruno"];
 const docs: DocsCapability[] = ["openapi"];
 const contracts: ContractsCapability[] = ["zod"];
 const zones: ApiZone[] = ["public", "private", "admin"];
+const controllerLayouts: ControllerLayout[] = ["per-route", "per-feature"];
 
 function assertObject(value: unknown, label: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -80,6 +82,10 @@ export function validateProjectConfig(value: unknown): SoapProjectConfig {
   }
 
   assertOneOf(value.packageManager, "project.packageManager", packageManagers);
+  if (value.controllerLayout === undefined) {
+    value.controllerLayout = "per-route";
+  }
+  assertOneOf(value.controllerLayout, "project.controllerLayout", controllerLayouts);
   assertObject(value.capabilities, "project.capabilities");
 
   assertArrayOf(value.capabilities.databases, "project.capabilities.databases", databases);
