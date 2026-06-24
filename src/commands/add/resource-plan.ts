@@ -651,11 +651,12 @@ export class ${action.classBase}Query extends BaseQuery<${action.classBase}Resul
 function createCqrsCrudCommandHandlerTs(action: RegularCrudAction, itemNames: ReturnType<typeof createNameVariants>): string {
   const repositoryCall = createCqrsCrudCommandRepositoryCall(action, itemNames);
 
-  return `import { Result } from '@soapjs/soap/common';
+  return `import { randomUUID } from 'crypto';
+import { Result } from '@soapjs/soap/common';
 import { CommandHandler as SoapCommandHandler } from '@soapjs/soap/cqrs';
 import { CommandHandler } from '@soapjs/soap-express/cqrs';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
-import { ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
+import { ${itemNames.pascalName}, ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
 import { ${action.classBase}Command, ${action.classBase}Result } from './${action.name}.command';
 
 @CommandHandler(${action.classBase}Command)
@@ -663,11 +664,7 @@ export class ${action.classBase}Handler implements SoapCommandHandler<${action.c
   constructor(private readonly repository?: ${itemNames.pascalName}Repository) {}
 
   async handle(command: ${action.classBase}Command): Promise<Result<${action.classBase}Result>> {
-    try {
 ${repositoryCall}
-    } catch (error) {
-      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
-    }
   }
 }
 `;
@@ -687,11 +684,7 @@ export class ${action.classBase}Handler implements SoapQueryHandler<${action.cla
   constructor(private readonly repository?: ${itemNames.pascalName}Repository) {}
 
   async handle(query: ${action.classBase}Query): Promise<Result<${action.classBase}Result>> {
-    try {
 ${repositoryCall}
-    } catch (error) {
-      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
-    }
   }
 }
 `;
@@ -702,20 +695,42 @@ function createCqrsCrudCommandRepositoryCall(action: RegularCrudAction, itemName
 
   if (kind === "create") {
     return `      if (!this.repository) return Result.withSuccess({ ...command.payload } as ${action.classBase}Result);
-      const item = await this.repository.create(command.payload as Omit<${itemNames.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>);
-      return Result.withSuccess(item.props as unknown as ${action.classBase}Result);`;
+      const now = new Date().toISOString();
+      const item = new ${itemNames.pascalName}({
+        ...(command.payload as Omit<${itemNames.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>),
+        id: randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+      });
+      const result = await this.repository.add(item);
+      if (result.isFailure()) return Result.withFailure(result.failure);
+      return Result.withSuccess(result.content[0].props as unknown as ${action.classBase}Result);`;
   }
 
   if (kind === "update") {
     return `      if (!this.repository) return Result.withSuccess({ ...command.payload } as ${action.classBase}Result);
       const { id, ...changes } = command.payload;
-      const item = await this.repository.update(String(id), changes);
-      return Result.withSuccess((item?.props ?? { id, ...changes }) as unknown as ${action.classBase}Result);`;
+      const current = await this.repository.findById(String(id));
+      if (current.isFailure()) return Result.withFailure(current.failure);
+      if (!current.content) return Result.withSuccess({ id, ...changes } as unknown as ${action.classBase}Result);
+      const item = new ${itemNames.pascalName}({
+        ...current.content.props,
+        ...changes,
+        id: String(id),
+        updatedAt: new Date().toISOString(),
+      });
+      const result = await this.repository.update(item);
+      if (result.isFailure()) return Result.withFailure(result.failure);
+      return Result.withSuccess(item.props as unknown as ${action.classBase}Result);`;
   }
 
   return `      if (!this.repository) return Result.withSuccess({ deleted: true, ...command.payload } as ${action.classBase}Result);
-      const deleted = await this.repository.delete(String(command.payload.id));
-      return Result.withSuccess({ deleted });`;
+      const item = await this.repository.findById(String(command.payload.id));
+      if (item.isFailure()) return Result.withFailure(item.failure);
+      if (!item.content) return Result.withSuccess({ deleted: false });
+      const result = await this.repository.remove(item.content);
+      if (result.isFailure()) return Result.withFailure(result.failure);
+      return Result.withSuccess({ deleted: (result.content.deletedCount ?? 0) > 0 });`;
 }
 
 function createCqrsCrudQueryRepositoryCall(action: RegularCrudAction): string {
@@ -723,13 +738,15 @@ function createCqrsCrudQueryRepositoryCall(action: RegularCrudAction): string {
 
   if (kind === "list") {
     return `      if (!this.repository) return Result.withSuccess({ items: [] } as ${action.classBase}Result);
-      const items = await this.repository.list();
-      return Result.withSuccess({ items: items.map((item) => item.props) });`;
+      const items = await this.repository.find();
+      if (items.isFailure()) return Result.withFailure(items.failure);
+      return Result.withSuccess({ items: items.content.map((item) => item.props) });`;
   }
 
   return `      if (!this.repository) return Result.withSuccess({ ...query.criteria } as ${action.classBase}Result);
       const item = await this.repository.findById(String(query.criteria.id));
-      return Result.withSuccess((item?.props ?? { ...query.criteria }) as unknown as ${action.classBase}Result);`;
+      if (item.isFailure()) return Result.withFailure(item.failure);
+      return Result.withSuccess((item.content?.props ?? { ...query.criteria }) as unknown as ${action.classBase}Result);`;
 }
 
 function createCqrsCrudCommandSpecTs(action: RegularCrudAction): string {
@@ -1248,64 +1265,116 @@ function formatDatabaseName(value: DatabaseCapability): string {
 }
 
 function createRegularCrudRepositoryPortTs(names: ReturnType<typeof createNameVariants>): string {
-  return `import { ${names.pascalName}, ${names.pascalName}Props } from '../../domain/${names.kebabName}.entity';
+  return `import { Repository, Result } from '@soapjs/soap';
+import { ${names.pascalName} } from '../../domain/${names.kebabName}.entity';
 
 export const ${names.constantName}_REPOSITORY = '${names.pascalName}Repository';
 
-export interface ${names.pascalName}Repository {
-  list(): Promise<${names.pascalName}[]>;
-  findById(id: string): Promise<${names.pascalName} | undefined>;
-  create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}>;
-  update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined>;
-  delete(id: string): Promise<boolean>;
+export interface ${names.pascalName}Repository extends Repository<${names.pascalName}> {
+  findById(id: string): Promise<Result<${names.pascalName} | undefined>>;
 }
 `;
 }
 
 function createRegularCrudMemoryRepositoryTs(names: ReturnType<typeof createNameVariants>): string {
-  return `import { randomUUID } from 'crypto';
+  return `import { Result, UpdateParams, RemoveParams, RepositoryQuery, UpdateStats, RemoveStats } from '@soapjs/soap';
 import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 
 export class InMemory${names.pascalName}Repository implements ${names.pascalName}Repository {
   private readonly items = new Map<string, ${names.pascalName}>();
 
-  async list(): Promise<${names.pascalName}[]> {
-    return Array.from(this.items.values());
+  async count(): Promise<Result<number>> {
+    try {
+      return Result.withSuccess(this.items.size);
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
-  async findById(id: string): Promise<${names.pascalName} | undefined> {
-    return this.items.get(id);
+  async find(): Promise<Result<${names.pascalName}[]>> {
+    try {
+      return Result.withSuccess(Array.from(this.items.values()));
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
-  async create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}> {
-    const now = new Date().toISOString();
-    const item = new ${names.pascalName}({
-      ...input,
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    });
-    this.items.set(item.id, item);
-    return item;
+  async aggregate<ResultType = ${names.pascalName} | ${names.pascalName}[]>(): Promise<Result<ResultType>> {
+    try {
+      return Result.withSuccess(Array.from(this.items.values()) as ResultType);
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
-  async update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined> {
-    const current = this.items.get(id);
-    if (!current) return undefined;
+  async add(...entities: ${names.pascalName}[]): Promise<Result<${names.pascalName}[]>> {
+    try {
+      for (const entity of entities) {
+        this.items.set(entity.id, entity);
+      }
 
-    const updated = new ${names.pascalName}({
-      ...current.props,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    });
-    this.items.set(id, updated);
-    return updated;
+      return Result.withSuccess(entities);
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
-  async delete(id: string): Promise<boolean> {
-    return this.items.delete(id);
+  async update(paramsOrQuery: UpdateParams<Partial<${names.pascalName}>> | RepositoryQuery): Promise<Result<UpdateStats>>;
+  async update(...entities: Partial<${names.pascalName}>[]): Promise<Result<UpdateStats>>;
+  async update(first?: UpdateParams<Partial<${names.pascalName}>> | RepositoryQuery | Partial<${names.pascalName}>, ...rest: Partial<${names.pascalName}>[]): Promise<Result<UpdateStats>> {
+    try {
+      let modifiedCount = 0;
+      const entities = first && ('id' in first || 'props' in first) ? [first as Partial<${names.pascalName}>, ...rest] : rest;
+
+      for (const entity of entities) {
+        const id = entity.id;
+        if (!id) continue;
+
+        const current = this.items.get(id);
+        if (!current) continue;
+
+        const updated = new ${names.pascalName}({
+          ...current.props,
+          ...(entity as { props?: Partial<${names.pascalName}Props> }).props,
+          id,
+          updatedAt: new Date().toISOString(),
+        });
+        this.items.set(id, updated);
+        modifiedCount += 1;
+      }
+
+      return Result.withSuccess({ status: 'ok', modifiedCount });
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async remove(paramsOrQuery: RemoveParams | RepositoryQuery): Promise<Result<RemoveStats>>;
+  async remove(...entities: ${names.pascalName}[]): Promise<Result<RemoveStats>>;
+  async remove(first?: RemoveParams | RepositoryQuery | ${names.pascalName}, ...rest: ${names.pascalName}[]): Promise<Result<RemoveStats>> {
+    try {
+      let deletedCount = 0;
+      const entities = first && 'id' in first ? [first as ${names.pascalName}, ...rest] : rest;
+
+      for (const entity of entities) {
+        if (this.items.delete(entity.id)) {
+          deletedCount += 1;
+        }
+      }
+
+      return Result.withSuccess({ status: 'ok', deletedCount });
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  async findById(id: string): Promise<Result<${names.pascalName} | undefined>> {
+    try {
+      return Result.withSuccess(this.items.get(id));
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 }
 `;
@@ -1315,39 +1384,53 @@ function createRegularCrudMemoryRepositorySpecTs(
   names: ReturnType<typeof createNameVariants>,
   fields: ResourceFieldDefinition[] | undefined = []
 ): string {
-  const input = createSampleInputObject(fields, "create", "  ");
-  const updateInput = createSampleInputObject(fields, "update", "  ");
+  const input = createSampleInputObject(fields, "create", "    ");
+  const updateInput = createSampleInputObject(fields, "update", "    ");
   const assertionField = normalizeResourceFields(fields)[0].name;
   const expectedUpdatedValue = createSampleFieldValue(normalizeResourceFields(fields)[0], "update");
 
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
 import { InMemory${names.pascalName}Repository } from './${names.kebabName}.memory-repository';
 
 test('InMemory${names.pascalName}Repository supports CRUD operations', async () => {
   const repository = new InMemory${names.pascalName}Repository();
-  const input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'> = {
+  const entity = new ${names.pascalName}({
+    id: 'test-id',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
 ${input}
-  };
-
-  const created = await repository.create(input);
-  assert.equal(Boolean(created.id), true);
-
-  const listed = await repository.list();
-  assert.equal(listed.length, 1);
-
-  const found = await repository.findById(created.id);
-  assert.equal(found?.id, created.id);
-
-  const updated = await repository.update(created.id, {
-${updateInput}
   });
-  assert.equal(updated?.props.${assertionField}, ${expectedUpdatedValue});
 
-  const deleted = await repository.delete(created.id);
-  assert.equal(deleted, true);
-  assert.equal(await repository.findById(created.id), undefined);
+  const created = await repository.add(entity);
+  assert.equal(created.isSuccess(), true);
+  assert.equal(created.content[0].id, entity.id);
+
+  const listed = await repository.find();
+  assert.equal(listed.isSuccess(), true);
+  assert.equal(listed.content.length, 1);
+
+  const found = await repository.findById(entity.id);
+  assert.equal(found.isSuccess(), true);
+  assert.equal(found.content?.id, entity.id);
+
+  const updatedEntity = new ${names.pascalName}({
+    ...entity.props,
+${updateInput}
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  });
+  const updated = await repository.update(updatedEntity);
+  assert.equal(updated.isSuccess(), true);
+  assert.equal(updated.content.modifiedCount, 1);
+  const foundUpdated = await repository.findById(entity.id);
+  assert.equal(foundUpdated.content?.props.${assertionField}, ${expectedUpdatedValue});
+
+  const deleted = await repository.remove(updatedEntity);
+  assert.equal(deleted.isSuccess(), true);
+  assert.equal(deleted.content.deletedCount, 1);
+  const afterDelete = await repository.findById(entity.id);
+  assert.equal(afterDelete.content, undefined);
 });
 `;
 }
@@ -1358,10 +1441,16 @@ function createRegularCrudMongoRepositoryTs(
 ): string {
   const documentFields = createInterfaceFields(fields);
 
-  return `import { randomUUID } from 'crypto';
+  return `import { Result } from '@soapjs/soap';
+import {
+  DatabaseContext,
+  DatabaseSessionRegistry,
+  Mapper,
+  ReadWriteRepository,
+} from '@soapjs/soap/data';
 import { MongoSource } from '@soapjs/soap-mongo';
 import { Document } from 'mongodb';
-import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 
 export interface ${names.pascalName}Document extends Document {
@@ -1371,48 +1460,35 @@ ${documentFields}
   updatedAt: string;
 }
 
-export class Mongo${names.pascalName}Repository implements ${names.pascalName}Repository {
-  constructor(private readonly source: MongoSource<${names.pascalName}Document>) {}
+const ${names.camelName}Mapper: Mapper<${names.pascalName}, ${names.pascalName}Document> = {
+  toEntity(document) {
+    const { _id, ...props } = document as ${names.pascalName}Document & { _id?: unknown };
+    return new ${names.pascalName}({
+      ...props,
+      id: props.id || (_id ? String(_id) : ''),
+    });
+  },
 
-  async list(): Promise<${names.pascalName}[]> {
-    const documents = await this.source.find({});
-    return documents.map((document) => new ${names.pascalName}(document));
+  toModel(entity) {
+    return entity.props as ${names.pascalName}Document;
+  },
+};
+
+export class Mongo${names.pascalName}Repository extends ReadWriteRepository<${names.pascalName}, ${names.pascalName}Document> implements ${names.pascalName}Repository {
+  constructor(
+    private readonly source: MongoSource<${names.pascalName}Document>,
+    sessions: DatabaseSessionRegistry
+  ) {
+    super(new DatabaseContext(source, ${names.camelName}Mapper, sessions));
   }
 
-  async findById(id: string): Promise<${names.pascalName} | undefined> {
-    const [document] = await this.source.find({ where: { id }, limit: 1 });
-    return document ? new ${names.pascalName}(document) : undefined;
-  }
-
-  async create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}> {
-    const now = new Date().toISOString();
-    const document: ${names.pascalName}Document = {
-      ...input,
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    const [created] = await this.source.insert(document);
-    return new ${names.pascalName}(created ?? document);
-  }
-
-  async update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined> {
-    const current = await this.findById(id);
-    if (!current) return undefined;
-
-    const next = {
-      ...current.props,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
-    await this.source.update({ where: { id }, update: next });
-    return new ${names.pascalName}(next);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const result = await this.source.remove({ where: { id } });
-    return (result.deletedCount ?? 0) > 0;
+  async findById(id: string): Promise<Result<${names.pascalName} | undefined>> {
+    try {
+      const [document] = await this.source.find({ where: { id }, limit: 1 });
+      return Result.withSuccess(document ? new ${names.pascalName}(document) : undefined);
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 }
 `;
@@ -1422,16 +1498,17 @@ function createRegularCrudMongoRepositorySpecTs(
   names: ReturnType<typeof createNameVariants>,
   fields: ResourceFieldDefinition[] | undefined = []
 ): string {
-  const input = createSampleInputObject(fields, "create", "  ");
-  const updateInput = createSampleInputObject(fields, "update", "  ");
+  const input = createSampleInputObject(fields, "create", "    ");
+  const updateInput = createSampleInputObject(fields, "update", "    ");
   const assertionField = normalizeResourceFields(fields)[0].name;
   const expectedUpdatedValue = createSampleFieldValue(normalizeResourceFields(fields)[0], "update");
 
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createNoopDatabaseSessionRegistry } from '@soapjs/soap/data';
 import { MongoSource } from '@soapjs/soap-mongo';
 import { ${names.pascalName}Document, Mongo${names.pascalName}Repository } from './${names.kebabName}.repository.mongo';
-import { ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 
 test('Mongo${names.pascalName}Repository maps CRUD operations to MongoSource', async () => {
   let documents: ${names.pascalName}Document[] = [];
@@ -1457,28 +1534,42 @@ test('Mongo${names.pascalName}Repository maps CRUD operations to MongoSource', a
       return { deletedCount: before - documents.length };
     },
   } as unknown as MongoSource<${names.pascalName}Document>;
-  const repository = new Mongo${names.pascalName}Repository(source);
-  const input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'> = {
+  const repository = new Mongo${names.pascalName}Repository(source, createNoopDatabaseSessionRegistry());
+  const entity = new ${names.pascalName}({
+    id: 'test-id',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
 ${input}
-  };
-
-  const created = await repository.create(input);
-  assert.equal(Boolean(created.id), true);
-
-  const listed = await repository.list();
-  assert.equal(listed.length, 1);
-
-  const found = await repository.findById(created.id);
-  assert.equal(found?.id, created.id);
-
-  const updated = await repository.update(created.id, {
-${updateInput}
   });
-  assert.equal(updated?.props.${assertionField}, ${expectedUpdatedValue});
 
-  const deleted = await repository.delete(created.id);
-  assert.equal(deleted, true);
-  assert.equal(await repository.findById(created.id), undefined);
+  const created = await repository.add(entity);
+  assert.equal(created.isSuccess(), true);
+  assert.equal(created.content[0].id, entity.id);
+
+  const listed = await repository.find();
+  assert.equal(listed.isSuccess(), true);
+  assert.equal(listed.content.length, 1);
+
+  const found = await repository.findById(entity.id);
+  assert.equal(found.isSuccess(), true);
+  assert.equal(found.content?.id, entity.id);
+
+  const updatedEntity = new ${names.pascalName}({
+    ...entity.props,
+${updateInput}
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  });
+  const updated = await repository.update(updatedEntity);
+  assert.equal(updated.isSuccess(), true);
+  assert.equal(updated.content.modifiedCount, 1);
+  const foundUpdated = await repository.findById(entity.id);
+  assert.equal(foundUpdated.content?.props.${assertionField}, ${expectedUpdatedValue});
+
+  const deleted = await repository.remove(updatedEntity);
+  assert.equal(deleted.isSuccess(), true);
+  assert.equal(deleted.content.deletedCount, 1);
+  const afterDelete = await repository.findById(entity.id);
+  assert.equal(afterDelete.content, undefined);
 });
 `;
 }
@@ -1490,9 +1581,15 @@ function createRegularCrudSqlRepositoryTs(
 ): string {
   const sql = createSqlFieldMetadata(fields, db);
 
-  return `import { randomUUID } from 'crypto';
+  return `import { Result } from '@soapjs/soap';
+import {
+  DatabaseContext,
+  DatabaseSessionRegistry,
+  Mapper,
+  ReadWriteRepository,
+} from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-sql';
-import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 
 export interface ${names.pascalName}Row {
@@ -1501,6 +1598,16 @@ ${sql.interfaceFields}
   createdAt: string;
   updatedAt: string;
 }
+
+const ${names.camelName}Mapper: Mapper<${names.pascalName}, ${names.pascalName}Row> = {
+  toEntity(row) {
+    return new ${names.pascalName}(row);
+  },
+
+  toModel(entity) {
+    return entity.props as ${names.pascalName}Row;
+  },
+};
 
 export async function ensure${names.pascalName}Schema(source: SqlDataSource<${names.pascalName}Row>): Promise<void> {
   await source.query(\`
@@ -1513,56 +1620,22 @@ ${sql.columnDefinitions}
   \`);
 }
 
-export class Sql${names.pascalName}Repository implements ${names.pascalName}Repository {
-  constructor(private readonly source: SqlDataSource<${names.pascalName}Row>) {}
-
-  async list(): Promise<${names.pascalName}[]> {
-    const result = await this.source.query('SELECT ${sql.selectColumns} FROM ${names.snakeName} ORDER BY ${sql.createdAtColumn} DESC');
-    return result.data.map((row) => new ${names.pascalName}(row as ${names.pascalName}Row));
+export class Sql${names.pascalName}Repository extends ReadWriteRepository<${names.pascalName}, ${names.pascalName}Row> implements ${names.pascalName}Repository {
+  constructor(
+    private readonly source: SqlDataSource<${names.pascalName}Row>,
+    sessions: DatabaseSessionRegistry
+  ) {
+    super(new DatabaseContext(source, ${names.camelName}Mapper, sessions));
   }
 
-  async findById(id: string): Promise<${names.pascalName} | undefined> {
-    const result = await this.source.query('SELECT ${sql.selectColumns} FROM ${names.snakeName} WHERE id = ${sql.firstPlaceholder} LIMIT 1', [id]);
-    const row = result.data[0] as ${names.pascalName}Row | undefined;
-    return row ? new ${names.pascalName}(row) : undefined;
-  }
-
-  async create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}> {
-    const now = new Date().toISOString();
-    const row: ${names.pascalName}Row = {
-      ...input,
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    const result = await this.source.query(
-      'INSERT INTO ${names.snakeName} (${sql.insertColumns}) VALUES (${sql.insertPlaceholders})',
-      [${sql.insertValues}]
-    );
-    return new ${names.pascalName}(row);
-  }
-
-  async update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined> {
-    const current = await this.findById(id);
-    if (!current) return undefined;
-
-    const next = {
-      ...current.props,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
-    const result = await this.source.query(
-      'UPDATE ${names.snakeName} SET ${sql.updateAssignments} WHERE id = ${sql.idPlaceholder}',
-      [${sql.updateValues}]
-    );
-    if (result.count === 0) return undefined;
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const result = await this.source.query('DELETE FROM ${names.snakeName} WHERE id = ${sql.firstPlaceholder}', [id]);
-    return result.count > 0;
+  async findById(id: string): Promise<Result<${names.pascalName} | undefined>> {
+    try {
+      const result = await this.source.query('SELECT ${sql.selectColumns} FROM ${names.snakeName} WHERE id = ${sql.firstPlaceholder} LIMIT 1', [id]);
+      const row = result.data[0] as ${names.pascalName}Row | undefined;
+      return Result.withSuccess(row ? new ${names.pascalName}(row) : undefined);
+    } catch (error) {
+      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 }
 `;
@@ -1573,8 +1646,8 @@ function createRegularCrudSqlRepositorySpecTs(
   db: SqlDatabaseCapability,
   fields: ResourceFieldDefinition[] | undefined = []
 ): string {
-  const input = createSampleInputObject(fields, "create", "  ");
-  const updateInput = createSampleInputObject(fields, "update", "  ");
+  const input = createSampleInputObject(fields, "create", "    ");
+  const updateInput = createSampleInputObject(fields, "update", "    ");
   const assertionField = normalizeResourceFields(fields)[0].name;
   const expectedUpdatedValue = createSampleFieldValue(normalizeResourceFields(fields)[0], "update");
   const rowFromInsertParams = createSqlRepositorySpecInsertRow(fields);
@@ -1582,9 +1655,10 @@ function createRegularCrudSqlRepositorySpecTs(
 
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createNoopDatabaseSessionRegistry } from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-sql';
 import { ensure${names.pascalName}Schema, ${names.pascalName}Row, Sql${names.pascalName}Repository } from './${names.kebabName}.repository.sql';
-import { ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 
 test('Sql${names.pascalName}Repository maps CRUD operations to SqlDataSource', async () => {
   let rows: ${names.pascalName}Row[] = [];
@@ -1630,28 +1704,42 @@ ${updateRowFromParams}
     },
   } as unknown as SqlDataSource<${names.pascalName}Row>;
   await ensure${names.pascalName}Schema(source);
-  const repository = new Sql${names.pascalName}Repository(source);
-  const input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'> = {
+  const repository = new Sql${names.pascalName}Repository(source, createNoopDatabaseSessionRegistry());
+  const entity = new ${names.pascalName}({
+    id: 'test-id',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
 ${input}
-  };
-
-  const created = await repository.create(input);
-  assert.equal(Boolean(created.id), true);
-
-  const listed = await repository.list();
-  assert.equal(listed.length, 1);
-
-  const found = await repository.findById(created.id);
-  assert.equal(found?.id, created.id);
-
-  const updated = await repository.update(created.id, {
-${updateInput}
   });
-  assert.equal(updated?.props.${assertionField}, ${expectedUpdatedValue});
 
-  const deleted = await repository.delete(created.id);
-  assert.equal(deleted, true);
-  assert.equal(await repository.findById(created.id), undefined);
+  const created = await repository.add(entity);
+  assert.equal(created.isSuccess(), true);
+  assert.equal(created.content[0].id, entity.id);
+
+  const listed = await repository.find();
+  assert.equal(listed.isSuccess(), true);
+  assert.equal(listed.content.length, 1);
+
+  const found = await repository.findById(entity.id);
+  assert.equal(found.isSuccess(), true);
+  assert.equal(found.content?.id, entity.id);
+
+  const updatedEntity = new ${names.pascalName}({
+    ...entity.props,
+${updateInput}
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  });
+  const updated = await repository.update(updatedEntity);
+  assert.equal(updated.isSuccess(), true);
+  assert.equal(updated.content.modifiedCount, 1);
+  const foundUpdated = await repository.findById(entity.id);
+  assert.equal(foundUpdated.content?.props.${assertionField}, ${expectedUpdatedValue});
+
+  const deleted = await repository.remove(updatedEntity);
+  assert.equal(deleted.isSuccess(), true);
+  assert.equal(deleted.content.deletedCount, 1);
+  const afterDelete = await repository.findById(entity.id);
+  assert.equal(afterDelete.content, undefined);
 });
 `;
 }
@@ -1694,8 +1782,9 @@ function createRegularCrudUseCaseTs(
   const executeInput = action.kind === "list" ? "" : `input: ${inputInterface}`;
   const repositoryCall = createRegularCrudRepositoryCall(action.kind, itemNames);
 
-  return `import { Injectable, Result, UseCase } from '@soapjs/soap';
-import { ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
+  return `import { randomUUID } from 'crypto';
+import { Injectable, Result, UseCase } from '@soapjs/soap';
+import { ${itemNames.pascalName}, ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
 
 ${inputShape}
@@ -1705,11 +1794,7 @@ export class ${action.classBase}UseCase implements UseCase<${outputInterface}> {
   constructor(private readonly repository: ${itemNames.pascalName}Repository) {}
 
   async execute(${executeInput}): Promise<Result<${outputInterface}>> {
-    try {
 ${repositoryCall}
-    } catch (error) {
-      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
-    }
   }
 }
 `;
@@ -1727,6 +1812,7 @@ function createRegularCrudUseCaseSpecTs(
 
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
+import { Result } from '@soapjs/soap';
 import { ${itemNames.pascalName}, ${itemNames.pascalName}Props } from '../../domain/${itemNames.kebabName}.entity';
 import { ${itemNames.pascalName}Repository } from '../ports/${itemNames.kebabName}-repository.port';
 import { ${action.classBase}UseCase } from './${action.name}.use-case';
@@ -1736,31 +1822,26 @@ test('${action.classBase}UseCase returns a successful Result', async () => {
 ${props}
   };
   const repository: ${itemNames.pascalName}Repository = {
-    async list() {
-      return [new ${itemNames.pascalName}(props)];
+    async count() {
+      return Result.withSuccess(1);
+    },
+    async find() {
+      return Result.withSuccess([new ${itemNames.pascalName}(props)]);
+    },
+    async aggregate<ResultType = ${itemNames.pascalName} | ${itemNames.pascalName}[]>() {
+      return Result.withSuccess([new ${itemNames.pascalName}(props)] as ResultType);
+    },
+    async add(...entities) {
+      return Result.withSuccess(entities);
+    },
+    async remove() {
+      return Result.withSuccess({ status: 'ok', deletedCount: 1 });
     },
     async findById(id) {
-      return id === props.id ? new ${itemNames.pascalName}(props) : undefined;
+      return Result.withSuccess(id === props.id ? new ${itemNames.pascalName}(props) : undefined);
     },
-    async create(input) {
-      return new ${itemNames.pascalName}({
-        ...props,
-        ...input,
-        id: 'created-id',
-      });
-    },
-    async update(id, input) {
-      return id === props.id
-        ? new ${itemNames.pascalName}({
-            ...props,
-            ...input,
-            id,
-            updatedAt: '2026-01-02T00:00:00.000Z',
-          })
-        : undefined;
-    },
-    async delete(id) {
-      return id === props.id;
+    async update() {
+      return Result.withSuccess({ status: 'ok', modifiedCount: 1 });
     },
   };
   const useCase = new ${action.classBase}UseCase(repository);
@@ -1791,7 +1872,7 @@ ${createInput}
   });
 
   assert.equal(result.isSuccess(), true);
-  assert.equal(result.content?.id, 'created-id');`;
+  assert.equal(Boolean(result.content?.id), true);`;
   }
 
   if (action.kind === "update") {
@@ -1840,28 +1921,54 @@ function createRegularCrudUseCaseInputShape(action: RegularCrudAction): string {
 
 function createRegularCrudRepositoryCall(kind: RegularCrudAction["kind"], itemNames: ReturnType<typeof createNameVariants>): string {
   if (kind === "list") {
-    return `      const items = await this.repository.list();
-      return Result.withSuccess({ items: items.map((item) => item.props) });`;
+    return `      const items = await this.repository.find();
+      if (items.isFailure()) return Result.withFailure(items.failure);
+      return Result.withSuccess({ items: items.content.map((item) => item.props) });`;
   }
 
   if (kind === "get") {
     return `      const item = await this.repository.findById(input.id);
-      return Result.withSuccess(item?.props);`;
+      if (item.isFailure()) return Result.withFailure(item.failure);
+      return Result.withSuccess(item.content?.props);`;
   }
 
   if (kind === "create") {
-    return `      const item = await this.repository.create(input as Omit<${itemNames.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>);
-      return Result.withSuccess(item.props);`;
+    return `      const now = new Date().toISOString();
+      const item = new ${itemNames.pascalName}({
+        ...(input as Omit<${itemNames.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>),
+        id: randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+      });
+      const result = await this.repository.add(item);
+      if (result.isFailure()) return Result.withFailure(result.failure);
+      return Result.withSuccess(result.content[0].props);`;
   }
 
   if (kind === "update") {
     return `      const { id, ...changes } = input;
-      const item = await this.repository.update(id, changes);
-      return Result.withSuccess(item?.props);`;
+      const current = await this.repository.findById(id);
+      if (current.isFailure()) return Result.withFailure(current.failure);
+      if (!current.content) return Result.withSuccess(undefined);
+
+      const item = new ${itemNames.pascalName}({
+        ...current.content.props,
+        ...changes,
+        id,
+        updatedAt: new Date().toISOString(),
+      });
+      const result = await this.repository.update(item);
+      if (result.isFailure()) return Result.withFailure(result.failure);
+      return Result.withSuccess(item.props);`;
   }
 
-  return `      const deleted = await this.repository.delete(input.id);
-      return Result.withSuccess({ deleted });`;
+  return `      const item = await this.repository.findById(input.id);
+      if (item.isFailure()) return Result.withFailure(item.failure);
+      if (!item.content) return Result.withSuccess({ deleted: false });
+
+      const result = await this.repository.remove(item.content);
+      if (result.isFailure()) return Result.withFailure(result.failure);
+      return Result.withSuccess({ deleted: (result.content.deletedCount ?? 0) > 0 });`;
 }
 
 function createRegularCrudContractTs(action: RegularCrudAction, plan: AddResourcePlan): string {
@@ -2101,7 +2208,7 @@ import { InMemory${itemNames.pascalName}Repository } from './data/${itemNames.ke
   }
 
   const source = createMongoSource<${itemNames.pascalName}Document>(resources.mongo, '${featureNames.kebabName}');
-  const repository = new Mongo${itemNames.pascalName}Repository(source);`
+  const repository = new Mongo${itemNames.pascalName}Repository(source, resources.mongo.sessions);`
     : isSqlDatabase(db)
       ? `  if (!resources.sql) {
     throw new Error('${formatDatabaseName(db)} is not configured for ${featureNames.kebabName}. Enable --db ${db} for the project.');
@@ -2114,7 +2221,7 @@ import { InMemory${itemNames.pascalName}Repository } from './data/${itemNames.ke
 
   const source = createSqlSource<${itemNames.pascalName}Row>(sql, '${featureNames.snakeName}');
   await ensure${itemNames.pascalName}Schema(source);
-  const repository = new Sql${itemNames.pascalName}Repository(source);`
+  const repository = new Sql${itemNames.pascalName}Repository(source, sql.sessions);`
       : `  const repository = new InMemory${itemNames.pascalName}Repository();`;
   const useCaseImports = actions
     .map((action) => `import { ${action.classBase}UseCase } from './application/use-cases/${action.name}.use-case';`)
@@ -2511,112 +2618,123 @@ function toZodExpression(field: ResourceFieldDefinition): string {
 
 function createRepositoryPortTs(name: string): string {
   const names = createNameVariants(name);
-
-  return `import { ${names.pascalName}, ${names.pascalName}Props } from '../../domain/${names.kebabName}.entity';
-
-export interface ${names.pascalName}Repository {
-  list(): Promise<${names.pascalName}[]>;
-  findById(id: string): Promise<${names.pascalName} | undefined>;
-  create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}>;
-  update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined>;
-  delete(id: string): Promise<boolean>;
-}
-`;
+  return createRegularCrudRepositoryPortTs(names);
 }
 
 function createMemoryRepositoryTs(name: string): string {
   const names = createNameVariants(name);
-
-  return `import { randomUUID } from 'crypto';
-import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
-import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}.repository';
-
-export class InMemory${names.pascalName}Repository implements ${names.pascalName}Repository {
-  private readonly items = new Map<string, ${names.pascalName}>();
-
-  async list(): Promise<${names.pascalName}[]> {
-    return Array.from(this.items.values());
-  }
-
-  async findById(id: string): Promise<${names.pascalName} | undefined> {
-    return this.items.get(id);
-  }
-
-  async create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}> {
-    const now = new Date().toISOString();
-    const item = new ${names.pascalName}({
-      ...input,
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    });
-    this.items.set(item.id, item);
-    return item;
-  }
-
-  async update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined> {
-    const current = this.items.get(id);
-    if (!current) return undefined;
-
-    const updated = new ${names.pascalName}({
-      ...current.props,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    });
-    this.items.set(id, updated);
-    return updated;
-  }
-
-  async delete(id: string): Promise<boolean> {
-    return this.items.delete(id);
-  }
-}
-`;
+  return createRegularCrudMemoryRepositoryTs(names)
+    .replace(`../application/ports/${names.kebabName}-repository.port`, `../application/ports/${names.kebabName}.repository`);
 }
 
 function createUseCasesTs(name: string): string {
   const names = createNameVariants(name);
 
-  return `import { ${names.pascalName}Repository } from '../ports/${names.kebabName}.repository';
+  return `import { randomUUID } from 'crypto';
+import { Result } from '@soapjs/soap';
+import { ${names.pascalName}, ${names.pascalName}Props } from '../../domain/${names.kebabName}.entity';
+import { ${names.pascalName}Repository } from '../ports/${names.kebabName}.repository';
+
+export interface List${names.pascalName}Output {
+  items: ${names.pascalName}Props[];
+}
+
+export interface Get${names.pascalName}Input {
+  id: string;
+}
+
+export type Get${names.pascalName}Output = ${names.pascalName}Props | undefined;
+
+export interface Create${names.pascalName}Input {
+  [key: string]: unknown;
+}
+
+export type Create${names.pascalName}Output = ${names.pascalName}Props;
+
+export interface Update${names.pascalName}Input {
+  id: string;
+  [key: string]: unknown;
+}
+
+export type Update${names.pascalName}Output = ${names.pascalName}Props | undefined;
+
+export interface Delete${names.pascalName}Input {
+  id: string;
+}
+
+export interface Delete${names.pascalName}Output {
+  deleted: boolean;
+}
 
 export class List${names.pascalName}UseCase {
   constructor(private readonly repository: ${names.pascalName}Repository) {}
 
-  execute() {
-    return this.repository.list();
+  async execute(): Promise<Result<List${names.pascalName}Output>> {
+    const items = await this.repository.find();
+    if (items.isFailure()) return Result.withFailure(items.failure);
+    return Result.withSuccess({ items: items.content.map((item) => item.props) });
   }
 }
 
 export class Get${names.pascalName}UseCase {
   constructor(private readonly repository: ${names.pascalName}Repository) {}
 
-  execute(id: string) {
-    return this.repository.findById(id);
+  async execute(input: Get${names.pascalName}Input): Promise<Result<Get${names.pascalName}Output>> {
+    const item = await this.repository.findById(input.id);
+    if (item.isFailure()) return Result.withFailure(item.failure);
+    return Result.withSuccess(item.content?.props);
   }
 }
 
 export class Create${names.pascalName}UseCase {
   constructor(private readonly repository: ${names.pascalName}Repository) {}
 
-  execute(input: { name: string }) {
-    return this.repository.create(input);
+  async execute(input: Create${names.pascalName}Input): Promise<Result<Create${names.pascalName}Output>> {
+    const now = new Date().toISOString();
+    const item = new ${names.pascalName}({
+      ...(input as Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>),
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    });
+    const result = await this.repository.add(item);
+    if (result.isFailure()) return Result.withFailure(result.failure);
+    return Result.withSuccess(result.content[0].props);
   }
 }
 
 export class Update${names.pascalName}UseCase {
   constructor(private readonly repository: ${names.pascalName}Repository) {}
 
-  execute(id: string, input: { name?: string }) {
-    return this.repository.update(id, input);
+  async execute(input: Update${names.pascalName}Input): Promise<Result<Update${names.pascalName}Output>> {
+    const { id, ...changes } = input;
+    const current = await this.repository.findById(id);
+    if (current.isFailure()) return Result.withFailure(current.failure);
+    if (!current.content) return Result.withSuccess(undefined);
+
+    const item = new ${names.pascalName}({
+      ...current.content.props,
+      ...changes,
+      id,
+      updatedAt: new Date().toISOString(),
+    });
+    const result = await this.repository.update(item);
+    if (result.isFailure()) return Result.withFailure(result.failure);
+    return Result.withSuccess(item.props);
   }
 }
 
 export class Delete${names.pascalName}UseCase {
   constructor(private readonly repository: ${names.pascalName}Repository) {}
 
-  execute(id: string) {
-    return this.repository.delete(id);
+  async execute(input: Delete${names.pascalName}Input): Promise<Result<Delete${names.pascalName}Output>> {
+    const item = await this.repository.findById(input.id);
+    if (item.isFailure()) return Result.withFailure(item.failure);
+    if (!item.content) return Result.withSuccess({ deleted: false });
+
+    const result = await this.repository.remove(item.content);
+    if (result.isFailure()) return Result.withFailure(result.failure);
+    return Result.withSuccess({ deleted: (result.content.deletedCount ?? 0) > 0 });
   }
 }
 `;
@@ -2624,148 +2742,14 @@ export class Delete${names.pascalName}UseCase {
 
 function createMongoRepositoryTs(name: string, fields: ResourceFieldDefinition[] | undefined = []): string {
   const names = createNameVariants(name);
-  const documentFields = createInterfaceFields(fields);
-
-  return `import { randomUUID } from 'crypto';
-import { MongoSource } from '@soapjs/soap-mongo';
-import { Document } from 'mongodb';
-import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
-import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}.repository';
-
-export interface ${names.pascalName}Document extends Document {
-  id: string;
-${documentFields}
-  createdAt: string;
-  updatedAt: string;
-}
-
-export class Mongo${names.pascalName}Repository implements ${names.pascalName}Repository {
-  constructor(private readonly source: MongoSource<${names.pascalName}Document>) {}
-
-  async list(): Promise<${names.pascalName}[]> {
-    const documents = await this.source.find({});
-    return documents.map((document) => new ${names.pascalName}(document));
-  }
-
-  async findById(id: string): Promise<${names.pascalName} | undefined> {
-    const [document] = await this.source.find({ where: { id }, limit: 1 });
-    return document ? new ${names.pascalName}(document) : undefined;
-  }
-
-  async create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}> {
-    const now = new Date().toISOString();
-    const document: ${names.pascalName}Document = {
-      ...input,
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    const [created] = await this.source.insert(document);
-    return new ${names.pascalName}(created ?? document);
-  }
-
-  async update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined> {
-    const current = await this.findById(id);
-    if (!current) return undefined;
-
-    const next = {
-      ...current.props,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
-    await this.source.update({ where: { id }, update: next });
-    return new ${names.pascalName}(next);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const result = await this.source.remove({ where: { id } });
-    return (result.deletedCount ?? 0) > 0;
-  }
-}
-`;
+  return createRegularCrudMongoRepositoryTs(names, fields)
+    .replace(`../application/ports/${names.kebabName}-repository.port`, `../application/ports/${names.kebabName}.repository`);
 }
 
 function createSqlRepositoryTs(name: string, db: SqlDatabaseCapability, fields: ResourceFieldDefinition[] | undefined = []): string {
   const names = createNameVariants(name);
-  const sql = createSqlFieldMetadata(fields, db);
-
-  return `import { randomUUID } from 'crypto';
-import { SqlDataSource } from '@soapjs/soap-sql';
-import { ${names.pascalName}, ${names.pascalName}Props } from '../domain/${names.kebabName}.entity';
-import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}.repository';
-
-export interface ${names.pascalName}Row {
-  id: string;
-${sql.interfaceFields}
-  createdAt: string;
-  updatedAt: string;
-}
-
-export async function ensure${names.pascalName}Schema(source: SqlDataSource<${names.pascalName}Row>): Promise<void> {
-  await source.query(\`
-    CREATE TABLE IF NOT EXISTS ${names.snakeName} (
-      id TEXT PRIMARY KEY,
-${sql.columnDefinitions}
-      ${sql.createdAtColumn} TEXT NOT NULL,
-      ${quoteSqlIdentifier("updatedAt", db)} TEXT NOT NULL
-    )
-  \`);
-}
-
-export class Sql${names.pascalName}Repository implements ${names.pascalName}Repository {
-  constructor(private readonly source: SqlDataSource<${names.pascalName}Row>) {}
-
-  async list(): Promise<${names.pascalName}[]> {
-    const result = await this.source.query('SELECT ${sql.selectColumns} FROM ${names.snakeName} ORDER BY ${sql.createdAtColumn} DESC');
-    return result.data.map((row) => new ${names.pascalName}(row as ${names.pascalName}Row));
-  }
-
-  async findById(id: string): Promise<${names.pascalName} | undefined> {
-    const result = await this.source.query('SELECT ${sql.selectColumns} FROM ${names.snakeName} WHERE id = ${sql.firstPlaceholder} LIMIT 1', [id]);
-    const row = result.data[0] as ${names.pascalName}Row | undefined;
-    return row ? new ${names.pascalName}(row) : undefined;
-  }
-
-  async create(input: Omit<${names.pascalName}Props, 'id' | 'createdAt' | 'updatedAt'>): Promise<${names.pascalName}> {
-    const now = new Date().toISOString();
-    const row: ${names.pascalName}Row = {
-      ...input,
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    const result = await this.source.query(
-      'INSERT INTO ${names.snakeName} (${sql.insertColumns}) VALUES (${sql.insertPlaceholders})',
-      [${sql.insertValues}]
-    );
-    return new ${names.pascalName}(row);
-  }
-
-  async update(id: string, input: Partial<${names.pascalName}Props>): Promise<${names.pascalName} | undefined> {
-    const current = await this.findById(id);
-    if (!current) return undefined;
-
-    const next = {
-      ...current.props,
-      ...input,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
-    const result = await this.source.query(
-      'UPDATE ${names.snakeName} SET ${sql.updateAssignments} WHERE id = ${sql.idPlaceholder}',
-      [${sql.updateValues}]
-    );
-    if (result.count === 0) return undefined;
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const result = await this.source.query('DELETE FROM ${names.snakeName} WHERE id = ${sql.firstPlaceholder}', [id]);
-    return result.count > 0;
-  }
-}
-`;
+  return createRegularCrudSqlRepositoryTs(names, db, fields)
+    .replace(`../application/ports/${names.kebabName}-repository.port`, `../application/ports/${names.kebabName}.repository`);
 }
 
 function createSetupTs(name: string, db: "none" | DatabaseCapability): string {
@@ -2786,7 +2770,7 @@ import { InMemory${names.pascalName}Repository } from './data/${names.kebabName}
   }
 
   const source = createMongoSource<${names.pascalName}Document>(resources.mongo, '${names.kebabName}');
-  const repository = new Mongo${names.pascalName}Repository(source);`
+  const repository = new Mongo${names.pascalName}Repository(source, resources.mongo.sessions);`
     : isSqlDatabase(db)
       ? `  if (!resources.sql) {
     throw new Error('${formatDatabaseName(db)} is not configured for ${names.kebabName}. Enable --db ${db} for the project.');
@@ -2799,7 +2783,7 @@ import { InMemory${names.pascalName}Repository } from './data/${names.kebabName}
 
   const source = createSqlSource<${names.pascalName}Row>(sql, '${names.snakeName}');
   await ensure${names.pascalName}Schema(source);
-  const repository = new Sql${names.pascalName}Repository(source);`
+  const repository = new Sql${names.pascalName}Repository(source, sql.sessions);`
     : `  const repository = new InMemory${names.pascalName}Repository();`;
 
   return `import { DIContainer } from '@soapjs/soap-express';
@@ -2811,8 +2795,7 @@ import {
   List${names.pascalName}UseCase,
   Update${names.pascalName}UseCase,
 } from './application/use-cases/${names.kebabName}.use-cases';
-
-export const ${names.constantName}_REPOSITORY = '${names.pascalName}Repository';
+import { ${names.constantName}_REPOSITORY } from './application/ports/${names.kebabName}.repository';
 
 export async function register${names.pascalName}Dependencies(container: DIContainer, resources: ResourceContext): Promise<void> {
 ${repositoryFactory}
@@ -2851,7 +2834,7 @@ ${authLine}
     auth: plan.auth,
   })})
   async update(req: Request): Promise<unknown> {
-    return this.update${names.pascalName}.execute(req.params.id, req.body);
+    return this.update${names.pascalName}.execute({ id: req.params.id, ...req.body });
   }
 
 ${authLine}
@@ -2861,7 +2844,7 @@ ${authLine}
     auth: plan.auth,
   })})
   async delete(req: Request): Promise<unknown> {
-    return this.delete${names.pascalName}.execute(req.params.id);
+    return this.delete${names.pascalName}.execute({ id: req.params.id });
   }
 `
     : "";
@@ -2906,7 +2889,7 @@ ${authLine}
     auth: plan.auth,
   })})
   async get(req: Request): Promise<unknown> {
-    return this.get${names.pascalName}.execute(req.params.id);
+    return this.get${names.pascalName}.execute({ id: req.params.id });
   }
 ${crudMethods}}
 `;

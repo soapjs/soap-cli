@@ -10,6 +10,7 @@ export interface AddRepositoryPlan {
   feature: string;
   db: RepositoryDb;
   featuresRoot: string;
+  readOnly?: boolean;
 }
 
 export function createRepositoryFiles(plan: AddRepositoryPlan): PlannedFile[] {
@@ -21,7 +22,7 @@ export function createRepositoryFiles(plan: AddRepositoryPlan): PlannedFile[] {
       path: `${root}/application/ports/${repositoryNames.kebabName}-repository.port.ts`,
       type: "repository",
       owner: featureNames.kebabName,
-      content: createRepositoryPortTs(repositoryNames.pascalName),
+      content: createRepositoryPortTs(repositoryNames.pascalName, Boolean(plan.readOnly)),
     },
     {
       path: `${root}/data/${repositoryNames.kebabName}.mapper.ts`,
@@ -44,7 +45,7 @@ export function createRepositoryFiles(plan: AddRepositoryPlan): PlannedFile[] {
         path: `${root}/data/${repositoryNames.kebabName}.repository.mongo.ts`,
         type: "repository",
         owner: featureNames.kebabName,
-        content: createMongoRepositoryTs(repositoryNames),
+        content: createMongoRepositoryTs(repositoryNames, Boolean(plan.readOnly)),
       },
     ];
   }
@@ -67,13 +68,15 @@ export function createRepositoryFiles(plan: AddRepositoryPlan): PlannedFile[] {
       path: `${root}/data/${repositoryNames.kebabName}.repository.sql.ts`,
       type: "repository",
       owner: featureNames.kebabName,
-      content: createSqlRepositoryTs(repositoryNames),
+      content: createSqlRepositoryTs(repositoryNames, Boolean(plan.readOnly)),
     },
   ];
 }
 
-function createRepositoryPortTs(className: string): string {
-  return `import { ReadWriteRepository } from '@soapjs/soap/data';
+function createRepositoryPortTs(className: string, readOnly: boolean): string {
+  const repositoryType = readOnly ? "ReadRepository" : "ReadWriteRepository";
+
+  return `import { ${repositoryType} } from '@soapjs/soap/data';
 
 export interface ${className}Record {
   id: string;
@@ -82,7 +85,7 @@ export interface ${className}Record {
   [key: string]: unknown;
 }
 
-export type ${className}Repository = ReadWriteRepository<${className}Record, unknown>;
+export type ${className}Repository = ${repositoryType}<${className}Record, unknown>;
 `;
 }
 
@@ -138,56 +141,23 @@ export const ${names.camelName}Mapper: Mapper<${names.pascalName}Record, ${persi
 `;
 }
 
-function createMongoRepositoryTs(names: ReturnType<typeof createNameVariants>): string {
-  return `import { randomUUID } from 'crypto';
-import {
+function createMongoRepositoryTs(names: ReturnType<typeof createNameVariants>, readOnly: boolean): string {
+  const repositoryType = readOnly ? "ReadRepository" : "ReadWriteRepository";
+
+  return `import {
   DatabaseContext,
-  DatabaseSession,
   DatabaseSessionRegistry,
-  ReadWriteRepository,
-  TransactionScope,
+  ${repositoryType},
 } from '@soapjs/soap/data';
 import { MongoSource } from '@soapjs/soap-mongo';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 import { ${names.camelName}Mapper } from './${names.kebabName}.mapper';
 import { ${names.pascalName}Model } from './${names.kebabName}.model';
 
-export class Mongo${names.pascalName}Repository extends ReadWriteRepository<${names.pascalName}Record, ${names.pascalName}Model> {
-  constructor(source: MongoSource<${names.pascalName}Model>) {
-    super(new DatabaseContext(source, ${names.camelName}Mapper, createRepositorySessions()));
+export class Mongo${names.pascalName}Repository extends ${repositoryType}<${names.pascalName}Record, ${names.pascalName}Model> {
+  constructor(source: MongoSource<${names.pascalName}Model>, sessions: DatabaseSessionRegistry) {
+    super(new DatabaseContext(source, ${names.camelName}Mapper, sessions));
   }
-}
-
-function createRepositorySessions(): DatabaseSessionRegistry {
-  const sessions = new Map<string, DatabaseSession>();
-
-  return {
-    transactionScope: TransactionScope.getInstance(),
-    createSession() {
-      const session = createNoopSession();
-      sessions.set(session.id, session);
-      return session;
-    },
-    deleteSession(id: string) {
-      sessions.delete(id);
-    },
-    getSession(id: string) {
-      return sessions.get(id);
-    },
-    hasSession(id: string) {
-      return sessions.has(id);
-    },
-  };
-}
-
-function createNoopSession(): DatabaseSession {
-  return {
-    id: randomUUID(),
-    async end() {},
-    async startTransaction() {},
-    async commitTransaction() {},
-    async rollbackTransaction() {},
-  };
 }
 `;
 }
@@ -214,56 +184,23 @@ export async function ensure${names.pascalName}Schema(source: SqlDataSource<${na
 `;
 }
 
-function createSqlRepositoryTs(names: ReturnType<typeof createNameVariants>): string {
-  return `import { randomUUID } from 'crypto';
-import {
+function createSqlRepositoryTs(names: ReturnType<typeof createNameVariants>, readOnly: boolean): string {
+  const repositoryType = readOnly ? "ReadRepository" : "ReadWriteRepository";
+
+  return `import {
   DatabaseContext,
-  DatabaseSession,
   DatabaseSessionRegistry,
-  ReadWriteRepository,
-  TransactionScope,
+  ${repositoryType},
 } from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-sql';
 import { ${names.pascalName}Record } from '../application/ports/${names.kebabName}-repository.port';
 import { ${names.camelName}Mapper } from './${names.kebabName}.mapper';
 import { ${names.pascalName}Row } from './${names.kebabName}.row';
 
-export class Sql${names.pascalName}Repository extends ReadWriteRepository<${names.pascalName}Record, ${names.pascalName}Row> {
-  constructor(source: SqlDataSource<${names.pascalName}Row>) {
-    super(new DatabaseContext(source, ${names.camelName}Mapper, createRepositorySessions()));
+export class Sql${names.pascalName}Repository extends ${repositoryType}<${names.pascalName}Record, ${names.pascalName}Row> {
+  constructor(source: SqlDataSource<${names.pascalName}Row>, sessions: DatabaseSessionRegistry) {
+    super(new DatabaseContext(source, ${names.camelName}Mapper, sessions));
   }
-}
-
-function createRepositorySessions(): DatabaseSessionRegistry {
-  const sessions = new Map<string, DatabaseSession>();
-
-  return {
-    transactionScope: TransactionScope.getInstance(),
-    createSession() {
-      const session = createNoopSession();
-      sessions.set(session.id, session);
-      return session;
-    },
-    deleteSession(id: string) {
-      sessions.delete(id);
-    },
-    getSession(id: string) {
-      return sessions.get(id);
-    },
-    hasSession(id: string) {
-      return sessions.has(id);
-    },
-  };
-}
-
-function createNoopSession(): DatabaseSession {
-  return {
-    id: randomUUID(),
-    async end() {},
-    async startTransaction() {},
-    async commitTransaction() {},
-    async rollbackTransaction() {},
-  };
 }
 `;
 }

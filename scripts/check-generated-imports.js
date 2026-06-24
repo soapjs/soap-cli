@@ -146,6 +146,18 @@ function writeSoapStub(basePath) {
     path.join(basePath, "node_modules/@soapjs/soap/index.d.ts"),
     `import { Result } from './common';
 export * from './common';
+export type UpdateStats = { status: string; modifiedCount?: number; upsertedCount?: number; upsertedIds?: unknown[] };
+export type RemoveStats = { status: string; deletedCount?: number };
+export declare abstract class ReadOnlyRepository<EntityType = unknown> {
+  abstract count(...args: unknown[]): Promise<Result<number>>;
+  abstract find(...args: unknown[]): Promise<Result<EntityType[]>>;
+}
+export declare abstract class Repository<EntityType = unknown> extends ReadOnlyRepository<EntityType> {
+  abstract aggregate<ResultType = EntityType | EntityType[]>(...args: unknown[]): Promise<Result<ResultType>>;
+  abstract update(...args: unknown[]): Promise<Result<UpdateStats>>;
+  abstract add(...entities: EntityType[]): Promise<Result<EntityType[]>>;
+  abstract remove(...args: unknown[]): Promise<Result<RemoveStats>>;
+}
 export interface UseCase<T = unknown> {
   execute(...args: unknown[]): Promise<Result<T>> | Result<T> | void;
 }
@@ -155,9 +167,11 @@ export interface UseCase<T = unknown> {
     path.join(basePath, "node_modules/@soapjs/soap/common/index.d.ts"),
     `export declare class Result<T = unknown> {
   readonly content: T;
+  readonly failure: Error | undefined;
   static withSuccess<T>(content: T): Result<T>;
   static withFailure<T = never>(error: Error): Result<T>;
   isSuccess(): boolean;
+  isFailure(): this is Result<T> & { failure: Error };
 }
 export declare function Injectable(): ClassDecorator;
 export declare function Inject(token: string): ParameterDecorator;

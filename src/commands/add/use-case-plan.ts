@@ -18,7 +18,7 @@ export function createUseCaseFiles(plan: AddUseCasePlan): PlannedFile[] {
       path: `${root}/${useCaseNames.kebabName}.use-case.ts`,
       type: "use-case",
       owner: featureNames.kebabName,
-      content: createUseCaseTs(useCaseNames.pascalName, useCaseNames.constantName),
+      content: createUseCaseTs(useCaseNames.pascalName),
     },
     {
       path: `${root}/${useCaseNames.kebabName}.use-case.spec.ts`,
@@ -29,8 +29,8 @@ export function createUseCaseFiles(plan: AddUseCasePlan): PlannedFile[] {
   ];
 }
 
-function createUseCaseTs(className: string, constantName: string): string {
-  return `import { Inject, Injectable, Result, UseCase } from '@soapjs/soap';
+function createUseCaseTs(className: string): string {
+  return `import { Injectable, Result, UseCase } from '@soapjs/soap';
 
 export interface ${className}Input {
   [key: string]: unknown;
@@ -40,23 +40,14 @@ export interface ${className}Output {
   [key: string]: unknown;
 }
 
-export interface ${className}Repository {
-  save(input: ${className}Input): Promise<${className}Output> | ${className}Output;
-}
-
-export const ${constantName}_REPOSITORY = '${className}Repository';
-
 @Injectable()
 export class ${className}UseCase implements UseCase<${className}Output> {
-  constructor(@Inject(${constantName}_REPOSITORY) private readonly repository: ${className}Repository) {}
-
-  async execute(input: ${className}Input): Promise<Result<${className}Output>> {
-    try {
-      const output = await this.repository.save(input);
-      return Result.withSuccess(output);
-    } catch (error) {
-      return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
-    }
+  async execute(_input: ${className}Input): Promise<Result<${className}Output>> {
+    // Example:
+    // const result = await this.repository.someMethod(input);
+    // if (result.isFailure()) return Result.withFailure(result.failure);
+    // return Result.withSuccess(result.content);
+    return Result.withSuccess({});
   }
 }
 `;
@@ -65,26 +56,15 @@ export class ${className}UseCase implements UseCase<${className}Output> {
 function createUseCaseSpecTs(className: string, kebabName: string): string {
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ${className}Repository, ${className}UseCase } from './${kebabName}.use-case';
+import { ${className}UseCase } from './${kebabName}.use-case';
 
-test('${className}UseCase returns a successful Result from the repository', async () => {
-  const repository: ${className}Repository = {
-    async save(input) {
-      return {
-        id: 'generated-id',
-        ...input,
-      };
-    },
-  };
-  const useCase = new ${className}UseCase(repository);
+test('${className}UseCase returns a successful Result', async () => {
+  const useCase = new ${className}UseCase();
 
   const result = await useCase.execute({ name: 'Ada' });
 
   assert.equal(result.isSuccess(), true);
-  assert.deepEqual(result.content, {
-    id: 'generated-id',
-    name: 'Ada',
-  });
+  assert.deepEqual(result.content, {});
 });
 `;
 }

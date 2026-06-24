@@ -109,6 +109,7 @@ interface AddQueryOptions extends ConflictCommandOptions {
 interface AddRepositoryOptions extends ConflictCommandOptions {
   feature?: string;
   db?: Extract<DatabaseCapability, "mongo" | "postgres" | "mysql" | "sqlite">;
+  readOnly?: boolean;
   force?: boolean;
   writeNew?: boolean;
 }
@@ -475,6 +476,7 @@ export function registerAddCommand(program: Command): void {
     .description("Add a repository port and database adapter to a feature.")
     .requiredOption("--feature <feature>", "feature that owns the repository")
     .requiredOption("--db <database>", "database adapter: mongo, postgres, mysql, sqlite")
+    .option("--read-only", "generate a read-only repository", false)
     .option("--force", "overwrite generated files even when modified", false)
     .option("--write-new", "write modified generated files as .new", false)
     .action(async (name: string, options: AddRepositoryOptions, command: Command) => {
@@ -490,6 +492,7 @@ export function registerAddCommand(program: Command): void {
         feature: options.feature!,
         db,
         featuresRoot: config.structure.featuresRoot,
+        readOnly: Boolean(options.readOnly),
       });
 
       await writePlannedFiles(
@@ -504,7 +507,7 @@ export function registerAddCommand(program: Command): void {
       );
       await writeSoapConfig(config.root, config, context);
 
-      context.output.success(`Added ${db} repository ${names.kebabName}`);
+      context.output.success(`Added ${db} ${options.readOnly ? "read-only " : ""}repository ${names.kebabName}`);
     });
 
   add

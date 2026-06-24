@@ -7,7 +7,7 @@ export interface ResolvedDependencies {
 
 export function resolveDependencies(capabilities: ProjectCapabilities): ResolvedDependencies {
   const dependencies: Record<string, string> = {
-    "@soapjs/soap": "^0.14.0",
+    "@soapjs/soap": "^0.14.3",
     "@soapjs/soap-express": "^1.0.0",
     dotenv: "^16.4.5",
     express: "^4.18.2",
@@ -22,12 +22,12 @@ export function resolveDependencies(capabilities: ProjectCapabilities): Resolved
   };
 
   if (capabilities.databases.includes("mongo")) {
-    dependencies["@soapjs/soap-mongo"] = "^1.0.0";
+    dependencies["@soapjs/soap-mongo"] = "^1.0.1";
     dependencies.mongodb = "^6.3.0";
   }
 
   if (capabilities.databases.includes("postgres") || capabilities.databases.includes("mysql") || capabilities.databases.includes("sqlite")) {
-    dependencies["@soapjs/soap-sql"] = "^1.0.0";
+    dependencies["@soapjs/soap-sql"] = "^1.0.1";
   }
 
   if (capabilities.databases.includes("postgres")) {
