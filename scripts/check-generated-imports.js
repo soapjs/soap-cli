@@ -39,6 +39,7 @@ const {
   createRouteContractSpecFile,
 } = require("../build/commands/add/route-plan");
 const { createControllerFile } = require("../build/commands/add/controller-plan");
+const { createRepositoryFiles } = require("../build/commands/add/repository-plan");
 const { createUseCaseFiles } = require("../build/commands/add/use-case-plan");
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "soap-cli-generated-imports-"));
@@ -80,6 +81,27 @@ try {
     name: "adminTools",
     feature: "comics",
     featuresRoot: "src/features",
+  });
+  const typedRepositoryFiles = createRepositoryFiles({
+    name: "account",
+    feature: "comics",
+    db: "postgres",
+    featuresRoot: "src/features",
+    entity: "artist",
+    model: "AccountRow",
+  });
+  const blankFeatureFiles = createResourceFiles({
+    name: "identity",
+    crud: false,
+    blank: true,
+    db: "none",
+    auth: "none",
+    zone: "public",
+    featuresRoot: "src/features",
+    architecture: "regular",
+    contracts: "plain",
+    fields: [],
+    crudRoutes: parseCrudRouteMatrix([]),
   });
   const controllerConfigFile = createControllersFile(
     [],
@@ -153,13 +175,21 @@ try {
     ...standaloneUseCaseFiles.filter((file) => file.path.endsWith(".use-case.ts")),
     ...standaloneRouteFiles,
     mockControllerFile,
+    ...typedRepositoryFiles,
+    ...blankFeatureFiles.filter((file) => file.path.endsWith(".ts")),
     controllerConfigFile,
     ...resourceFiles.filter((file) =>
       file.path.includes("/domain/") ||
       file.path.includes("/application/ports/") ||
+      isGeneratedDataCompileTarget(file.path) ||
       file.path.endsWith(".use-case.ts") ||
       file.path.includes("/contracts/") ||
       file.path.includes("/api/")
+    ),
+    ...postgresResourceFiles.filter((file) =>
+      file.path.includes("/domain/") ||
+      file.path.includes("/application/ports/") ||
+      isGeneratedDataCompileTarget(file.path)
     ),
     ...cqrsResourceFiles.filter((file) =>
       file.path.includes("/domain/") ||
@@ -174,8 +204,33 @@ try {
   for (const file of generatedFiles) {
     writeFile(path.join(tempRoot, file.path), file.content);
   }
+  writeFile(
+    path.join(tempRoot, "src/features/comics/domain/artist.entity.ts"),
+    `export class Artist {
+  constructor(public readonly id: string) {}
+}
+`
+  );
+  writeFile(
+    path.join(tempRoot, "src/features/comics/data/account.row.ts"),
+    `export interface AccountRow {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+`
+  );
+  writeFile(
+    path.join(tempRoot, "src/config/dependencies.ts"),
+    `export interface ResourceContext {}
+`
+  );
 
-  const sourceFiles = generatedFiles.map((file) => path.join(tempRoot, file.path));
+  const sourceFiles = [
+    ...generatedFiles.map((file) => path.join(tempRoot, file.path)),
+    path.join(tempRoot, "src/features/comics/domain/artist.entity.ts"),
+    path.join(tempRoot, "src/features/comics/data/account.row.ts"),
+  ];
   const program = ts.createProgram(sourceFiles, {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.CommonJS,
@@ -287,6 +342,79 @@ export declare function Inject(token: string): ParameterDecorator;
 `
   );
   writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap/data/index.d.ts"),
+    `export interface Mapper<EntityType, ModelType> {
+  toEntity?: (model: ModelType) => EntityType;
+  toModel?: (entity: EntityType) => ModelType;
+}
+export interface DatabaseSessionRegistry {}
+export declare function createNoopDatabaseSessionRegistry(): DatabaseSessionRegistry;
+export declare class DatabaseContext<EntityType, ModelType> {
+  constructor(source: unknown, mapper: Mapper<EntityType, ModelType>, sessions: DatabaseSessionRegistry);
+}
+export declare class ReadRepository<EntityType, ModelType = unknown> {
+  constructor(context: DatabaseContext<EntityType, ModelType>);
+  find(...args: unknown[]): Promise<import('@soapjs/soap').Result<EntityType[]>>;
+  count(...args: unknown[]): Promise<import('@soapjs/soap').Result<number>>;
+  aggregate<ResultType = EntityType | EntityType[]>(...args: unknown[]): Promise<import('@soapjs/soap').Result<ResultType>>;
+}
+export declare class ReadWriteRepository<EntityType, ModelType = unknown> extends ReadRepository<EntityType, ModelType> {
+  add(...entities: EntityType[]): Promise<import('@soapjs/soap').Result<EntityType[]>>;
+  update(...args: unknown[]): Promise<import('@soapjs/soap').Result<{ status: string; modifiedCount?: number }>>;
+  remove(...args: unknown[]): Promise<import('@soapjs/soap').Result<{ status: string; deletedCount?: number }>>;
+}
+`
+  );
+  writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap-sql/package.json"),
+    JSON.stringify({
+      name: "@soapjs/soap-sql",
+      version: "0.0.0-test",
+      types: "index.d.ts",
+    }, null, 2)
+  );
+  writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap-sql/index.d.ts"),
+    `export interface SqlDataSource<RowType = unknown> {
+  query(sql: string, params?: unknown[]): Promise<{ data: RowType[] }>;
+}
+`
+  );
+  writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap-mongo/package.json"),
+    JSON.stringify({
+      name: "@soapjs/soap-mongo",
+      version: "0.0.0-test",
+      types: "index.d.ts",
+    }, null, 2)
+  );
+  writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap-mongo/index.d.ts"),
+    `export interface MongoSource<DocumentType = unknown> {
+  find(query?: unknown): Promise<DocumentType[]>;
+  insert(query: unknown): Promise<DocumentType[]>;
+  update(command: unknown): Promise<unknown>;
+  remove(command: unknown): Promise<unknown>;
+}
+`
+  );
+  writeFile(
+    path.join(basePath, "node_modules/mongodb/package.json"),
+    JSON.stringify({
+      name: "mongodb",
+      version: "0.0.0-test",
+      types: "index.d.ts",
+    }, null, 2)
+  );
+  writeFile(
+    path.join(basePath, "node_modules/mongodb/index.d.ts"),
+    `export interface Document {
+  _id?: unknown;
+  [key: string]: unknown;
+}
+`
+  );
+  writeFile(
     path.join(basePath, "node_modules/@soapjs/soap-express/package.json"),
     JSON.stringify({
       name: "@soapjs/soap-express",
@@ -309,6 +437,7 @@ export declare function Post(path: string, options?: unknown): MethodDecorator;
 export declare function Public(): MethodDecorator;
 export declare function Put(path: string, options?: unknown): MethodDecorator;
 export declare function RouteIO(io: unknown): MethodDecorator;
+export declare class DIContainer {}
 export declare class ResultMapper {
   static toResponse<T>(result: Result<T>, response: unknown, options?: { successStatus?: number; transform?: (content: T) => unknown }): void;
 }
@@ -319,4 +448,17 @@ export declare class ResultMapper {
 function writeFile(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content);
+}
+
+function isGeneratedDataCompileTarget(filePath) {
+  return filePath.includes("/data/") && (
+    filePath.endsWith(".mapper.ts") ||
+    filePath.endsWith(".mapper.spec.ts") ||
+    filePath.endsWith(".repository.mongo.ts") ||
+    filePath.endsWith(".repository.mongo.spec.ts") ||
+    filePath.endsWith(".repository.sql.ts") ||
+    filePath.endsWith(".repository.sql.spec.ts") ||
+    filePath.endsWith(".mongo-repository.ts") ||
+    filePath.endsWith(".sql-repository.ts")
+  );
 }

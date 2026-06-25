@@ -129,6 +129,7 @@ soap add feature audit-log --db mongo --zone admin
 soap add feature product --crud --field title:string --field price:number --field active:boolean:optional
 soap add feature report --crud --auth jwt --policy roles:admin,editor
 soap add feature report --crud --crud-route list:get:/search:jwt:private:admin:no-bruno
+soap add feature identity --blank
 ```
 
 Use `--dry-run` to inspect the expanded plan before writing:
@@ -145,6 +146,20 @@ Use `--field name:type` to store feature field metadata in the registry. Support
 Use `--policy admin`, `--policy roles:a,b`, or `--policy custom:name` to attach an auth policy to generated protected routes. Policies require route auth.
 
 Use `--crud-route operation:method:path[:auth][:zone][:policy][:bruno|no-bruno]` to override CRUD route metadata per operation. Supported operations are `list`, `get`, `create`, `update`, and `delete`. Matrix policies use `admin`, `roles=a,b`, or `custom=name`.
+
+Use `--blank` to register a feature and create only its folders, `setup.ts`, and `index.ts`. Blank features have no generated domain, repository, use cases, routes, controllers, or DI bindings, and are intended for manually adding components later.
+
+## `soap add repository`
+
+Add a repository port and Mongo or SQL adapter to an existing feature:
+
+```bash
+soap add repository account --feature identity --db postgres
+soap add repository account --feature identity --db postgres --entity profile
+soap add repository account --feature identity --db postgres --entity profile --model AccountRow
+```
+
+By default, the repository generator creates a `<Name>Record` domain shape and a `<Name>Row` or `<Name>Model` persistence shape. Use `--entity` to reuse an existing domain entity from `domain/<entity>.entity.ts`, and `--model` to reuse an existing persistence type from the feature `data` folder.
 
 ## `soap add controller`
 

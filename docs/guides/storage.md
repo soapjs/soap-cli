@@ -53,6 +53,21 @@ Generated SQL repositories use the same repository template with adapter-specifi
 - PostgreSQL uses `$1`, `$2` placeholders.
 - MySQL and SQLite use `?` placeholders.
 
+## Add Repository Components
+
+Use `soap add repository` when you want a repository port and storage adapter without adding a full CRUD feature:
+
+```bash
+soap add repository account --feature identity --db postgres
+soap add repository account --feature identity --db postgres --entity profile
+soap add repository account --feature identity --db postgres --entity profile --model AccountRow
+soap add repository account --feature identity --db mongo --entity profile --model AccountModel
+```
+
+`--entity` points to an existing feature domain entity using the generated entity convention, for example `--entity profile` imports `src/features/identity/domain/profile.entity.ts`.
+
+`--model` points to an existing persistence type using the generated data convention. SQL strips a trailing `Row` suffix and imports `<name>.row.ts`; Mongo strips `Model` or `Document` and imports `<name>.model.ts`.
+
 ## Init, Seed, And Reset
 
 Generated projects include database runner scripts:

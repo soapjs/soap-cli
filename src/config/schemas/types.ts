@@ -112,6 +112,7 @@ export interface ResourceRegistryEntry {
   name: string;
   path: string;
   crud: boolean;
+  blank?: boolean;
   db: "none" | DatabaseCapability;
   auth: "none" | AuthCapability;
   zone: ApiZone;

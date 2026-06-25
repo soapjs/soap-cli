@@ -180,6 +180,7 @@ export function registerRemoveCommand(program: Command): void {
         featureInput,
         componentInput: controllerInput,
         label: "controller",
+        allowMissingFeatureWithForce: true,
         entries: (config, resource) => componentFileEntries(config, resource, controllerInput, "controller"),
         successMessage: (resource, name) => `Removed controller ${resource.name}/${name}`,
         skipMessage: (resource, name) => `Skipped controller ${resource.name}/${name}`,
@@ -198,6 +199,7 @@ export function registerRemoveCommand(program: Command): void {
         featureInput,
         componentInput: entityInput,
         label: "entity",
+        allowMissingFeatureWithForce: true,
         entries: (config, resource) => componentFileEntries(config, resource, entityInput, "entity"),
         successMessage: (resource, name) => `Removed entity ${resource.name}/${name}`,
         skipMessage: (resource, name) => `Skipped entity ${resource.name}/${name}`,
@@ -216,6 +218,7 @@ export function registerRemoveCommand(program: Command): void {
         featureInput,
         componentInput: useCaseInput,
         label: "use-case",
+        allowMissingFeatureWithForce: true,
         entries: (config, resource) => componentFileEntries(config, resource, useCaseInput, "use-case"),
         successMessage: (resource, name) => `Removed use case ${resource.name}/${name}`,
         skipMessage: (resource, name) => `Skipped use case ${resource.name}/${name}`,
@@ -236,6 +239,7 @@ export function registerRemoveCommand(program: Command): void {
         featureInput,
         componentInput: repositoryInput,
         label: "repository",
+        allowMissingFeatureWithForce: true,
         entries: (config, resource) => repositoryFileEntries(config, resource, repositoryInput, options),
         successMessage: (resource, name) => `Removed repository ${resource.name}/${name}`,
         skipMessage: (resource, name) => `Skipped repository ${resource.name}/${name}`,
@@ -249,6 +253,7 @@ async function removeComponent(input: {
   featureInput: string;
   componentInput: string;
   label: string;
+  allowMissingFeatureWithForce?: boolean;
   entries: (config: SoapConfig, resource: ResourceRegistryEntry) => GeneratedFileEntry[];
   successMessage: (resource: ResourceRegistryEntry, name: string) => string;
   skipMessage: (resource: ResourceRegistryEntry, name: string) => string;
@@ -257,7 +262,9 @@ async function removeComponent(input: {
 
   const context = getCommandContext(input.command);
   const config = await loadSoapConfig(context.cwd);
-  const resource = resolveResource(config, input.featureInput);
+  const resource = resolveResource(config, input.featureInput, {
+    allowMissing: Boolean(input.allowMissingFeatureWithForce && input.options.force),
+  });
   const componentName = createNameVariants(input.componentInput).kebabName;
   const targetEntries = input.entries(config, resource);
 
@@ -303,16 +310,39 @@ async function removeComponent(input: {
   reportRemoveResult(context, input.successMessage(resource, componentName), removePlan);
 }
 
-function resolveResource(config: SoapConfig, input: string): ResourceRegistryEntry {
+function resolveResource(config: SoapConfig, input: string, options: { allowMissing?: boolean } = {}): ResourceRegistryEntry {
   const names = createNameVariants(input);
   const candidates = new Set([input, names.kebabName, singularize(names.kebabName), names.pluralName]);
   const resource = config.registry.resources.find((entry) => candidates.has(entry.name) || candidates.has(entry.path.replace(/^\//, "")));
+
+  if (!resource && options.allowMissing) {
+    return createForcedResourceReference(config, input, candidates);
+  }
 
   if (!resource) {
     throw new CliError(`Feature "${input}" was not found in the route registry.`);
   }
 
   return resource;
+}
+
+function createForcedResourceReference(config: SoapConfig, input: string, candidates: Set<string>): ResourceRegistryEntry {
+  const owner = config.registry.generatedFiles
+    .map((entry) => entry.owner)
+    .find((entryOwner): entryOwner is string => Boolean(entryOwner && candidates.has(entryOwner)));
+  const fallbackName = createNameVariants(input).kebabName;
+  const name = owner ?? fallbackName;
+
+  return {
+    name,
+    path: `/${createNameVariants(name).pluralName}`,
+    crud: false,
+    db: "none",
+    auth: "none",
+    zone: "public",
+    fields: [],
+    generatedAt: new Date(0).toISOString(),
+  };
 }
 
 function resolveRoute(config: SoapConfig, resource: ResourceRegistryEntry, input: string): RouteRegistryEntry {

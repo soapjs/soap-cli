@@ -22,6 +22,7 @@ soap create users-api -i
 
 ```bash
 soap add feature invoice --crud --db postgres --auth jwt --zone private
+soap add feature identity --blank
 soap add controller invoice-admin --feature invoice
 soap add route invoice approve --method post --path :id/approve --auth jwt --policy custom:approver
 ```
@@ -32,11 +33,18 @@ Additional component commands:
 soap add entity invoice --feature invoice
 soap add use-case approve-invoice --feature invoice
 soap add repository invoice --feature invoice --db postgres
+soap add repository invoice --feature invoice --db postgres --entity invoice --model InvoiceRow
 soap add command approve-invoice --feature invoice
 soap add query find-invoices --feature invoice
 soap add event invoice-approved --feature invoice
 soap add socket invoice-updates --feature invoice --auth jwt
 ```
+
+`soap add repository` generates a repository port plus a Mongo or SQL adapter. By default it creates a generated `<Name>Record` domain type and a generated `<Name>Row` or `<Name>Model` persistence type.
+
+Use `--entity <entity>` when the feature already has a domain entity in `domain/<entity>.entity.ts`; the repository type will use that entity instead of generating `<Name>Record`.
+
+Use `--model <model>` when the feature already has a persistence model in the feature `data` folder. Suffixes are normalized, so `--model InvoiceRow` imports `data/invoice.row.ts`, and `--model InvoiceModel` imports `data/invoice.model.ts`.
 
 ## Generate API Artifacts
 

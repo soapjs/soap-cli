@@ -10,6 +10,7 @@ soap add feature invoice --crud --db mysql --auth jwt --zone private
 soap add feature note --crud --db sqlite
 soap add feature product --crud --field title:string --field price:number --field active:boolean:optional
 soap add feature report --crud --auth jwt --policy roles:admin,editor
+soap add feature identity --blank
 soap add feature invoice -i
 ```
 
@@ -44,6 +45,22 @@ soap add feature invoice --crud --db postgres --dry-run
 ```
 
 Dry run prints the generated file groups without writing files.
+
+## Blank Features
+
+Use `--blank` to register a feature and create the folder structure without generated domain, repository, use-case, route, contract, controller, or DI bindings:
+
+```bash
+soap add feature identity --blank
+```
+
+Blank features generate:
+
+- `src/features/<feature>/setup.ts` with a no-op `register<Feature>Dependencies(...)`
+- `src/features/<feature>/index.ts`
+- `.gitkeep` files under `domain`, `application`, `application/ports`, `application/use-cases`, `data`, `api`, and `contracts`
+
+The feature is added to `.soap/registry.json`, `src/features/index.ts`, and `src/config/resources.ts`, but it does not add routes or controllers.
 
 ## Fields
 

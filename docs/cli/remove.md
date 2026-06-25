@@ -62,6 +62,14 @@ soap remove use-case invoice approve-invoice
 
 These commands remove only files tracked in `.soap/registry.json` and refresh generated indexes such as `src/config/controllers.ts`.
 
+Normally the feature must exist in the route registry. With `--force`, component removal can also target generated files whose owner matches the provided feature name, even when the feature itself is not registered:
+
+```bash
+soap remove entity identity profile --force
+soap remove use-case identity approve-profile --force
+soap remove controller identity admin-tools --force
+```
+
 ## Repository Removal
 
 Without flags, repository removal deletes both the port and implementation files:
@@ -75,4 +83,10 @@ Use `--port` or `--impl` to limit the removal:
 ```bash
 soap remove repository invoice invoice --port
 soap remove repository invoice invoice --impl
+```
+
+The same forced-owner fallback applies to repositories:
+
+```bash
+soap remove repository identity account --force
 ```

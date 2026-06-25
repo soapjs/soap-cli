@@ -26,6 +26,7 @@ import { createNameVariants } from "../../templates/naming";
 export interface AddResourcePlan {
   name: string;
   crud: boolean;
+  blank?: boolean;
   db: "none" | DatabaseCapability;
   auth: "none" | AuthCapability;
   zone: ApiZone;
@@ -57,7 +58,7 @@ export interface ResourceAddPlanningOptions extends AddResourcePlan {
 }
 
 export interface ResourceAddPlanningStep {
-  type: "entity" | "repository" | "use-case" | "command" | "query" | "route" | "contract" | "bruno" | "seed";
+  type: "feature" | "entity" | "repository" | "use-case" | "command" | "query" | "route" | "contract" | "bruno" | "seed";
   name: string;
 }
 
@@ -74,10 +75,11 @@ export function createResourceEntry(plan: AddResourcePlan): ResourceRegistryEntr
     name: names.kebabName,
     path: `/${names.pluralName}`,
     crud: plan.crud,
+    blank: plan.blank || undefined,
     db: plan.db,
     auth: plan.auth,
     zone: plan.zone,
-    fields: normalizeResourceFields(plan.fields),
+    fields: plan.blank ? [] : normalizeResourceFields(plan.fields),
     policy: plan.policy,
     generatedAt: new Date().toISOString(),
   };
@@ -85,6 +87,18 @@ export function createResourceEntry(plan: AddResourcePlan): ResourceRegistryEntr
 
 export function createResourceAddPlanningSummary(plan: ResourceAddPlanningOptions): ResourceAddPlanningSummary {
   const names = createNameVariants(plan.name);
+  if (plan.blank) {
+    return {
+      resource: names.kebabName,
+      architecture: plan.architecture,
+      steps: [
+        { type: "feature", name: `${names.kebabName} folders` },
+        { type: "feature", name: `${names.kebabName} setup` },
+        { type: "feature", name: `${names.kebabName} index` },
+      ],
+    };
+  }
+
   const itemName = singularizeResourceName(names.kebabName);
   const collectionName = createNameVariants(itemName).pluralName;
   const steps: ResourceAddPlanningStep[] = [
@@ -177,6 +191,10 @@ function singularizeResourceName(name: string): string {
 }
 
 export function createResourceFiles(plan: AddResourcePlan): PlannedFile[] {
+  if (plan.blank) {
+    return createBlankFeatureFiles(plan);
+  }
+
   if (plan.architecture === "cqrs" && plan.crud) {
     return createCqrsCrudResourceFiles(plan);
   }
@@ -229,6 +247,41 @@ export function createResourceFiles(plan: AddResourcePlan): PlannedFile[] {
   ];
 
   return files;
+}
+
+function createBlankFeatureFiles(plan: AddResourcePlan): PlannedFile[] {
+  const names = createNameVariants(plan.name);
+  const root = path.posix.join(plan.featuresRoot, names.kebabName);
+  const folders = [
+    "domain",
+    "application",
+    "application/ports",
+    "application/use-cases",
+    "data",
+    "api",
+    "contracts",
+  ];
+
+  return [
+    ...folders.map((folder) => ({
+      path: `${root}/${folder}/.gitkeep`,
+      type: "resource" as const,
+      owner: names.kebabName,
+      content: "",
+    })),
+    {
+      path: `${root}/setup.ts`,
+      type: "resource",
+      owner: names.kebabName,
+      content: createBlankSetupTs(names),
+    },
+    {
+      path: `${root}/index.ts`,
+      type: "resource",
+      owner: names.kebabName,
+      content: "export * from './setup';\n",
+    },
+  ];
 }
 
 function createCqrsCrudResourceFiles(plan: AddResourcePlan): PlannedFile[] {
@@ -434,6 +487,18 @@ function createBasicRepositoryAdapterFiles(
   if (plan.db === "mongo") {
     return [
       {
+        path: `${root}/data/${names.kebabName}.mapper.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createRegularCrudMongoMapperTs(names, plan.fields),
+      },
+      {
+        path: `${root}/data/${names.kebabName}.mapper.spec.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createRegularCrudMongoMapperSpecTs(names, plan.fields),
+      },
+      {
         path: `${root}/data/${names.kebabName}.mongo-repository.ts`,
         type: "repository",
         owner: names.kebabName,
@@ -444,6 +509,18 @@ function createBasicRepositoryAdapterFiles(
 
   if (isSqlDatabase(plan.db)) {
     return [
+      {
+        path: `${root}/data/${names.kebabName}.mapper.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createRegularCrudSqlMapperTs(names, plan.db, plan.fields),
+      },
+      {
+        path: `${root}/data/${names.kebabName}.mapper.spec.ts`,
+        type: "repository",
+        owner: names.kebabName,
+        content: createRegularCrudSqlMapperSpecTs(names, plan.fields),
+      },
       {
         path: `${root}/data/${names.kebabName}.sql-repository.ts`,
         type: "repository",
@@ -482,10 +559,22 @@ function createRegularCrudRepositoryAdapterFiles(
   if (plan.db === "mongo") {
     return [
       {
+        path: `${root}/data/${itemNames.kebabName}.mapper.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudMongoMapperTs(itemNames, plan.fields),
+      },
+      {
+        path: `${root}/data/${itemNames.kebabName}.mapper.spec.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudMongoMapperSpecTs(itemNames, plan.fields),
+      },
+      {
         path: `${root}/data/${itemNames.kebabName}.repository.mongo.ts`,
         type: "repository",
         owner: featureNames.kebabName,
-        content: createRegularCrudMongoRepositoryTs(itemNames, plan.fields),
+        content: createRegularCrudMongoRepositoryTs(itemNames),
       },
       {
         path: `${root}/data/${itemNames.kebabName}.repository.mongo.spec.ts`,
@@ -498,6 +587,18 @@ function createRegularCrudRepositoryAdapterFiles(
 
   if (isSqlDatabase(plan.db)) {
     return [
+      {
+        path: `${root}/data/${itemNames.kebabName}.mapper.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudSqlMapperTs(itemNames, plan.db, plan.fields),
+      },
+      {
+        path: `${root}/data/${itemNames.kebabName}.mapper.spec.ts`,
+        type: "repository",
+        owner: featureNames.kebabName,
+        content: createRegularCrudSqlMapperSpecTs(itemNames, plan.fields),
+      },
       {
         path: `${root}/data/${itemNames.kebabName}.repository.sql.ts`,
         type: "repository",
@@ -1034,7 +1135,7 @@ export function createControllersFile(
   }
 
   controllers.push(...resources
-    .filter((resource) => mainControllerResourceSet.has(resource.name))
+    .filter((resource) => !resource.blank && mainControllerResourceSet.has(resource.name))
     .map((resource) => {
     const names = createNameVariants(resource.name);
     return {
@@ -1470,23 +1571,15 @@ ${updateInput}
 `;
 }
 
-function createRegularCrudMongoRepositoryTs(
+function createRegularCrudMongoMapperTs(
   names: ReturnType<typeof createNameVariants>,
   fields: ResourceFieldDefinition[] | undefined = []
 ): string {
   const documentFields = createInterfaceFields(fields);
 
-  return `import { Result } from '@soapjs/soap';
-import {
-  DatabaseContext,
-  DatabaseSessionRegistry,
-  Mapper,
-  ReadWriteRepository,
-} from '@soapjs/soap/data';
-import { MongoSource } from '@soapjs/soap-mongo';
+  return `import { Mapper } from '@soapjs/soap/data';
 import { Document } from 'mongodb';
 import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
-import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 
 export interface ${names.pascalName}Document extends Document {
   id?: string;
@@ -1495,34 +1588,89 @@ ${documentFields}
   updatedAt: string;
 }
 
-function to${names.pascalName}Entity(document: ${names.pascalName}Document): ${names.pascalName} {
-  const { _id, ...props } = document as ${names.pascalName}Document & { _id?: unknown };
-  return new ${names.pascalName}({
-    ...props,
-    id: props.id || (_id ? String(_id) : ''),
-  });
+export type ${names.pascalName}Mapper = Mapper<${names.pascalName}, ${names.pascalName}Document> & {
+  toEntity(document: ${names.pascalName}Document): ${names.pascalName};
+  toModel(entity: ${names.pascalName}): ${names.pascalName}Document;
+};
+
+export function create${names.pascalName}Mapper(): ${names.pascalName}Mapper {
+  return {
+    toEntity(document) {
+      const { _id, ...props } = document as ${names.pascalName}Document & { _id?: unknown };
+      return new ${names.pascalName}({
+        ...props,
+        id: props.id || (_id ? String(_id) : ''),
+      });
+    },
+
+    toModel(entity) {
+      return entity.props as ${names.pascalName}Document;
+    },
+  };
+}
+`;
 }
 
-const ${names.camelName}Mapper: Mapper<${names.pascalName}, ${names.pascalName}Document> = {
-  toEntity: to${names.pascalName}Entity,
+function createRegularCrudMongoMapperSpecTs(
+  names: ReturnType<typeof createNameVariants>,
+  fields: ResourceFieldDefinition[] | undefined = []
+): string {
+  const input = createSampleInputObject(fields, "create", "  ");
 
-  toModel(entity) {
-    return entity.props as ${names.pascalName}Document;
-  },
-};
+  return `import assert from 'node:assert/strict';
+import test from 'node:test';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
+import { create${names.pascalName}Mapper, ${names.pascalName}Document } from './${names.kebabName}.mapper';
+
+test('create${names.pascalName}Mapper maps Mongo documents and ${names.pascalName} entities', () => {
+  const mapper = create${names.pascalName}Mapper();
+  const document = {
+    _id: 'mongo-id',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+${input}
+  } as ${names.pascalName}Document;
+
+  const entity = mapper.toEntity(document);
+  assert.equal(entity.id, 'mongo-id');
+  assert.equal(entity.props.id, 'mongo-id');
+
+  const model = mapper.toModel(new ${names.pascalName}({
+    ...entity.props,
+    id: 'entity-id',
+  }));
+  assert.equal(model.id, 'entity-id');
+});
+`;
+}
+
+function createRegularCrudMongoRepositoryTs(
+  names: ReturnType<typeof createNameVariants>
+): string {
+  return `import { Result } from '@soapjs/soap';
+import {
+  DatabaseContext,
+  DatabaseSessionRegistry,
+  ReadWriteRepository,
+} from '@soapjs/soap/data';
+import { MongoSource } from '@soapjs/soap-mongo';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
+import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
+import { ${names.pascalName}Document, ${names.pascalName}Mapper } from './${names.kebabName}.mapper';
 
 export class Mongo${names.pascalName}Repository extends ReadWriteRepository<${names.pascalName}, ${names.pascalName}Document> implements ${names.pascalName}Repository {
   constructor(
     private readonly source: MongoSource<${names.pascalName}Document>,
+    private readonly mapper: ${names.pascalName}Mapper,
     sessions: DatabaseSessionRegistry
   ) {
-    super(new DatabaseContext(source, ${names.camelName}Mapper, sessions));
+    super(new DatabaseContext(source, mapper, sessions));
   }
 
   async findById(id: string): Promise<Result<${names.pascalName} | undefined>> {
     try {
       const [document] = await this.source.find({ where: { id }, limit: 1 });
-      return Result.withSuccess(document ? to${names.pascalName}Entity(document) : undefined);
+      return Result.withSuccess(document ? this.mapper.toEntity(document) : undefined);
     } catch (error) {
       return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
     }
@@ -1544,7 +1692,8 @@ function createRegularCrudMongoRepositorySpecTs(
 import test from 'node:test';
 import { createNoopDatabaseSessionRegistry } from '@soapjs/soap/data';
 import { MongoSource } from '@soapjs/soap-mongo';
-import { ${names.pascalName}Document, Mongo${names.pascalName}Repository } from './${names.kebabName}.repository.mongo';
+import { create${names.pascalName}Mapper, ${names.pascalName}Document } from './${names.kebabName}.mapper';
+import { Mongo${names.pascalName}Repository } from './${names.kebabName}.repository.mongo';
 import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 
 test('Mongo${names.pascalName}Repository maps CRUD operations to MongoSource', async () => {
@@ -1595,7 +1744,8 @@ test('Mongo${names.pascalName}Repository maps CRUD operations to MongoSource', a
       return { deletedCount: before - documents.length };
     },
   } as unknown as MongoSource<${names.pascalName}Document>;
-  const repository = new Mongo${names.pascalName}Repository(source, createNoopDatabaseSessionRegistry());
+  const mapper = create${names.pascalName}Mapper();
+  const repository = new Mongo${names.pascalName}Repository(source, mapper, createNoopDatabaseSessionRegistry());
   const entity = new ${names.pascalName}({
     id: 'test-id',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -1635,6 +1785,72 @@ ${updateInput}
 `;
 }
 
+function createRegularCrudSqlMapperTs(
+  names: ReturnType<typeof createNameVariants>,
+  db: SqlDatabaseCapability,
+  fields: ResourceFieldDefinition[] | undefined = []
+): string {
+  const sql = createSqlFieldMetadata(fields, db);
+
+  return `import { Mapper } from '@soapjs/soap/data';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
+
+export interface ${names.pascalName}Row {
+  id: string;
+${sql.interfaceFields}
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ${names.pascalName}Mapper = Mapper<${names.pascalName}, ${names.pascalName}Row> & {
+  toEntity(row: ${names.pascalName}Row): ${names.pascalName};
+  toModel(entity: ${names.pascalName}): ${names.pascalName}Row;
+};
+
+export function create${names.pascalName}Mapper(): ${names.pascalName}Mapper {
+  return {
+    toEntity(row) {
+      return new ${names.pascalName}(row);
+    },
+
+    toModel(entity) {
+      return entity.props as ${names.pascalName}Row;
+    },
+  };
+}
+`;
+}
+
+function createRegularCrudSqlMapperSpecTs(
+  names: ReturnType<typeof createNameVariants>,
+  fields: ResourceFieldDefinition[] | undefined = []
+): string {
+  const input = createSampleInputObject(fields, "create", "  ");
+
+  return `import assert from 'node:assert/strict';
+import test from 'node:test';
+import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
+import { create${names.pascalName}Mapper, ${names.pascalName}Row } from './${names.kebabName}.mapper';
+
+test('create${names.pascalName}Mapper maps SQL rows and ${names.pascalName} entities', () => {
+  const mapper = create${names.pascalName}Mapper();
+  const row: ${names.pascalName}Row = {
+    id: 'row-id',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+${input}
+  };
+
+  const entity = mapper.toEntity(row);
+  assert.equal(entity.id, row.id);
+  assert.deepEqual(entity.props, row);
+
+  const model = mapper.toModel(new ${names.pascalName}(row));
+  assert.deepEqual(model, row);
+});
+`;
+}
+
 function createRegularCrudSqlRepositoryTs(
   names: ReturnType<typeof createNameVariants>,
   db: SqlDatabaseCapability,
@@ -1646,29 +1862,12 @@ function createRegularCrudSqlRepositoryTs(
 import {
   DatabaseContext,
   DatabaseSessionRegistry,
-  Mapper,
   ReadWriteRepository,
 } from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-sql';
 import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 import { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
-
-export interface ${names.pascalName}Row {
-  id: string;
-${sql.interfaceFields}
-  createdAt: string;
-  updatedAt: string;
-}
-
-const ${names.camelName}Mapper: Mapper<${names.pascalName}, ${names.pascalName}Row> = {
-  toEntity(row) {
-    return new ${names.pascalName}(row);
-  },
-
-  toModel(entity) {
-    return entity.props as ${names.pascalName}Row;
-  },
-};
+import { ${names.pascalName}Mapper, ${names.pascalName}Row } from './${names.kebabName}.mapper';
 
 export async function ensure${names.pascalName}Schema(source: SqlDataSource<${names.pascalName}Row>): Promise<void> {
   await source.query(\`
@@ -1684,16 +1883,17 @@ ${sql.columnDefinitions}
 export class Sql${names.pascalName}Repository extends ReadWriteRepository<${names.pascalName}, ${names.pascalName}Row> implements ${names.pascalName}Repository {
   constructor(
     private readonly source: SqlDataSource<${names.pascalName}Row>,
+    private readonly mapper: ${names.pascalName}Mapper,
     sessions: DatabaseSessionRegistry
   ) {
-    super(new DatabaseContext(source, ${names.camelName}Mapper, sessions));
+    super(new DatabaseContext(source, mapper, sessions));
   }
 
   async findById(id: string): Promise<Result<${names.pascalName} | undefined>> {
     try {
       const result = await this.source.query('SELECT ${sql.selectColumns} FROM ${names.snakeName} WHERE id = ${sql.firstPlaceholder} LIMIT 1', [id]);
       const row = result.data[0] as ${names.pascalName}Row | undefined;
-      return Result.withSuccess(row ? new ${names.pascalName}(row) : undefined);
+      return Result.withSuccess(row ? this.mapper.toEntity(row) : undefined);
     } catch (error) {
       return Result.withFailure(error instanceof Error ? error : new Error(String(error)));
     }
@@ -1718,7 +1918,8 @@ function createRegularCrudSqlRepositorySpecTs(
 import test from 'node:test';
 import { createNoopDatabaseSessionRegistry } from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-sql';
-import { ensure${names.pascalName}Schema, ${names.pascalName}Row, Sql${names.pascalName}Repository } from './${names.kebabName}.repository.sql';
+import { create${names.pascalName}Mapper, ${names.pascalName}Row } from './${names.kebabName}.mapper';
+import { ensure${names.pascalName}Schema, Sql${names.pascalName}Repository } from './${names.kebabName}.repository.sql';
 import { ${names.pascalName} } from '../domain/${names.kebabName}.entity';
 
 test('Sql${names.pascalName}Repository maps CRUD operations to SqlDataSource', async () => {
@@ -1813,7 +2014,8 @@ ${updateRowFromParams}
     },
   } as unknown as SqlDataSource<${names.pascalName}Row>;
   await ensure${names.pascalName}Schema(source);
-  const repository = new Sql${names.pascalName}Repository(source, createNoopDatabaseSessionRegistry());
+  const mapper = create${names.pascalName}Mapper();
+  const repository = new Sql${names.pascalName}Repository(source, mapper, createNoopDatabaseSessionRegistry());
   const entity = new ${names.pascalName}({
     id: 'test-id',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -2347,11 +2549,13 @@ function createRegularCrudSetupTs(
   const repositoryImport = db === "mongo"
     ? `import { createMongoSource } from '../../common/data/mongo/mongo.source-factory';
 import { ResourceContext } from '../../config/dependencies';
-import { Mongo${itemNames.pascalName}Repository, ${itemNames.pascalName}Document } from './data/${itemNames.kebabName}.repository.mongo';`
+import { create${itemNames.pascalName}Mapper, ${itemNames.pascalName}Document } from './data/${itemNames.kebabName}.mapper';
+import { Mongo${itemNames.pascalName}Repository } from './data/${itemNames.kebabName}.repository.mongo';`
     : isSqlDatabase(db)
       ? `import { createSqlSource } from '../../common/data/sql/sql.source-factory';
 import { ResourceContext } from '../../config/dependencies';
-import { ensure${itemNames.pascalName}Schema, Sql${itemNames.pascalName}Repository, ${itemNames.pascalName}Row } from './data/${itemNames.kebabName}.repository.sql';`
+import { create${itemNames.pascalName}Mapper, ${itemNames.pascalName}Row } from './data/${itemNames.kebabName}.mapper';
+import { ensure${itemNames.pascalName}Schema, Sql${itemNames.pascalName}Repository } from './data/${itemNames.kebabName}.repository.sql';`
       : `import { ResourceContext } from '../../config/dependencies';
 import { InMemory${itemNames.pascalName}Repository } from './data/${itemNames.kebabName}.memory-repository';`;
   const repositoryFactory = db === "mongo"
@@ -2360,7 +2564,8 @@ import { InMemory${itemNames.pascalName}Repository } from './data/${itemNames.ke
   }
 
   const source = createMongoSource<${itemNames.pascalName}Document>(resources.mongo, '${featureNames.kebabName}');
-  const repository = new Mongo${itemNames.pascalName}Repository(source, resources.mongo.sessions);`
+  const mapper = create${itemNames.pascalName}Mapper();
+  const repository = new Mongo${itemNames.pascalName}Repository(source, mapper, resources.mongo.sessions);`
     : isSqlDatabase(db)
       ? `  if (!resources.sql) {
     throw new Error('${formatDatabaseName(db)} is not configured for ${featureNames.kebabName}. Enable --db ${db} for the project.');
@@ -2373,7 +2578,8 @@ import { InMemory${itemNames.pascalName}Repository } from './data/${itemNames.ke
 
   const source = createSqlSource<${itemNames.pascalName}Row>(sql, '${featureNames.snakeName}');
   await ensure${itemNames.pascalName}Schema(source);
-  const repository = new Sql${itemNames.pascalName}Repository(source, sql.sessions);`
+  const mapper = create${itemNames.pascalName}Mapper();
+  const repository = new Sql${itemNames.pascalName}Repository(source, mapper, sql.sessions);`
       : `  const repository = new InMemory${itemNames.pascalName}Repository();`;
   const useCaseImports = actions
     .map((action) => `import { ${action.classBase}UseCase } from './application/use-cases/${action.name}.use-case';`)
@@ -2573,7 +2779,7 @@ function createMongoSeedTs(
 
   return `import { createMongoSource } from '../../../common/data/mongo/mongo.source-factory';
 import { ResourceContext } from '../../../config/dependencies';
-import { ${itemNames.pascalName}Document } from './${itemNames.kebabName}.repository.mongo';
+import { ${itemNames.pascalName}Document } from './${itemNames.kebabName}.mapper';
 
 const sample${itemNames.pascalName}: ${itemNames.pascalName}Document = {
 ${sample}
@@ -2632,7 +2838,8 @@ function createSqlSeedTs(
 
   return `import { createSqlSource } from '../../../common/data/sql/sql.source-factory';
 import { ResourceContext } from '../../../config/dependencies';
-import { ensure${itemNames.pascalName}Schema, ${itemNames.pascalName}Row } from './${itemNames.kebabName}.repository.sql';
+import { ${itemNames.pascalName}Row } from './${itemNames.kebabName}.mapper';
+import { ensure${itemNames.pascalName}Schema } from './${itemNames.kebabName}.repository.sql';
 
 const sample${itemNames.pascalName}: ${itemNames.pascalName}Row = {
 ${sample}
@@ -2894,7 +3101,7 @@ export class Delete${names.pascalName}UseCase {
 
 function createMongoRepositoryTs(name: string, fields: ResourceFieldDefinition[] | undefined = []): string {
   const names = createNameVariants(name);
-  return createRegularCrudMongoRepositoryTs(names, fields)
+  return createRegularCrudMongoRepositoryTs(names)
     .replace(`../application/ports/${names.kebabName}-repository.port`, `../application/ports/${names.kebabName}.repository`);
 }
 
@@ -2909,11 +3116,13 @@ function createSetupTs(name: string, db: "none" | DatabaseCapability): string {
   const repositoryImport = db === "mongo"
     ? `import { createMongoSource } from '../../common/data/mongo/mongo.source-factory';
 import { ResourceContext } from '../../config/dependencies';
-import { Mongo${names.pascalName}Repository, ${names.pascalName}Document } from './data/${names.kebabName}.mongo-repository';`
+import { create${names.pascalName}Mapper, ${names.pascalName}Document } from './data/${names.kebabName}.mapper';
+import { Mongo${names.pascalName}Repository } from './data/${names.kebabName}.mongo-repository';`
     : isSqlDatabase(db)
       ? `import { createSqlSource } from '../../common/data/sql/sql.source-factory';
 import { ResourceContext } from '../../config/dependencies';
-import { ensure${names.pascalName}Schema, Sql${names.pascalName}Repository, ${names.pascalName}Row } from './data/${names.kebabName}.sql-repository';`
+import { create${names.pascalName}Mapper, ${names.pascalName}Row } from './data/${names.kebabName}.mapper';
+import { ensure${names.pascalName}Schema, Sql${names.pascalName}Repository } from './data/${names.kebabName}.sql-repository';`
     : `import { ResourceContext } from '../../config/dependencies';
 import { InMemory${names.pascalName}Repository } from './data/${names.kebabName}.memory-repository';`;
   const repositoryFactory = db === "mongo"
@@ -2922,7 +3131,8 @@ import { InMemory${names.pascalName}Repository } from './data/${names.kebabName}
   }
 
   const source = createMongoSource<${names.pascalName}Document>(resources.mongo, '${names.kebabName}');
-  const repository = new Mongo${names.pascalName}Repository(source, resources.mongo.sessions);`
+  const mapper = create${names.pascalName}Mapper();
+  const repository = new Mongo${names.pascalName}Repository(source, mapper, resources.mongo.sessions);`
     : isSqlDatabase(db)
       ? `  if (!resources.sql) {
     throw new Error('${formatDatabaseName(db)} is not configured for ${names.kebabName}. Enable --db ${db} for the project.');
@@ -2935,7 +3145,8 @@ import { InMemory${names.pascalName}Repository } from './data/${names.kebabName}
 
   const source = createSqlSource<${names.pascalName}Row>(sql, '${names.snakeName}');
   await ensure${names.pascalName}Schema(source);
-  const repository = new Sql${names.pascalName}Repository(source, sql.sessions);`
+  const mapper = create${names.pascalName}Mapper();
+  const repository = new Sql${names.pascalName}Repository(source, mapper, sql.sessions);`
     : `  const repository = new InMemory${names.pascalName}Repository();`;
 
   return `import { DIContainer } from '@soapjs/soap-express';
@@ -2959,6 +3170,14 @@ ${repositoryFactory}
   container.bindFactory(Update${names.pascalName}UseCase.name, () => new Update${names.pascalName}UseCase(repository));
   container.bindFactory(Delete${names.pascalName}UseCase.name, () => new Delete${names.pascalName}UseCase(repository));
 }
+`;
+}
+
+function createBlankSetupTs(names: ReturnType<typeof createNameVariants>): string {
+  return `import { DIContainer } from '@soapjs/soap-express';
+import { ResourceContext } from '../../config/dependencies';
+
+export async function register${names.pascalName}Dependencies(_container: DIContainer, _resources: ResourceContext): Promise<void> {}
 `;
 }
 
@@ -3100,11 +3319,13 @@ function createBasicRepositoryExport(
   db: "none" | DatabaseCapability
 ): string {
   if (db === "mongo") {
-    return `export * from './data/${names.kebabName}.mongo-repository';`;
+    return `export * from './data/${names.kebabName}.mapper';
+export * from './data/${names.kebabName}.mongo-repository';`;
   }
 
   if (isSqlDatabase(db)) {
-    return `export * from './data/${names.kebabName}.sql-repository';`;
+    return `export * from './data/${names.kebabName}.mapper';
+export * from './data/${names.kebabName}.sql-repository';`;
   }
 
   return `export * from './data/${names.kebabName}.memory-repository';`;
@@ -3115,11 +3336,13 @@ function createRegularCrudRepositoryExport(
   db: "none" | DatabaseCapability
 ): string {
   if (db === "mongo") {
-    return `export * from './data/${names.kebabName}.repository.mongo';`;
+    return `export * from './data/${names.kebabName}.mapper';
+export * from './data/${names.kebabName}.repository.mongo';`;
   }
 
   if (isSqlDatabase(db)) {
-    return `export * from './data/${names.kebabName}.repository.sql';`;
+    return `export * from './data/${names.kebabName}.mapper';
+export * from './data/${names.kebabName}.repository.sql';`;
   }
 
   return `export * from './data/${names.kebabName}.memory-repository';`;

@@ -67,6 +67,7 @@ import { InquirerPromptAdapter, promptAddResource, promptAddRoute } from "../../
 
 interface AddResourceOptions extends InteractiveCommandOptions, ConflictCommandOptions {
   crud?: boolean;
+  blank?: boolean;
   db?: "none" | DatabaseCapability;
   auth?: "none" | AuthCapability;
   zone?: ApiZone;
@@ -117,6 +118,8 @@ interface AddQueryOptions extends ConflictCommandOptions {
 interface AddRepositoryOptions extends ConflictCommandOptions {
   feature?: string;
   db?: Extract<DatabaseCapability, "mongo" | "postgres" | "mysql" | "sqlite">;
+  entity?: string;
+  model?: string;
   readOnly?: boolean;
   force?: boolean;
   writeNew?: boolean;
@@ -155,6 +158,7 @@ export function registerAddCommand(program: Command): void {
     .alias("resource")
     .description("Add a feature to an existing SoapJS project. Deprecated alias: resource.")
     .option("--crud", "generate CRUD route placeholders", false)
+    .option("--blank", "generate only feature folders, setup, and index", false)
     .option("--db <database>", "feature storage target: none, mongo, postgres, mysql, sqlite, redis")
     .option("--auth <auth>", "feature auth strategy: none, jwt, api-key, local")
     .option("--zone <zone>", "API zone: public, private, admin", "public")
@@ -195,26 +199,34 @@ export function registerAddCommand(program: Command): void {
         promptAnswers,
         projectConfig: config,
       });
-      assertFeatureStorageSupported(resolved.db);
+      if (options.blank && resolved.crud) {
+        throw new CliError("--blank cannot be combined with --crud.");
+      }
+
+      const blank = Boolean(options.blank);
+      assertFeatureStorageSupported(blank ? "none" : resolved.db);
 
       const crudRoutes = parseCrudRouteMatrix(options.crudRoute);
       const policy = parseAuthPolicy(options.policy);
-      assertAuthPolicyAllowed(policy, resolved.auth);
-      assertCrudRouteMatrixCapabilities(crudRoutes, resolved.auth, config.project.capabilities.auth, config.project.zones);
+      if (!blank) {
+        assertAuthPolicyAllowed(policy, resolved.auth);
+        assertCrudRouteMatrixCapabilities(crudRoutes, resolved.auth, config.project.capabilities.auth, config.project.zones);
+      }
 
       const resourcePlan = {
         name,
-        crud: resolved.crud,
-        db: resolved.db,
-        auth: resolved.auth,
+        crud: blank ? false : resolved.crud,
+        blank,
+        db: blank ? "none" as const : resolved.db,
+        auth: blank ? "none" as const : resolved.auth,
         zone: resolved.zone,
         featuresRoot: config.structure.featuresRoot,
         architecture: config.project.architecture,
         controllerLayout: config.project.controllerLayout,
         contracts: config.project.capabilities.contracts.includes("zod") ? "zod" as const : "plain" as const,
-        fields: parseResourceFieldDefinitions(options.field),
-        crudRoutes,
-        policy,
+        fields: blank ? [] : parseResourceFieldDefinitions(options.field),
+        crudRoutes: blank ? {} : crudRoutes,
+        policy: blank ? undefined : policy,
       };
       const planningSummary = createResourceAddPlanningSummary({
         ...resourcePlan,
@@ -248,7 +260,9 @@ export function registerAddCommand(program: Command): void {
       });
 
       config.registry.resources.push(resource);
-      config.registry.routes.push(...createRouteEntries(resource, resolved.auth, resolved.zone, crudRoutes));
+      if (!blank) {
+        config.registry.routes.push(...createRouteEntries(resource, resolved.auth, resolved.zone, crudRoutes));
+      }
 
       const generatedPaths = config.registry.generatedFiles.map((file) => file.path);
       const existingRouteControllerIndexes = routeControllerIndexResources(generatedPaths, config.structure.featuresRoot, "");
@@ -257,7 +271,7 @@ export function registerAddCommand(program: Command): void {
         ? [...existingRouteControllerIndexes, resource.name]
         : existingRouteControllerIndexes;
       const mainControllerResources = config.registry.resources
-        .filter((entry) => !routeControllerIndexes.includes(entry.name))
+        .filter((entry) => !entry.blank && !routeControllerIndexes.includes(entry.name))
         .map((entry) => entry.name);
       const cqrsConfigFile = config.project.architecture === "cqrs" && resolved.crud
         ? createCqrsConfigFile(config.structure.featuresRoot, {
@@ -550,6 +564,8 @@ export function registerAddCommand(program: Command): void {
     .description("Add a repository port and database adapter to a feature.")
     .requiredOption("--feature <feature>", "feature that owns the repository")
     .requiredOption("--db <database>", "database adapter: mongo, postgres, mysql, sqlite")
+    .option("--entity <entity>", "existing domain entity type to use instead of generating a repository record")
+    .option("--model <model>", "existing persistence model or row type to use instead of generating one")
     .option("--read-only", "generate a read-only repository", false)
     .option("--force", "overwrite generated files even when modified", false)
     .option("--write-new", "write modified generated files as .new", false)
@@ -567,6 +583,8 @@ export function registerAddCommand(program: Command): void {
         db,
         featuresRoot: config.structure.featuresRoot,
         readOnly: Boolean(options.readOnly),
+        entity: options.entity,
+        model: options.model,
       });
 
       await writePlannedFiles(
