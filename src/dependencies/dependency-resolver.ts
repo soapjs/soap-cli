@@ -8,7 +8,7 @@ export interface ResolvedDependencies {
 export function resolveDependencies(capabilities: ProjectCapabilities): ResolvedDependencies {
   const dependencies: Record<string, string> = {
     "@soapjs/soap": "^0.14.3",
-    "@soapjs/soap-express": "^1.0.0",
+    "@soapjs/soap-express": "^1.0.1",
     dotenv: "^16.4.5",
     express: "^4.18.2",
     "reflect-metadata": "^0.2.2",

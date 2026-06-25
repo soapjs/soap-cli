@@ -31,6 +31,11 @@ interface RemoveOptions extends InteractiveCommandOptions, ConflictCommandOption
   yes?: boolean;
 }
 
+interface RemoveRepositoryOptions extends RemoveOptions {
+  impl?: boolean;
+  port?: boolean;
+}
+
 interface RemovePlan {
   deleted: string[];
   skipped: string[];
@@ -49,7 +54,7 @@ interface RemovePreview {
 }
 
 export function registerRemoveCommand(program: Command): void {
-  const remove = program.command("remove").description("Safely remove generated features and routes.");
+  const remove = program.command("remove").description("Safely remove generated features, routes, and components.");
 
   addConflictOption(addInteractiveOption(remove
     .command("route <resource> <route>")
@@ -162,6 +167,140 @@ export function registerRemoveCommand(program: Command): void {
 
       reportRemoveResult(context, `Removed feature ${resource.name}`, removePlan);
     });
+
+  addConflictOption(addInteractiveOption(remove
+    .command("controller <feature> <controller>")
+    .description("Remove a generated mock controller from a SoapJS project.")
+    .option("--force", "delete modified generated files", false)
+    .option("--yes", "skip interactive confirmation prompts", false)))
+    .action(async (featureInput: string, controllerInput: string, options: RemoveOptions, command: Command) => {
+      await removeComponent({
+        command,
+        options,
+        featureInput,
+        componentInput: controllerInput,
+        label: "controller",
+        entries: (config, resource) => componentFileEntries(config, resource, controllerInput, "controller"),
+        successMessage: (resource, name) => `Removed controller ${resource.name}/${name}`,
+        skipMessage: (resource, name) => `Skipped controller ${resource.name}/${name}`,
+      });
+    });
+
+  addConflictOption(addInteractiveOption(remove
+    .command("entity <feature> <entity>")
+    .description("Remove a generated entity from a SoapJS project.")
+    .option("--force", "delete modified generated files", false)
+    .option("--yes", "skip interactive confirmation prompts", false)))
+    .action(async (featureInput: string, entityInput: string, options: RemoveOptions, command: Command) => {
+      await removeComponent({
+        command,
+        options,
+        featureInput,
+        componentInput: entityInput,
+        label: "entity",
+        entries: (config, resource) => componentFileEntries(config, resource, entityInput, "entity"),
+        successMessage: (resource, name) => `Removed entity ${resource.name}/${name}`,
+        skipMessage: (resource, name) => `Skipped entity ${resource.name}/${name}`,
+      });
+    });
+
+  addConflictOption(addInteractiveOption(remove
+    .command("use-case <feature> <useCase>")
+    .description("Remove a generated use case from a SoapJS project.")
+    .option("--force", "delete modified generated files", false)
+    .option("--yes", "skip interactive confirmation prompts", false)))
+    .action(async (featureInput: string, useCaseInput: string, options: RemoveOptions, command: Command) => {
+      await removeComponent({
+        command,
+        options,
+        featureInput,
+        componentInput: useCaseInput,
+        label: "use-case",
+        entries: (config, resource) => componentFileEntries(config, resource, useCaseInput, "use-case"),
+        successMessage: (resource, name) => `Removed use case ${resource.name}/${name}`,
+        skipMessage: (resource, name) => `Skipped use case ${resource.name}/${name}`,
+      });
+    });
+
+  addConflictOption(addInteractiveOption(remove
+    .command("repository <feature> <repository>")
+    .description("Remove generated repository files from a SoapJS project.")
+    .option("--impl", "remove repository implementation files only", false)
+    .option("--port", "remove repository port files only", false)
+    .option("--force", "delete modified generated files", false)
+    .option("--yes", "skip interactive confirmation prompts", false)))
+    .action(async (featureInput: string, repositoryInput: string, options: RemoveRepositoryOptions, command: Command) => {
+      await removeComponent({
+        command,
+        options,
+        featureInput,
+        componentInput: repositoryInput,
+        label: "repository",
+        entries: (config, resource) => repositoryFileEntries(config, resource, repositoryInput, options),
+        successMessage: (resource, name) => `Removed repository ${resource.name}/${name}`,
+        skipMessage: (resource, name) => `Skipped repository ${resource.name}/${name}`,
+      });
+    });
+}
+
+async function removeComponent(input: {
+  command: Command;
+  options: RemoveOptions;
+  featureInput: string;
+  componentInput: string;
+  label: string;
+  entries: (config: SoapConfig, resource: ResourceRegistryEntry) => GeneratedFileEntry[];
+  successMessage: (resource: ResourceRegistryEntry, name: string) => string;
+  skipMessage: (resource: ResourceRegistryEntry, name: string) => string;
+}): Promise<void> {
+  assertInteractiveTerminal(input.options);
+
+  const context = getCommandContext(input.command);
+  const config = await loadSoapConfig(context.cwd);
+  const resource = resolveResource(config, input.featureInput);
+  const componentName = createNameVariants(input.componentInput).kebabName;
+  const targetEntries = input.entries(config, resource);
+
+  if (targetEntries.length === 0) {
+    throw new CliError(`${capitalize(input.label)} "${input.componentInput}" was not found in feature "${resource.name}".`);
+  }
+
+  const conflictPolicy = resolveRemoveConflictPolicy(input.options);
+  const preview = await createRemovePreview(config, targetEntries, [`${input.label} ${resource.name}/${componentName}`]);
+
+  if (input.options.interactive) {
+    context.output.info(formatRemovePreview(`Remove ${input.label} ${resource.name}/${componentName}`, preview));
+
+    if (hasModifiedFiles(preview) && conflictPolicy !== "overwrite") {
+      throw new CliError("Refusing to delete modified generated files. Use --force or --on-conflict overwrite to delete them.");
+    }
+
+    if (!input.options.yes) {
+      const confirmed = await new InquirerPromptAdapter().confirm({
+        message: "Continue removal?",
+        defaultValue: false,
+      });
+
+      if (!confirmed) {
+        context.output.warn(`${capitalize(input.label)} removal aborted.`);
+        return;
+      }
+    }
+  }
+
+  const removePlan = await removeTrackedFiles(config, targetEntries, conflictPolicy, context);
+  if (removePlan.skipped.length > 0) {
+    reportRemoveResult(context, input.skipMessage(resource, componentName), removePlan);
+    return;
+  }
+
+  removeGeneratedEntries(config, removePlan.deleted);
+  await refreshGeneratedIndexes(config, removePlan.conflictPolicy === "overwrite", context, {
+    deletedPaths: removePlan.deleted,
+  });
+  await writeSoapConfig(config.root, config, context);
+
+  reportRemoveResult(context, input.successMessage(resource, componentName), removePlan);
 }
 
 function resolveResource(config: SoapConfig, input: string): ResourceRegistryEntry {
@@ -215,6 +354,10 @@ function resolveRemoveConflictPolicy(options: RemoveOptions): ConflictPolicy {
 
 function singularize(value: string): string {
   return value.endsWith("s") ? value.slice(0, -1) : value;
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 async function createRemovePreview(
@@ -291,6 +434,103 @@ function routeFileEntries(config: SoapConfig, resource: ResourceRegistryEntry, r
 
     const fileName = path.posix.basename(entry.path).replace(/\.(controller|contract)\.ts$/, "");
     return routeFileNames.has(fileName);
+  });
+}
+
+function componentFileEntries(
+  config: SoapConfig,
+  resource: ResourceRegistryEntry,
+  input: string,
+  type: "controller" | "entity" | "use-case"
+): GeneratedFileEntry[] {
+  const candidates = componentNameCandidates(input);
+
+  return config.registry.generatedFiles.filter((entry) => {
+    if (entry.owner !== resource.name || entry.type !== type) {
+      return false;
+    }
+
+    const componentName = componentNameFromPath(entry.path, type);
+    return componentName ? candidates.has(componentName) : false;
+  });
+}
+
+function repositoryFileEntries(
+  config: SoapConfig,
+  resource: ResourceRegistryEntry,
+  input: string,
+  options: Pick<RemoveRepositoryOptions, "impl" | "port">
+): GeneratedFileEntry[] {
+  const candidates = componentNameCandidates(input);
+  const includePort = Boolean(options.port) || (!options.impl && !options.port);
+  const includeImpl = Boolean(options.impl) || (!options.impl && !options.port);
+
+  return config.registry.generatedFiles.filter((entry) => {
+    if (entry.owner !== resource.name || entry.type !== "repository") {
+      return false;
+    }
+
+    const isPort = entry.path.includes("/application/ports/");
+    if (isPort && !includePort) {
+      return false;
+    }
+
+    if (!isPort && !includeImpl) {
+      return false;
+    }
+
+    return repositoryNameCandidatesFromPath(entry.path).some((name) => candidates.has(name));
+  });
+}
+
+function componentNameCandidates(input: string): Set<string> {
+  const names = createNameVariants(input);
+  const candidates = new Set([input, names.kebabName, names.pluralName, singularize(names.kebabName)]);
+
+  return new Set(Array.from(candidates).map((candidate) => createNameVariants(candidate).kebabName));
+}
+
+function componentNameFromPath(filePath: string, type: "controller" | "entity" | "use-case"): string | undefined {
+  const fileName = path.posix.basename(filePath);
+
+  if (type === "controller") {
+    return fileName.replace(/\.controller\.ts$/, "");
+  }
+
+  if (type === "entity") {
+    return fileName.replace(/\.entity(?:\.spec)?\.ts$/, "");
+  }
+
+  return fileName.replace(/\.use-case(?:\.spec)?\.ts$/, "");
+}
+
+function repositoryNameCandidatesFromPath(filePath: string): string[] {
+  const fileName = path.posix.basename(filePath)
+    .replace(/\.ts$/, "")
+    .replace(/\.spec$/, "");
+  const baseNames = new Set<string>([fileName]);
+
+  for (const suffix of [
+    "-repository.port",
+    ".repository",
+    ".memory-repository",
+    ".mongo-repository",
+    ".sql-repository",
+    ".repository.mongo",
+    ".repository.sql",
+    ".mapper",
+    ".model",
+    ".row",
+    ".schema",
+  ]) {
+    if (fileName.endsWith(suffix)) {
+      baseNames.add(fileName.slice(0, -suffix.length));
+    }
+  }
+
+  return Array.from(baseNames).flatMap((name) => {
+    const variants = createNameVariants(name);
+    return [variants.kebabName, singularize(variants.kebabName), variants.pluralName];
   });
 }
 
@@ -383,7 +623,8 @@ async function refreshGeneratedIndexes(
       config.structure.featuresRoot,
       config.project.capabilities.auth,
       routeIndexResources,
-      config.registry.resources.filter((resource) => !routeIndexResources.includes(resource.name)).map((resource) => resource.name)
+      config.registry.resources.filter((resource) => !routeIndexResources.includes(resource.name)).map((resource) => resource.name),
+      config.registry.generatedFiles
     ),
   ];
 

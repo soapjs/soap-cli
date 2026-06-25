@@ -5,6 +5,7 @@ import {
   AuthCapability,
   ControllerLayout,
   DatabaseCapability,
+  GeneratedFileEntry,
   ResourceFieldDefinition,
   ResourceFieldType,
   ResourceRegistryEntry,
@@ -812,7 +813,7 @@ function createCqrsCrudControllerTs(action: RegularCrudAction, resource: Resourc
   const routePolicy = action.policy ?? plan.policy;
   const authDecorator = createCqrsCrudAuthDecorator(routeAuth, routeZone, routePolicy);
   const authLine = authDecorator ? `  ${authDecorator}\n` : "";
-  const imports = ["Controller", "Inject", action.method];
+  const imports = ["Controller", "Inject", action.method, "RouteIO"];
 
   if (authDecorator?.startsWith("@Public")) imports.push("Public");
   if (authDecorator?.startsWith("@Auth")) imports.push("Auth");
@@ -822,7 +823,7 @@ function createCqrsCrudControllerTs(action: RegularCrudAction, resource: Resourc
 import { ${Array.from(new Set(imports)).sort().join(", ")} } from '@soapjs/soap-express';
 import { ${busType} } from '@soapjs/soap/cqrs';
 import { ${action.classBase}${messageType} } from '../application/${folder}/${action.name}.${messageType.toLowerCase()}';
-import { ${action.operationId}BodyContract } from '../contracts/${action.name}.contract';
+import { ${action.operationId}BodyContract, ${action.operationId}RouteIO } from '../contracts/${action.name}.contract';
 
 @Controller('${resource.path}', {
   apiDoc: {
@@ -833,7 +834,8 @@ import { ${action.operationId}BodyContract } from '../contracts/${action.name}.c
 export class ${action.classBase}Controller {
   constructor(@Inject('${busType}') private readonly ${busProperty}: ${busType}) {}
 
-${authLine}  @${action.method}('${action.path}', ${createRouteApiDocOptions({
+${authLine}  @RouteIO(${action.operationId}RouteIO)
+  @${action.method}('${action.path}', ${createRouteApiDocOptions({
     summary: `${action.classBase} ${resource.name}`,
     operationId: action.operationId,
     auth: routeAuth,
@@ -851,7 +853,7 @@ function createCqrsCrudFeatureControllerTs(
   resource: ResourceRegistryEntry,
   plan: AddResourcePlan
 ): string {
-  const imports = ["Controller", "Inject", ...actions.map((action) => action.method)];
+  const imports = ["Controller", "Inject", "RouteIO", ...actions.map((action) => action.method)];
   const hasCommands = actions.some((action) => action.kind === "create" || action.kind === "update" || action.kind === "delete");
   const hasQueries = actions.some((action) => action.kind === "list" || action.kind === "get");
   const cqrsImports = [
@@ -872,7 +874,7 @@ function createCqrsCrudFeatureControllerTs(
   const queryImports = actions
     .filter((action) => action.kind === "list" || action.kind === "get")
     .map((action) => `import { ${action.classBase}Query } from '../application/queries/${action.name}.query';`);
-  const contractImports = actions.map((action) => `import { ${action.operationId}BodyContract } from '../contracts/${action.name}.contract';`);
+  const contractImports = actions.map((action) => `import { ${action.operationId}BodyContract, ${action.operationId}RouteIO } from '../contracts/${action.name}.contract';`);
   const constructorArgs = [
     hasCommands ? "    @Inject('CommandBus') private readonly commandBus: CommandBus," : undefined,
     hasQueries ? "    @Inject('QueryBus') private readonly queryBus: QueryBus," : undefined,
@@ -885,7 +887,8 @@ function createCqrsCrudFeatureControllerTs(
     const authDecorator = createCqrsCrudAuthDecorator(routeAuth, action.zone ?? plan.zone, action.policy ?? plan.policy);
     const authLine = authDecorator ? `  ${authDecorator}\n` : "";
 
-    return `${authLine}  @${action.method}('${action.path}', ${createRouteApiDocOptions({
+    return `${authLine}  @RouteIO(${action.operationId}RouteIO)
+  @${action.method}('${action.path}', ${createRouteApiDocOptions({
       summary: `${action.classBase} ${resource.name}`,
       operationId: action.operationId,
       auth: routeAuth,
@@ -1016,7 +1019,8 @@ export function createControllersFile(
   featuresRoot: string,
   authCapabilities: AuthCapability[] = [],
   routeControllerIndexes: string[] = [],
-  mainControllerResources: string[] = resources.map((resource) => resource.name)
+  mainControllerResources: string[] = resources.map((resource) => resource.name),
+  generatedFiles: Array<Pick<GeneratedFileEntry, "path" | "type">> = []
 ): PlannedFile {
   const controllers: ControllerRegistration[] = [];
   const routeControllerIndexSet = new Set(routeControllerIndexes);
@@ -1050,11 +1054,42 @@ export function createControllersFile(
       };
     }));
 
+  controllers.push(...createStandaloneControllerRegistrations(generatedFiles, featuresRoot));
+
   return {
     path: "src/config/controllers.ts",
     type: "config",
     content: createControllersTs(controllers),
   };
+}
+
+function createStandaloneControllerRegistrations(
+  generatedFiles: Array<Pick<GeneratedFileEntry, "path" | "type">>,
+  featuresRoot: string
+): ControllerRegistration[] {
+  const escapedRoot = featuresRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const controllerPattern = new RegExp(`^${escapedRoot}/([^/]+)/api/([^/]+)\\.controller\\.ts$`);
+  const registrations = generatedFiles
+    .filter((entry) => entry.type === "controller")
+    .map((entry) => {
+      const match = entry.path.match(controllerPattern);
+
+      if (!match) {
+        return undefined;
+      }
+
+      const featureName = match[1];
+      const controllerName = match[2];
+      const names = createNameVariants(controllerName);
+
+      return {
+        className: `${names.pascalName}Controller`,
+        importPath: `../${featuresRoot.replace(/^src\//, "")}/${featureName}/api/${controllerName}.controller`,
+      };
+    })
+    .filter((registration): registration is ControllerRegistration => Boolean(registration));
+
+  return registrations.sort((left, right) => left.className.localeCompare(right.className));
 }
 
 interface RegularCrudAction {
@@ -2057,30 +2092,66 @@ function createRegularCrudContractTs(action: RegularCrudAction, plan: AddResourc
   if (plan.contracts === "zod") {
     const schemaFields = createZodSchemaFields(plan.fields, action.kind);
 
-    return `import { Request } from 'express';
+    return `import { Request, Response } from 'express';
+import { Result } from '@soapjs/soap';
+import { ResultMapper } from '@soapjs/soap-express';
 import { z } from 'zod';
 
 export const ${action.operationId}BodySchema = z.object({
 ${schemaFields}
 }).passthrough();
+export const ${action.operationId}ResponseSchema = z.unknown();
 
 export type ${action.classBase}RouteInput = z.infer<typeof ${action.operationId}BodySchema>;
+export type ${action.classBase}RouteOutput = unknown;
+export type ${action.classBase}RouteResponse = z.infer<typeof ${action.operationId}ResponseSchema>;
 
 export function ${action.operationId}BodyContract(req: Request): ${action.classBase}RouteInput {
   return ${action.operationId}BodySchema.parse(${source});
 }
+
+export function ${action.operationId}ResponseContract(output: ${action.classBase}RouteOutput): ${action.classBase}RouteResponse {
+  return ${action.operationId}ResponseSchema.parse(output);
+}
+
+export const ${action.operationId}RouteIO = {
+  from<T = Request>(source: T): ${action.classBase}RouteInput {
+    return ${action.operationId}BodyContract(source as Request);
+  },
+  to<T = Response>(result: Result<${action.classBase}RouteOutput>, target: T): void {
+    ResultMapper.toResponse(result, target as Response, { transform: ${action.operationId}ResponseContract });
+  },
+};
 `;
   }
 
-  return `import { Request } from 'express';
+  return `import { Request, Response } from 'express';
+import { Result } from '@soapjs/soap';
+import { ResultMapper } from '@soapjs/soap-express';
 
 export interface ${action.classBase}RouteInput {
   [key: string]: unknown;
 }
 
+export type ${action.classBase}RouteOutput = unknown;
+export type ${action.classBase}RouteResponse = ${action.classBase}RouteOutput;
+
 export function ${action.operationId}BodyContract(req: Request): ${action.classBase}RouteInput {
   return ${source};
 }
+
+export function ${action.operationId}ResponseContract(output: ${action.classBase}RouteOutput): ${action.classBase}RouteResponse {
+  return output;
+}
+
+export const ${action.operationId}RouteIO = {
+  from<T = Request>(source: T): ${action.classBase}RouteInput {
+    return ${action.operationId}BodyContract(source as Request);
+  },
+  to<T = Response>(result: Result<${action.classBase}RouteOutput>, target: T): void {
+    ResultMapper.toResponse(result, target as Response, { transform: ${action.operationId}ResponseContract });
+  },
+};
 `;
 }
 
@@ -2089,18 +2160,25 @@ function createRegularCrudContractSpecTs(
   fields: ResourceFieldDefinition[] | undefined = []
 ): string {
   const contractName = `${action.operationId}BodyContract`;
+  const responseContractName = `${action.operationId}ResponseContract`;
   const request = createRegularCrudContractSpecRequest(action, fields);
   const expected = createRegularCrudContractSpecExpected(action, fields);
 
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Request } from 'express';
-import { ${contractName} } from './${action.name}.contract';
+import { ${contractName}, ${responseContractName} } from './${action.name}.contract';
 
 test('${contractName} maps request input', () => {
   const req = ${request} as unknown as Request;
 
   assert.deepEqual(${contractName}(req), ${expected});
+});
+
+test('${responseContractName} maps use case output', () => {
+  const output = { id: 'existing-id', name: 'Ada' };
+
+  assert.deepEqual(${responseContractName}(output), output);
 });
 `;
 }
@@ -2175,7 +2253,7 @@ function createRegularCrudControllerTs(
 
   return `import { ${Array.from(new Set(decoratorImports)).sort().join(", ")} } from '@soapjs/soap-express';
 import { ${action.classBase}UseCase } from '../application/use-cases/${action.name}.use-case';
-import { ${action.operationId}BodyContract } from '../contracts/${action.name}.contract';
+import { ${action.operationId}RouteIO } from '../contracts/${action.name}.contract';
 
 @Controller('/${featureNames.kebabName}', {
   apiDoc: {
@@ -2185,7 +2263,7 @@ import { ${action.operationId}BodyContract } from '../contracts/${action.name}.c
 })
 export class ${action.classBase}Controller {
 ${authLine}  @CallUseCase(${action.classBase}UseCase)
-  @RouteIO({ from: ${action.operationId}BodyContract })
+  @RouteIO(${action.operationId}RouteIO)
   @${action.method}('${action.path}', ${createRouteApiDocOptions({
     summary: `${action.classBase} ${featureNames.kebabName}`,
     operationId: action.operationId,
@@ -2210,7 +2288,7 @@ function createRegularCrudFeatureControllerTs(
   }
 
   const useCaseImports = actions.map((action) => `import { ${action.classBase}UseCase } from '../application/use-cases/${action.name}.use-case';`);
-  const contractImports = actions.map((action) => `import { ${action.operationId}BodyContract } from '../contracts/${action.name}.contract';`);
+  const contractImports = actions.map((action) => `import { ${action.operationId}RouteIO } from '../contracts/${action.name}.contract';`);
   const methods = actions.map((action) => {
     const routeAuth = action.auth ?? plan.auth;
     const routeZone = action.zone ?? plan.zone;
@@ -2219,7 +2297,7 @@ function createRegularCrudFeatureControllerTs(
     const authLine = authDecorator ? `  ${authDecorator}\n` : "";
 
     return `${authLine}  @CallUseCase(${action.classBase}UseCase)
-  @RouteIO({ from: ${action.operationId}BodyContract })
+  @RouteIO(${action.operationId}RouteIO)
   @${action.method}('${action.path}', ${createRouteApiDocOptions({
       summary: `${action.classBase} ${featureNames.kebabName}`,
       operationId: action.operationId,

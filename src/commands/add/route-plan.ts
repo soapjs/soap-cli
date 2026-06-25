@@ -207,18 +207,23 @@ function createRouteControllerTs(plan: AddRoutePlan): string {
   const useCaseImport = useCaseNames
     ? `import { ${useCaseNames.pascalName}UseCase } from '../application/use-cases/${useCaseNames.kebabName}.use-case';\n`
     : "";
-  const contractImport = useCaseNames || cqrsTarget
-    ? `import { ${routeNames.camelName}BodyContract } from '../contracts/${routeNames.kebabName}.contract';\n`
+  const contractSymbols = [
+    cqrsTarget ? `${routeNames.camelName}BodyContract` : undefined,
+    useCaseNames || cqrsTarget ? `${routeNames.camelName}RouteIO` : undefined,
+  ].filter(Boolean);
+  const contractImport = contractSymbols.length > 0
+    ? `import { ${contractSymbols.join(", ")} } from '../contracts/${routeNames.kebabName}.contract';\n`
     : "";
   const authDecorator = createRouteAuthDecorator(plan.auth, plan.zone, plan.policy);
   const authLine = authDecorator ? `  ${authDecorator}\n` : "";
   const useCaseDecorators = useCaseNames
-    ? `  @CallUseCase(${useCaseNames.pascalName}UseCase)\n  @RouteIO({ from: ${routeNames.camelName}BodyContract })\n`
+    ? `  @CallUseCase(${useCaseNames.pascalName}UseCase)\n  @RouteIO(${routeNames.camelName}RouteIO)\n`
     : "";
   const constructor = cqrsTarget
     ? `  constructor(@Inject('${cqrsTarget.busType}') private readonly ${cqrsTarget.busProperty}: ${cqrsTarget.busType}) {}\n\n`
     : "";
   const methodArgs = cqrsTarget ? "req: Request" : "";
+  const routeIoDecorator = cqrsTarget ? `  @RouteIO(${routeNames.camelName}RouteIO)\n` : "";
   const body = cqrsTarget
     ? `\n    return this.${cqrsTarget.busProperty}.dispatch(new ${cqrsTarget.className}(${routeNames.camelName}BodyContract(req)));\n  `
     : useCaseNames
@@ -235,7 +240,7 @@ ${cqrsImport}${cqrsTargetImport}${useCaseImport}${contractImport}
   },
 })
 export class ${routeNames.pascalName}Controller {
-${constructor}${authLine}${useCaseDecorators}  @${decorator}('${routePath}', ${createRouteApiDocOptions({
+${constructor}${authLine}${useCaseDecorators}${routeIoDecorator}  @${decorator}('${routePath}', ${createRouteApiDocOptions({
     summary: `${routeNames.camelName} ${resourceNames.kebabName}`,
     operationId: routeNames.camelName,
     auth: plan.auth,
@@ -279,23 +284,27 @@ function createFeatureRouteControllerTs(plan: FeatureRouteControllerPlan): strin
       soapImports.add("CallUseCase");
       soapImports.add("RouteIO");
       useCaseImports.set(model.useCase.className, model.useCase.importPath);
-      contractImports.set(model.contract.functionName, model.contract.importPath);
+      contractImports.set(model.contract.ioName, model.contract.importPath);
     }
 
     if (model.command) {
       soapImports.add("Inject");
+      soapImports.add("RouteIO");
       needsRequest = true;
       needsCommandBus = true;
       commandImports.set(model.command.className, model.command.importPath);
       contractImports.set(model.contract.functionName, model.contract.importPath);
+      contractImports.set(model.contract.ioName, model.contract.importPath);
     }
 
     if (model.query) {
       soapImports.add("Inject");
+      soapImports.add("RouteIO");
       needsRequest = true;
       needsQueryBus = true;
       queryImports.set(model.query.className, model.query.importPath);
       contractImports.set(model.contract.functionName, model.contract.importPath);
+      contractImports.set(model.contract.ioName, model.contract.importPath);
     }
   }
 
@@ -361,6 +370,7 @@ interface FeatureRouteModel {
   };
   contract: {
     functionName: string;
+    ioName: string;
     importPath: string;
   };
 }
@@ -385,6 +395,7 @@ function createFeatureRouteModel(plan: FeatureRouteControllerPlan, route: RouteR
     authDecorator,
     contract: {
       functionName: `${contractName}BodyContract`,
+      ioName: `${contractName}RouteIO`,
       importPath: `../contracts/${contractFile}.contract`,
     },
   };
@@ -454,20 +465,22 @@ function createFeatureRouteMethodTs(model: FeatureRouteModel): string {
 
   if (model.useCase) {
     return `${authLine}  @CallUseCase(${model.useCase.className})
-  @RouteIO({ from: ${model.contract.functionName} })
+  @RouteIO(${model.contract.ioName})
   @${model.decorator}('${model.routePath}', ${apiDoc})
   async ${model.methodName}(): Promise<void> {}`;
   }
 
   if (model.command) {
-    return `${authLine}  @${model.decorator}('${model.routePath}', ${apiDoc})
+    return `${authLine}  @RouteIO(${model.contract.ioName})
+  @${model.decorator}('${model.routePath}', ${apiDoc})
   async ${model.methodName}(req: Request): Promise<unknown> {
     return this.commandBus.dispatch(new ${model.command.className}(${model.contract.functionName}(req)));
   }`;
   }
 
   if (model.query) {
-    return `${authLine}  @${model.decorator}('${model.routePath}', ${apiDoc})
+    return `${authLine}  @RouteIO(${model.contract.ioName})
+  @${model.decorator}('${model.routePath}', ${apiDoc})
   async ${model.methodName}(req: Request): Promise<unknown> {
     return this.queryBus.dispatch(new ${model.query.className}(${model.contract.functionName}(req)));
   }`;
@@ -536,6 +549,7 @@ function createSoapExpressImports(plan: AddRoutePlan, routeDecorator: string): s
   }
   if (plan.command || plan.query) {
     imports.add("Inject");
+    imports.add("RouteIO");
   }
 
   const authDecorator = createRouteAuthDecorator(plan.auth, plan.zone, plan.policy);
@@ -577,28 +591,64 @@ function createRouteContractTs(
     : "{ ...req.params, ...req.query, ...req.body }";
 
   if (contracts === "zod") {
-    return `import { Request } from 'express';
+    return `import { Request, Response } from 'express';
+import { Result } from '@soapjs/soap';
+import { ResultMapper } from '@soapjs/soap-express';
 import { z } from 'zod';
 
 export const ${camelName}BodySchema = z.record(z.unknown());
+export const ${camelName}ResponseSchema = z.unknown();
 
 export type ${className}RouteInput = z.infer<typeof ${camelName}BodySchema>;
+export type ${className}RouteOutput = unknown;
+export type ${className}RouteResponse = z.infer<typeof ${camelName}ResponseSchema>;
 
 export function ${camelName}BodyContract(req: Request): ${className}RouteInput {
   return ${camelName}BodySchema.parse(${sourceExpression});
 }
+
+export function ${camelName}ResponseContract(output: ${className}RouteOutput): ${className}RouteResponse {
+  return ${camelName}ResponseSchema.parse(output);
+}
+
+export const ${camelName}RouteIO = {
+  from<T = Request>(source: T): ${className}RouteInput {
+    return ${camelName}BodyContract(source as Request);
+  },
+  to<T = Response>(result: Result<${className}RouteOutput>, target: T): void {
+    ResultMapper.toResponse(result, target as Response, { transform: ${camelName}ResponseContract });
+  },
+};
 `;
   }
 
-  return `import { Request } from 'express';
+  return `import { Request, Response } from 'express';
+import { Result } from '@soapjs/soap';
+import { ResultMapper } from '@soapjs/soap-express';
 
 export interface ${className}RouteInput {
   [key: string]: unknown;
 }
 
+export type ${className}RouteOutput = unknown;
+export type ${className}RouteResponse = ${className}RouteOutput;
+
 export function ${camelName}BodyContract(req: Request): ${className}RouteInput {
   return ${sourceExpression};
 }
+
+export function ${camelName}ResponseContract(output: ${className}RouteOutput): ${className}RouteResponse {
+  return output;
+}
+
+export const ${camelName}RouteIO = {
+  from<T = Request>(source: T): ${className}RouteInput {
+    return ${camelName}BodyContract(source as Request);
+  },
+  to<T = Response>(result: Result<${className}RouteOutput>, target: T): void {
+    ResultMapper.toResponse(result, target as Response, { transform: ${camelName}ResponseContract });
+  },
+};
 `;
 }
 
@@ -608,6 +658,7 @@ function createRouteContractSpecTs(
   method: RouteMethod
 ): string {
   const contractName = `${camelName}BodyContract`;
+  const responseContractName = `${camelName}ResponseContract`;
   const request = method === "get" || method === "delete" || method === "head" || method === "options"
     ? "{ params: { id: 'existing-id' }, query: { include: 'details' }, body: { ignored: true } }"
     : "{ params: { id: 'existing-id' }, query: { mode: 'preview' }, body: { name: 'Ada' } }";
@@ -618,12 +669,18 @@ function createRouteContractSpecTs(
   return `import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Request } from 'express';
-import { ${contractName} } from './${kebabName}.contract';
+import { ${contractName}, ${responseContractName} } from './${kebabName}.contract';
 
 test('${contractName} maps request input', () => {
   const req = ${request} as unknown as Request;
 
   assert.deepEqual(${contractName}(req), ${expected});
+});
+
+test('${responseContractName} maps use case output', () => {
+  const output = { id: 'existing-id', name: 'Ada' };
+
+  assert.deepEqual(${responseContractName}(output), output);
 });
 `;
 }

@@ -17,6 +17,7 @@ import {
   createCommandIndexFile,
   createCqrsConfigFile,
 } from "./command-plan";
+import { createControllerFile } from "./controller-plan";
 import { createEntityFiles } from "./entity-plan";
 import { createEventFiles } from "./event-plan";
 import {
@@ -96,6 +97,13 @@ interface AddRouteOptions extends InteractiveCommandOptions, ConflictCommandOpti
 
 interface AddCommandOptions extends ConflictCommandOptions {
   feature?: string;
+  force?: boolean;
+  writeNew?: boolean;
+}
+
+interface AddControllerOptions extends ConflictCommandOptions {
+  feature?: string;
+  path?: string;
   force?: boolean;
   writeNew?: boolean;
 }
@@ -283,7 +291,8 @@ export function registerAddCommand(program: Command): void {
           config.structure.featuresRoot,
           config.project.capabilities.auth,
           routeControllerIndexes,
-          mainControllerResources
+          mainControllerResources,
+          config.registry.generatedFiles
         ),
         ...(cqrsConfigFile ? [cqrsConfigFile] : []),
         ...brunoFiles,
@@ -441,7 +450,8 @@ export function registerAddCommand(program: Command): void {
         config.structure.featuresRoot,
         config.project.capabilities.auth,
         controllerIndexes,
-        mainControllerResources
+        mainControllerResources,
+        config.registry.generatedFiles
       );
       const brunoEnabled = config.project.capabilities.apiClient.includes("bruno") || config.api.bruno.enabled;
       const brunoFiles = options.bruno || promptAnswers?.bruno
@@ -469,6 +479,70 @@ export function registerAddCommand(program: Command): void {
       await writeSoapConfig(config.root, config, context);
 
       context.output.success(`Added route ${route.method} ${route.path}`);
+    });
+
+  addConflictOption(add
+    .command("controller <name>")
+    .description("Add an empty mock controller to a feature.")
+    .requiredOption("--feature <feature>", "feature that owns the controller")
+    .option("--path <path>", "controller base path; defaults to /<controller-name>")
+    .option("--force", "overwrite generated files even when modified", false)
+    .option("--write-new", "write modified generated files as .new", false))
+    .action(async (name: string, options: AddControllerOptions, command: Command) => {
+      const context = getCommandContext(command);
+      const config = await loadSoapConfig(context.cwd);
+      const names = createNameVariants(name);
+      const feature = createNameVariants(options.feature!).kebabName;
+
+      if (!config.registry.resources.some((resource) => resource.name === feature)) {
+        throw new CliError(`Feature "${feature}" does not exist. Run \`soap add feature ${feature}\` first.`);
+      }
+
+      const controllerFile = createControllerFile({
+        name,
+        feature,
+        featuresRoot: config.structure.featuresRoot,
+        path: options.path,
+      });
+
+      if (config.registry.generatedFiles.some((entry) => entry.path === controllerFile.path)) {
+        throw new CliError(`Controller "${names.kebabName}" already exists in feature "${feature}".`);
+      }
+
+      const generatedFiles = [
+        ...config.registry.generatedFiles,
+        { path: controllerFile.path, type: controllerFile.type },
+      ];
+      const routeControllerIndexes = routeControllerIndexResources(
+        config.registry.generatedFiles.map((file) => file.path),
+        config.structure.featuresRoot
+      );
+      const mainControllerResources = config.registry.resources
+        .filter((resource) => !routeControllerIndexes.includes(resource.name))
+        .map((resource) => resource.name);
+      const controllersFile = createControllersFile(
+        config.registry.resources,
+        config.structure.featuresRoot,
+        config.project.capabilities.auth,
+        routeControllerIndexes,
+        mainControllerResources,
+        generatedFiles
+      );
+
+      await writePlannedFiles(
+        {
+          root: config.root,
+          files: [controllerFile, controllersFile],
+          registry: config.registry,
+          force: options.force,
+          writeNew: options.writeNew,
+          onConflict: options.onConflict,
+        },
+        context
+      );
+      await writeSoapConfig(config.root, config, context);
+
+      context.output.success(`Added controller ${names.kebabName}`);
     });
 
   add

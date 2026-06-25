@@ -28,10 +28,17 @@ if (violations.length > 0) {
 }
 
 const {
+  createControllersFile,
   createDatabaseFile,
   createResourceFiles,
   parseCrudRouteMatrix,
 } = require("../build/commands/add/resource-plan");
+const {
+  createRouteControllerFile,
+  createRouteContractFile,
+  createRouteContractSpecFile,
+} = require("../build/commands/add/route-plan");
+const { createControllerFile } = require("../build/commands/add/controller-plan");
 const { createUseCaseFiles } = require("../build/commands/add/use-case-plan");
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "soap-cli-generated-imports-"));
@@ -44,6 +51,44 @@ try {
     feature: "comics",
     featuresRoot: "src/features",
   });
+  const standaloneRoutePlan = {
+    resource: {
+      name: "comics",
+      path: "/comics",
+      crud: false,
+      db: "none",
+      auth: "none",
+      zone: "public",
+      fields: [],
+      generatedAt: "2026-01-01T00:00:00.000Z",
+    },
+    name: "publish",
+    method: "post",
+    path: "publish",
+    useCase: "publishComic",
+    auth: "none",
+    zone: "public",
+    featuresRoot: "src/features",
+    contracts: "plain",
+  };
+  const standaloneRouteFiles = [
+    createRouteControllerFile(standaloneRoutePlan),
+    createRouteContractFile(standaloneRoutePlan),
+    createRouteContractSpecFile(standaloneRoutePlan),
+  ];
+  const mockControllerFile = createControllerFile({
+    name: "adminTools",
+    feature: "comics",
+    featuresRoot: "src/features",
+  });
+  const controllerConfigFile = createControllersFile(
+    [],
+    "src/features",
+    [],
+    [],
+    [],
+    [{ path: mockControllerFile.path, type: mockControllerFile.type }]
+  );
   const resourceFiles = createResourceFiles({
     name: "comics",
     crud: true,
@@ -64,6 +109,18 @@ try {
     zone: "public",
     featuresRoot: "src/features",
     architecture: "regular",
+    contracts: "plain",
+    fields: [{ name: "title", type: "string", required: true }],
+    crudRoutes: parseCrudRouteMatrix([]),
+  });
+  const cqrsResourceFiles = createResourceFiles({
+    name: "articles",
+    crud: true,
+    db: "none",
+    auth: "none",
+    zone: "public",
+    featuresRoot: "src/features",
+    architecture: "cqrs",
     contracts: "plain",
     fields: [{ name: "title", type: "string", required: true }],
     crudRoutes: parseCrudRouteMatrix([]),
@@ -94,10 +151,23 @@ try {
 
   const generatedFiles = [
     ...standaloneUseCaseFiles.filter((file) => file.path.endsWith(".use-case.ts")),
+    ...standaloneRouteFiles,
+    mockControllerFile,
+    controllerConfigFile,
     ...resourceFiles.filter((file) =>
       file.path.includes("/domain/") ||
       file.path.includes("/application/ports/") ||
-      file.path.endsWith(".use-case.ts")
+      file.path.endsWith(".use-case.ts") ||
+      file.path.includes("/contracts/") ||
+      file.path.includes("/api/")
+    ),
+    ...cqrsResourceFiles.filter((file) =>
+      file.path.includes("/domain/") ||
+      file.path.includes("/application/ports/") ||
+      file.path.endsWith(".command.ts") ||
+      file.path.endsWith(".query.ts") ||
+      file.path.includes("/contracts/") ||
+      file.path.includes("/api/")
     ),
   ];
 
@@ -135,6 +205,28 @@ try {
 
 function writeSoapStub(basePath) {
   writeFile(
+    path.join(basePath, "node_modules/express/package.json"),
+    JSON.stringify({
+      name: "express",
+      version: "0.0.0-test",
+      types: "index.d.ts",
+    }, null, 2)
+  );
+  writeFile(
+    path.join(basePath, "node_modules/express/index.d.ts"),
+    `export interface Request {
+  params: Record<string, unknown>;
+  query: Record<string, unknown>;
+  body: Record<string, unknown>;
+}
+export interface Response {
+  status(code: number): this;
+  json(body?: unknown): this;
+  end(): this;
+}
+`
+  );
+  writeFile(
     path.join(basePath, "node_modules/@soapjs/soap/package.json"),
     JSON.stringify({
       name: "@soapjs/soap",
@@ -164,6 +256,23 @@ export interface UseCase<T = unknown> {
 `
   );
   writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap/cqrs/index.d.ts"),
+    `import { Result } from '../common';
+export declare class BaseCommand<TResult = void> {
+  constructor(initiatedBy?: string, correlationId?: string);
+}
+export declare class BaseQuery<TResult = void> {
+  constructor(initiatedBy?: string, correlationId?: string);
+}
+export interface CommandBus {
+  dispatch<TResult>(command: unknown): Promise<Result<TResult>>;
+}
+export interface QueryBus {
+  dispatch<TResult>(query: unknown): Promise<Result<TResult>>;
+}
+`
+  );
+  writeFile(
     path.join(basePath, "node_modules/@soapjs/soap/common/index.d.ts"),
     `export declare class Result<T = unknown> {
   readonly content: T;
@@ -175,6 +284,34 @@ export interface UseCase<T = unknown> {
 }
 export declare function Injectable(): ClassDecorator;
 export declare function Inject(token: string): ParameterDecorator;
+`
+  );
+  writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap-express/package.json"),
+    JSON.stringify({
+      name: "@soapjs/soap-express",
+      version: "0.0.0-test",
+      types: "index.d.ts",
+    }, null, 2)
+  );
+  writeFile(
+    path.join(basePath, "node_modules/@soapjs/soap-express/index.d.ts"),
+    `import { Result } from '@soapjs/soap';
+export declare function AdminOnly(strategy: string): MethodDecorator;
+export declare function Auth(strategy: string, policy?: unknown): MethodDecorator;
+export declare function CallUseCase(useCaseClass: unknown): MethodDecorator;
+export declare function Controller(path: string, options?: unknown): ClassDecorator;
+export declare function Delete(path: string, options?: unknown): MethodDecorator;
+export declare function Get(path: string, options?: unknown): MethodDecorator;
+export declare function Inject(token: string): ParameterDecorator;
+export declare function Patch(path: string, options?: unknown): MethodDecorator;
+export declare function Post(path: string, options?: unknown): MethodDecorator;
+export declare function Public(): MethodDecorator;
+export declare function Put(path: string, options?: unknown): MethodDecorator;
+export declare function RouteIO(io: unknown): MethodDecorator;
+export declare class ResultMapper {
+  static toResponse<T>(result: Result<T>, response: unknown, options?: { successStatus?: number; transform?: (content: T) => unknown }): void;
+}
 `
   );
 }

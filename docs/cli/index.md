@@ -17,10 +17,12 @@ soap create users-api -i
 ## Add Code
 
 - [`soap add feature`](add-resource.md) adds a feature, optional CRUD routes, storage, contracts, tests, and Bruno requests.
+- [`soap add controller`](add-controller.md) adds an empty mock controller to an existing feature.
 - [`soap add route`](add-route.md) adds a custom route to an existing resource.
 
 ```bash
 soap add feature invoice --crud --db postgres --auth jwt --zone private
+soap add controller invoice-admin --feature invoice
 soap add route invoice approve --method post --path :id/approve --auth jwt --policy custom:approver
 ```
 
@@ -77,11 +79,13 @@ soap check routes
 
 ## Remove Generated Code
 
-- [`soap remove`](remove.md) safely removes generated routes or features tracked in `.soap/registry.json`.
+- [`soap remove`](remove.md) safely removes generated routes, features, or feature components tracked in `.soap/registry.json`.
 
 ```bash
 soap remove route invoice create
 soap remove feature invoice
+soap remove controller invoice invoice-admin
+soap remove repository invoice invoice --impl
 soap remove feature invoice -i
 ```
 

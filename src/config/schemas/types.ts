@@ -94,6 +94,7 @@ export type GeneratedFileType =
   | "entity"
   | "use-case"
   | "repository"
+  | "controller"
   | "route"
   | "bruno"
   | "docker"

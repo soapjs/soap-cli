@@ -178,7 +178,8 @@ function createUpdateFiles(config: SoapConfig, plan: ProjectPlan): PlannedFile[]
       config.structure.featuresRoot,
       config.project.capabilities.auth,
       routeControllerIndexes,
-      mainControllerResources
+      mainControllerResources,
+      config.registry.generatedFiles
     ),
   ];
   const brunoFiles = config.api.bruno.enabled ? createBrunoFiles(config) : [];

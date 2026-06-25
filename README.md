@@ -146,6 +146,17 @@ Use `--policy admin`, `--policy roles:a,b`, or `--policy custom:name` to attach 
 
 Use `--crud-route operation:method:path[:auth][:zone][:policy][:bruno|no-bruno]` to override CRUD route metadata per operation. Supported operations are `list`, `get`, `create`, `update`, and `delete`. Matrix policies use `admin`, `roles=a,b`, or `custom=name`.
 
+## `soap add controller`
+
+Add an empty mock controller to an existing feature:
+
+```bash
+soap add controller admin-tools --feature users
+soap add controller public-feed --feature users --path /feed
+```
+
+The generated controller is registered in `src/config/controllers.ts` and includes commented `GET`, `POST`, `PUT`, and `DELETE` examples.
+
 ## `soap add route`
 
 Add a route to an existing resource:
@@ -339,6 +350,10 @@ Safe removal:
 ```bash
 soap remove route users create-user
 soap remove feature users
+soap remove controller users admin-tools
+soap remove entity users user
+soap remove use-case users approve-user
+soap remove repository users user --impl
 soap remove route users create-user --force
 ```
 
