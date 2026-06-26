@@ -7,9 +7,9 @@ Use `-i` or `--interactive` on supported commands:
 ```bash
 soap create users-api -i
 soap add feature invoice -i
-soap add route invoice approve -i
+soap add route approve --feature invoice -i
 soap generate bruno -i
-soap remove route invoice approve -i
+soap remove route approve --feature invoice -i
 soap remove feature invoice -i
 ```
 
@@ -19,9 +19,9 @@ Interactive mode requires a TTY. In CI and scripts, use explicit flags instead.
 
 - `soap create <name> -i`
 - `soap add feature <name> -i`
-- `soap add route [resource] [name] -i`
+- `soap add route [name] --feature <feature> -i`
 - `soap generate bruno -i`
-- `soap remove route <resource> <route> -i`
+- `soap remove route [route] --feature <feature> -i`
 - `soap remove feature <feature> -i`
 
 ## When To Use It

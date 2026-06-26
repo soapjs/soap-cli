@@ -6,6 +6,7 @@ import { CommandInputResolver } from "./resolver.types";
 export interface AddRouteInput {
   method?: string;
   path?: string;
+  controller?: string;
   useCase?: string;
   command?: string;
   query?: string;
@@ -21,6 +22,7 @@ export interface AddRouteConfig {
 export interface AddRouteResult {
   method: RouteMethod;
   path?: string;
+  controller?: string;
   useCase?: string;
   command?: string;
   query?: string;
@@ -59,6 +61,7 @@ export class AddRouteResolver
     return {
       method,
       path: pick(flags.path, promptAnswers.path, preset.path),
+      controller: normalizeOptionalName(pick(flags.controller, promptAnswers.controller, preset.controller)),
       useCase,
       command,
       query,
@@ -68,9 +71,14 @@ export class AddRouteResolver
   }
 }
 
+function normalizeOptionalName(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
 function requireRouteConfig(config: AddRouteConfig | undefined): AddRouteConfig {
   if (!config) {
-    throw new CliError("Project and resource config are required to resolve route input.");
+    throw new CliError("Project and feature config are required to resolve route input.");
   }
 
   return config;

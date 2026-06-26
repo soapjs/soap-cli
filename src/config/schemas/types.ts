@@ -124,6 +124,7 @@ export interface ResourceRegistryEntry {
 export interface RouteRegistryEntry {
   resource: string;
   name: string;
+  controller?: string;
   method: string;
   path: string;
   useCase?: string;

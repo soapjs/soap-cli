@@ -13,6 +13,7 @@ import { createNameVariants } from "../../templates/naming";
 import { createFeaturesIndexFile, createResourcesFile, createControllersFile } from "../add/resource-plan";
 import {
   createFeatureRouteControllerFile,
+  createNamedRouteControllerFile,
   createRouteControllersIndexFile,
   routeControllerIndexResourceFromPath,
   routeControllerNameFromPath,
@@ -27,6 +28,7 @@ import {
 import { InquirerPromptAdapter } from "../../prompts";
 
 interface RemoveOptions extends InteractiveCommandOptions, ConflictCommandOptions {
+  feature?: string;
   force?: boolean;
   yes?: boolean;
 }
@@ -57,17 +59,26 @@ export function registerRemoveCommand(program: Command): void {
   const remove = program.command("remove").description("Safely remove generated features, routes, and components.");
 
   addConflictOption(addInteractiveOption(remove
-    .command("route <resource> <route>")
-    .description("Remove a generated route from a SoapJS project.")
+    .command("route [route]")
+    .description("Remove a generated route from a feature.")
+    .option("--feature <feature>", "feature that owns the route")
     .option("--force", "delete modified generated files", false)
     .option("--yes", "skip interactive confirmation prompts", false)))
-    .action(async (resourceInput: string, routeInput: string, options: RemoveOptions, command: Command) => {
+    .action(async (routeInput: string | undefined, options: RemoveOptions, command: Command) => {
       assertInteractiveTerminal(options);
 
       const context = getCommandContext(command);
       const config = await loadSoapConfig(context.cwd);
-      const resource = resolveResource(config, resourceInput);
-      const route = resolveRoute(config, resource, routeInput);
+      if (!options.interactive && (!options.feature || !routeInput)) {
+        throw new CliError("Feature and route name are required. Use `soap remove route <route> --feature <feature>`.");
+      }
+
+      const prompt = options.interactive ? new InquirerPromptAdapter() : undefined;
+      const resource = options.feature
+        ? resolveResource(config, options.feature)
+        : await promptRemoveRouteResource(prompt, config);
+      const resolvedRouteInput = routeInput ?? await promptRemoveRouteName(prompt, config, resource);
+      const route = resolveRoute(config, resource, resolvedRouteInput);
       const targetEntries = routeFileEntries(config, resource, route);
       const conflictPolicy = resolveRemoveConflictPolicy(options);
       const preview = await createRemovePreview(config, targetEntries, [`route ${resource.name}/${route.name}`]);
@@ -103,6 +114,7 @@ export function registerRemoveCommand(program: Command): void {
 
       await refreshGeneratedIndexes(config, removePlan.conflictPolicy === "overwrite", context, {
         changedResource: resource,
+        changedController: route.controller ?? route.name,
         deletedPaths: removePlan.deleted,
       });
       await writeSoapConfig(config.root, config, context);
@@ -169,15 +181,16 @@ export function registerRemoveCommand(program: Command): void {
     });
 
   addConflictOption(addInteractiveOption(remove
-    .command("controller <feature> <controller>")
-    .description("Remove a generated mock controller from a SoapJS project.")
+    .command("controller <controller>")
+    .description("Remove a generated mock controller from a feature.")
+    .option("--feature <feature>", "feature that owns the controller")
     .option("--force", "delete modified generated files", false)
     .option("--yes", "skip interactive confirmation prompts", false)))
-    .action(async (featureInput: string, controllerInput: string, options: RemoveOptions, command: Command) => {
+    .action(async (controllerInput: string, options: RemoveOptions, command: Command) => {
       await removeComponent({
         command,
         options,
-        featureInput,
+        featureInput: options.feature,
         componentInput: controllerInput,
         label: "controller",
         allowMissingFeatureWithForce: true,
@@ -188,15 +201,16 @@ export function registerRemoveCommand(program: Command): void {
     });
 
   addConflictOption(addInteractiveOption(remove
-    .command("entity <feature> <entity>")
-    .description("Remove a generated entity from a SoapJS project.")
+    .command("entity <entity>")
+    .description("Remove a generated entity from a feature.")
+    .option("--feature <feature>", "feature that owns the entity")
     .option("--force", "delete modified generated files", false)
     .option("--yes", "skip interactive confirmation prompts", false)))
-    .action(async (featureInput: string, entityInput: string, options: RemoveOptions, command: Command) => {
+    .action(async (entityInput: string, options: RemoveOptions, command: Command) => {
       await removeComponent({
         command,
         options,
-        featureInput,
+        featureInput: options.feature,
         componentInput: entityInput,
         label: "entity",
         allowMissingFeatureWithForce: true,
@@ -207,15 +221,16 @@ export function registerRemoveCommand(program: Command): void {
     });
 
   addConflictOption(addInteractiveOption(remove
-    .command("use-case <feature> <useCase>")
-    .description("Remove a generated use case from a SoapJS project.")
+    .command("use-case <useCase>")
+    .description("Remove a generated use case from a feature.")
+    .option("--feature <feature>", "feature that owns the use case")
     .option("--force", "delete modified generated files", false)
     .option("--yes", "skip interactive confirmation prompts", false)))
-    .action(async (featureInput: string, useCaseInput: string, options: RemoveOptions, command: Command) => {
+    .action(async (useCaseInput: string, options: RemoveOptions, command: Command) => {
       await removeComponent({
         command,
         options,
-        featureInput,
+        featureInput: options.feature,
         componentInput: useCaseInput,
         label: "use-case",
         allowMissingFeatureWithForce: true,
@@ -226,17 +241,18 @@ export function registerRemoveCommand(program: Command): void {
     });
 
   addConflictOption(addInteractiveOption(remove
-    .command("repository <feature> <repository>")
-    .description("Remove generated repository files from a SoapJS project.")
+    .command("repository <repository>")
+    .description("Remove generated repository files from a feature.")
+    .option("--feature <feature>", "feature that owns the repository")
     .option("--impl", "remove repository implementation files only", false)
     .option("--port", "remove repository port files only", false)
     .option("--force", "delete modified generated files", false)
     .option("--yes", "skip interactive confirmation prompts", false)))
-    .action(async (featureInput: string, repositoryInput: string, options: RemoveRepositoryOptions, command: Command) => {
+    .action(async (repositoryInput: string, options: RemoveRepositoryOptions, command: Command) => {
       await removeComponent({
         command,
         options,
-        featureInput,
+        featureInput: options.feature,
         componentInput: repositoryInput,
         label: "repository",
         allowMissingFeatureWithForce: true,
@@ -250,7 +266,7 @@ export function registerRemoveCommand(program: Command): void {
 async function removeComponent(input: {
   command: Command;
   options: RemoveOptions;
-  featureInput: string;
+  featureInput?: string;
   componentInput: string;
   label: string;
   allowMissingFeatureWithForce?: boolean;
@@ -262,6 +278,10 @@ async function removeComponent(input: {
 
   const context = getCommandContext(input.command);
   const config = await loadSoapConfig(context.cwd);
+  if (!input.featureInput) {
+    throw new CliError(`Feature is required. Use \`soap remove ${input.label} <name> --feature <feature>\`.`);
+  }
+
   const resource = resolveResource(config, input.featureInput, {
     allowMissing: Boolean(input.allowMissingFeatureWithForce && input.options.force),
   });
@@ -363,6 +383,59 @@ function resolveRoute(config: SoapConfig, resource: ResourceRegistryEntry, input
   return route;
 }
 
+async function promptRemoveRouteResource(
+  prompt: InquirerPromptAdapter | undefined,
+  config: SoapConfig
+): Promise<ResourceRegistryEntry> {
+  if (!prompt) {
+    throw new CliError("Feature is required. Use --feature <feature>.");
+  }
+
+  const resourcesWithRoutes = config.registry.resources.filter((resource) =>
+    config.registry.routes.some((route) => route.resource === resource.name)
+  );
+
+  if (resourcesWithRoutes.length === 0) {
+    throw new CliError("No generated routes found.");
+  }
+
+  const selected = await prompt.select<string>({
+    message: "Feature",
+    choices: resourcesWithRoutes.map((resource) => ({
+      label: `${resource.name} (${resource.path})`,
+      value: resource.name,
+    })),
+  });
+
+  return resolveResource(config, selected);
+}
+
+async function promptRemoveRouteName(
+  prompt: InquirerPromptAdapter | undefined,
+  config: SoapConfig,
+  resource: ResourceRegistryEntry
+): Promise<string> {
+  if (!prompt) {
+    throw new CliError("Route name is required.");
+  }
+
+  const routes = config.registry.routes
+    .filter((route) => route.resource === resource.name)
+    .sort((left, right) => left.name.localeCompare(right.name));
+
+  if (routes.length === 0) {
+    throw new CliError(`No generated routes found in feature "${resource.name}".`);
+  }
+
+  return prompt.select<string>({
+    message: "Route",
+    choices: routes.map((route) => ({
+      label: `${route.name} (${route.method} ${route.path})`,
+      value: route.name,
+    })),
+  });
+}
+
 function stripResourceSuffix(value: string, resourceName: string): string {
   const suffix = `-${resourceName}`;
   return value.endsWith(suffix) ? value.slice(0, -suffix.length) : value;
@@ -445,6 +518,8 @@ function routeFileEntries(config: SoapConfig, resource: ResourceRegistryEntry, r
   const resourceNames = createNameVariants(resource.name);
   const singularResourceNames = createNameVariants(singularize(resourceNames.kebabName));
   const routeNames = createNameVariants(route.name);
+  const controllerName = controllerNameForRoute(config, resource, route);
+  const controllerRoutes = routesForController(config.registry.routes, resource.name, controllerName, config.project.controllerLayout);
   const routeFileNames = new Set([
     routeNames.kebabName,
     `${routeNames.kebabName}-${singularResourceNames.kebabName}`,
@@ -462,8 +537,53 @@ function routeFileEntries(config: SoapConfig, resource: ResourceRegistryEntry, r
       return false;
     }
 
-    const fileName = path.posix.basename(entry.path).replace(/\.(controller|contract)\.ts$/, "");
-    return routeFileNames.has(fileName);
+    const basename = path.posix.basename(entry.path);
+    const controllerMatch = basename.match(/^(.+)\.controller\.ts$/);
+    if (controllerMatch) {
+      return controllerMatch[1] === controllerName && controllerRoutes.length <= 1;
+    }
+
+    const contractMatch = basename.match(/^(.+)\.contract(?:\.spec)?\.ts$/);
+    return Boolean(contractMatch && routeFileNames.has(contractMatch[1]));
+  });
+}
+
+function controllerNameForRoute(
+  config: SoapConfig,
+  resource: ResourceRegistryEntry,
+  route: RouteRegistryEntry
+): string {
+  if (route.controller) {
+    return route.controller;
+  }
+
+  if (config.project.controllerLayout === "per-feature") {
+    return resource.name;
+  }
+
+  return route.name;
+}
+
+function routesForController(
+  routes: RouteRegistryEntry[],
+  resourceName: string,
+  controllerName: string,
+  controllerLayout: SoapConfig["project"]["controllerLayout"]
+): RouteRegistryEntry[] {
+  return routes.filter((route) => {
+    if (route.resource !== resourceName) {
+      return false;
+    }
+
+    if (route.controller) {
+      return route.controller === controllerName;
+    }
+
+    if (controllerLayout === "per-feature") {
+      return controllerName === resourceName;
+    }
+
+    return route.name === controllerName;
   });
 }
 
@@ -641,7 +761,7 @@ async function refreshGeneratedIndexes(
   config: SoapConfig,
   force: boolean,
   context: CommandContext,
-  options: { changedResource?: ResourceRegistryEntry; deletedPaths: string[] }
+  options: { changedResource?: ResourceRegistryEntry; changedController?: string; deletedPaths: string[] }
 ): Promise<void> {
   const generatedPaths = config.registry.generatedFiles.map((entry) => entry.path);
   const routeIndexResources = routeControllerIndexResources(generatedPaths, config.structure.featuresRoot);
@@ -696,7 +816,38 @@ async function refreshGeneratedIndexes(
       return;
     }
 
-    const routeNames = routeControllerNamesForResource(generatedPaths, config.structure.featuresRoot, options.changedResource.name);
+    if (options.changedController) {
+      const controllerRoutes = routesForController(
+        config.registry.routes,
+        options.changedResource.name,
+        options.changedController,
+        config.project.controllerLayout
+      );
+      const controllerPath = path.posix.join(
+        config.structure.featuresRoot,
+        options.changedResource.name,
+        "api",
+        `${options.changedController}.controller.ts`
+      );
+
+      if (controllerRoutes.length > 0) {
+        files.push(createNamedRouteControllerFile({
+          resource: options.changedResource,
+          routes: controllerRoutes,
+          featuresRoot: config.structure.featuresRoot,
+          architecture: config.project.architecture,
+          controllerName: options.changedController,
+        }));
+      } else {
+        const controllerEntry = config.registry.generatedFiles.find((entry) => entry.path === controllerPath && entry.type === "route");
+        if (controllerEntry) {
+          const removePlan = await removeTrackedFiles(config, [controllerEntry], force ? "overwrite" : "skip", context);
+          removeGeneratedEntries(config, removePlan.deleted);
+        }
+      }
+    }
+
+    const routeNames = routeControllerNamesForResource(config.registry.generatedFiles.map((entry) => entry.path), config.structure.featuresRoot, options.changedResource.name);
     const indexPath = path.posix.join(
       config.structure.featuresRoot,
       options.changedResource.name,

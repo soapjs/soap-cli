@@ -256,10 +256,11 @@ function createMongoRepositoryTs(
 } from '@soapjs/soap/data';
 import { MongoSource } from '@soapjs/soap-mongo';
 import type { ${domainRef.typeName} } from '${domainRef.dataImport}';
+import type { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 import type { ${names.pascalName}Mapper } from './${names.kebabName}.mapper';
 import type { ${persistenceRef.typeName} } from '${persistenceRef.dataImport}';
 
-export class Mongo${names.pascalName}Repository extends ${repositoryType}<${domainRef.typeName}, ${persistenceRef.typeName}> {
+export class Mongo${names.pascalName}Repository extends ${repositoryType}<${domainRef.typeName}, ${persistenceRef.typeName}> implements ${names.pascalName}Repository {
   constructor(
     source: MongoSource<${persistenceRef.typeName}>,
     mapper: ${names.pascalName}Mapper,
@@ -312,10 +313,11 @@ function createSqlRepositoryTs(
 } from '@soapjs/soap/data';
 import { SqlDataSource } from '@soapjs/soap-sql';
 import type { ${domainRef.typeName} } from '${domainRef.dataImport}';
+import type { ${names.pascalName}Repository } from '../application/ports/${names.kebabName}-repository.port';
 import type { ${names.pascalName}Mapper } from './${names.kebabName}.mapper';
 import type { ${persistenceRef.typeName} } from '${persistenceRef.dataImport}';
 
-export class Sql${names.pascalName}Repository extends ${repositoryType}<${domainRef.typeName}, ${persistenceRef.typeName}> {
+export class Sql${names.pascalName}Repository extends ${repositoryType}<${domainRef.typeName}, ${persistenceRef.typeName}> implements ${names.pascalName}Repository {
   constructor(
     source: SqlDataSource<${persistenceRef.typeName}>,
     mapper: ${names.pascalName}Mapper,

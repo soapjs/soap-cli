@@ -80,7 +80,7 @@ Use `--controller-layout per-feature` at project creation when you prefer one ge
 ## Add A Custom Route
 
 ```bash
-soap add route invoice approve \
+soap add route approve --feature invoice \
   --method post \
   --path :id/approve \
   --auth jwt \
@@ -89,7 +89,7 @@ soap add route invoice approve \
   --bruno
 ```
 
-Route paths are scoped under the resource path. The example generates `/invoices/:id/approve`.
+Route paths are scoped under the feature path. The example generates `/invoices/:id/approve`.
 
 ## Validate Generated Metadata
 
@@ -114,7 +114,7 @@ soap generate openapi --output openapi.json
 ## Safe Removal
 
 ```bash
-soap remove route invoice approve
+soap remove route approve --feature invoice
 soap remove feature invoice --dry-run
 soap remove feature invoice
 ```

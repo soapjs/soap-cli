@@ -1128,7 +1128,7 @@ curl http://localhost:3000/openapi.json
 
 \`\`\`bash
 soap add resource invoice --crud
-soap add route invoices export --method get --path export
+soap add route export --feature invoices --method get --path export
 soap update config --add-contracts zod
 soap update config --add-api-client bruno
 \`\`\`

@@ -68,7 +68,7 @@ soap add feature invoice --crud --on-conflict abort
 ## Remove Generated Code
 
 ```bash
-soap remove route invoice create
+soap remove route create --feature invoice
 soap remove feature invoice
 soap remove feature invoice -i
 ```

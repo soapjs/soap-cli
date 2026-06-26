@@ -1,6 +1,6 @@
 {
   "name": "@soapjs/cli",
-  "version": "1.4.5",
+  "version": "1.5.0",
   "description": "Deterministic project and code generator for SoapJS services.",
   "homepage": "https://docs.soapjs.com",
   "repository": "https://github.com/soapjs/soap-cli",

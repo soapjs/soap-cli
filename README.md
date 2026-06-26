@@ -56,9 +56,9 @@ Supported commands accept `-i` for guided prompts:
 ```bash
 soap create users-api -i
 soap add feature invoice -i
-soap add route invoice approve -i
+soap add route approve --feature invoice -i
 soap generate bruno -i
-soap remove route invoice approve -i
+soap remove route approve --feature invoice -i
 ```
 
 Interactive mode requires a TTY and uses the same deterministic planners as the flag-based CLI. Use `--yes` to skip final confirmation prompts where supported.
@@ -174,17 +174,18 @@ The generated controller is registered in `src/config/controllers.ts` and includ
 
 ## `soap add route`
 
-Add a route to an existing resource:
+Add a route to an existing feature:
 
 ```bash
-soap add route users export --method get --path export
-soap add route users activate-user --method post --path :id/activate --auth jwt --zone private
-soap add route users approve --method post --path :id/approve --auth jwt --policy custom:approver
-soap add route users rebuild --method post --command rebuild-user
-soap add route users search --method get --query search-users
+soap add route export --feature users --method get --path export
+soap add route activate-user --feature users --method post --path :id/activate --auth jwt --zone private
+soap add route approve --feature users --method post --path :id/approve --auth jwt --policy custom:approver
+soap add route rebuild --feature users --method post --command rebuild-user
+soap add route search --feature users --method get --query search-users
+soap add route audit --feature users --method get --path audit --controller users
 ```
 
-The route path must stay under the resource path. Route names and resource names are normalized to kebab-case in the registry. `--policy` supports `admin`, `roles:a,b`, `custom:name`, and `none`.
+The route path must stay under the feature path. Route names and feature names are normalized to kebab-case in the registry. `--controller` adds the route method to an existing generated controller in the feature. `--policy` supports `admin`, `roles:a,b`, `custom:name`, and `none`.
 
 ## Bruno
 
@@ -363,13 +364,13 @@ Default behavior:
 Safe removal:
 
 ```bash
-soap remove route users create-user
+soap remove route create-user --feature users
 soap remove feature users
-soap remove controller users admin-tools
-soap remove entity users user
-soap remove use-case users approve-user
-soap remove repository users user --impl
-soap remove route users create-user --force
+soap remove controller admin-tools --feature users
+soap remove entity user --feature users
+soap remove use-case approve-user --feature users
+soap remove repository user --feature users --impl
+soap remove route create-user --feature users --force
 ```
 
 `soap remove` only deletes files tracked in the registry. If a target file was manually modified, the operation is skipped unless `--force` is used.

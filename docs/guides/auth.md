@@ -49,7 +49,7 @@ soap add feature audit-log --crud --auth jwt --zone admin
 Public route:
 
 ```bash
-soap add route report summary --method get --path summary --auth none --zone public
+soap add route summary --feature report --method get --path summary --auth none --zone public
 ```
 
 ## Add Policies
@@ -57,9 +57,9 @@ soap add route report summary --method get --path summary --auth none --zone pub
 Policies require route auth.
 
 ```bash
-soap add route report approve --method post --path approve --auth jwt --policy roles:admin,editor
-soap add route report purge --method delete --path purge --auth api-key --policy admin
-soap add route report export --method post --path export --auth jwt --policy custom:report-exporter
+soap add route approve --feature report --method post --path approve --auth jwt --policy roles:admin,editor
+soap add route purge --feature report --method delete --path purge --auth api-key --policy admin
+soap add route export --feature report --method post --path export --auth jwt --policy custom:report-exporter
 ```
 
 Generated decorators:
@@ -71,7 +71,7 @@ Generated decorators:
 Invalid:
 
 ```bash
-soap add route report approve --auth none --policy admin
+soap add route approve --feature report --auth none --policy admin
 ```
 
 The CLI fails before writing files because policies require auth.

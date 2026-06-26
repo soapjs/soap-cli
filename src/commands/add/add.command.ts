@@ -3,7 +3,7 @@ import { getCommandContext } from "../../core/command-context";
 import { CliError } from "../../core/errors";
 import { loadSoapConfig } from "../../config/load-soap-config";
 import { writeSoapConfig } from "../../config/write-soap-config";
-import { ApiZone, AuthCapability, AuthPolicy, DatabaseCapability, RouteRegistryEntry, SoapConfig } from "../../config/schemas/types";
+import { ApiZone, AuthCapability, AuthPolicy, DatabaseCapability, ResourceRegistryEntry, RouteRegistryEntry, SoapConfig } from "../../config/schemas/types";
 import { resolveDependencies } from "../../dependencies/dependency-resolver";
 import { PlannedFile, writePlannedFiles } from "../../io/file-writer";
 import { createNameVariants } from "../../templates/naming";
@@ -44,6 +44,7 @@ import {
   createRouteContractFile,
   createRouteContractSpecFile,
   createFeatureRouteControllerFile,
+  createNamedRouteControllerFile,
   createRouteControllerFile,
   createRouteControllersIndexFile,
   createRouteEntry,
@@ -83,8 +84,10 @@ interface AddResourceOptions extends InteractiveCommandOptions, ConflictCommandO
 }
 
 interface AddRouteOptions extends InteractiveCommandOptions, ConflictCommandOptions {
+  feature?: string;
   method?: RouteMethod;
   path?: string;
+  controller?: string;
   useCase?: string;
   command?: string;
   query?: string;
@@ -329,10 +332,12 @@ export function registerAddCommand(program: Command): void {
     });
 
   addConflictOption(addInteractiveOption(add
-    .command("route [resource] [name]")
-    .description("Add a route to an existing SoapJS project.")
+    .command("route [name]")
+    .description("Add a route to an existing feature.")
+    .option("--feature <feature>", "feature that owns the route")
     .option("--method <method>", "HTTP method: get, post, put, patch, delete, head, options", "get")
-    .option("--path <path>", "absolute path under the resource path, or relative path segment")
+    .option("--path <path>", "absolute path under the feature path, or relative path segment")
+    .option("--controller <controller>", "existing generated controller in the feature to add this route to")
     .option("--use-case <useCase>", "application use case to call from this route")
     .option("--command <command>", "CQRS command to dispatch from this route")
     .option("--query <query>", "CQRS query to dispatch from this route")
@@ -342,26 +347,27 @@ export function registerAddCommand(program: Command): void {
     .option("--bruno", "generate Bruno requests when Bruno is enabled", false)
     .option("--force", "overwrite generated files even when modified", false)
     .option("--write-new", "write modified generated files as .new", false)))
-    .action(async (resourceName: string | undefined, name: string | undefined, options: AddRouteOptions, command: Command) => {
+    .action(async (name: string | undefined, options: AddRouteOptions, command: Command) => {
       assertInteractiveTerminal(options);
 
       const context = getCommandContext(command);
       const config = await loadSoapConfig(context.cwd);
+      const featureName = options.feature;
 
-      if (!options.interactive && (!resourceName || !name)) {
-        throw new CliError("Resource and route name are required. Use `soap add route <resource> <name>`.");
+      if (!options.interactive && (!featureName || !name)) {
+        throw new CliError("Feature and route name are required. Use `soap add route <name> --feature <feature>`.");
       }
 
       if (options.interactive && config.registry.resources.length === 0) {
         throw new CliError("No features found. Run `soap add feature <name>` first.");
       }
 
-      const initialResourceNames = resourceName ? createNameVariants(resourceName) : undefined;
+      const initialResourceNames = featureName ? createNameVariants(featureName) : undefined;
       const initialResource = initialResourceNames
         ? config.registry.resources.find((entry) => entry.name === initialResourceNames.kebabName)
         : undefined;
 
-      if (resourceName && !initialResource) {
+      if (featureName && !initialResource) {
         throw new CliError(`Feature "${initialResourceNames!.kebabName}" does not exist. Run \`soap add feature ${initialResourceNames!.kebabName}\` first.`);
       }
 
@@ -370,9 +376,9 @@ export function registerAddCommand(program: Command): void {
         ? await promptAddRoute(prompt, {
             config,
             resource: initialResource,
-            resourceName,
+            resourceName: featureName,
             routeName: name,
-            provided: createProvidedAddRouteOptions(command, Boolean(resourceName), Boolean(name)),
+            provided: createProvidedAddRouteOptions(command, Boolean(featureName), Boolean(name)),
           })
         : undefined;
       const resolvedResourceName = promptAnswers?.resourceName ?? initialResource!.name;
@@ -386,7 +392,7 @@ export function registerAddCommand(program: Command): void {
       }
 
       if (config.registry.routes.some((route) => route.resource === resource.name && route.name === routeNames.kebabName)) {
-        throw new CliError(`Route "${routeNames.kebabName}" already exists on resource "${resource.name}".`);
+        throw new CliError(`Route "${routeNames.kebabName}" already exists on feature "${resource.name}".`);
       }
 
       const resolved = addRouteResolver.resolve({
@@ -405,6 +411,7 @@ export function registerAddCommand(program: Command): void {
         useCase: resolved.useCase,
         command: resolved.command,
         query: resolved.query,
+        controller: resolved.controller,
         auth: resolved.auth,
         zone: resolved.zone,
         policy,
@@ -421,20 +428,19 @@ export function registerAddCommand(program: Command): void {
         useCase: resolved.useCase,
         command: resolved.command,
         query: resolved.query,
+        controller: resolved.controller,
         auth: resolved.auth,
         zone: resolved.zone,
         policy,
         featuresRoot: config.structure.featuresRoot,
         contracts: config.project.capabilities.contracts.includes("zod") ? "zod" as const : "plain" as const,
       };
-      const controllerFile = config.project.controllerLayout === "per-feature"
-        ? createFeatureRouteControllerFile({
-            resource,
-            routes: config.registry.routes.filter((entry) => entry.resource === resource.name),
-            featuresRoot: config.structure.featuresRoot,
-            architecture: config.project.architecture,
-          })
-        : createRouteControllerFile(routePlan);
+      const controllerFile = createAddRouteControllerFile({
+        config,
+        resource,
+        routePlan,
+        controllerName: resolved.controller,
+      });
       const contractFile = createRouteContractFile(routePlan);
       const contractSpecFile = createRouteContractSpecFile(routePlan);
       const routeControllerNames = routeControllerNamesForResource(
@@ -1038,6 +1044,7 @@ function createProvidedAddRouteOptions(
     auth: isCliOption(command, "auth"),
     zone: isCliOption(command, "zone"),
     bruno: isCliOption(command, "bruno"),
+    controller: isCliOption(command, "controller"),
   };
 }
 
@@ -1045,6 +1052,7 @@ function createExplicitAddRouteFlags(options: AddRouteOptions, command: Command)
   return {
     method: isCliOption(command, "method") ? options.method : undefined,
     path: isCliOption(command, "path") ? options.path : undefined,
+    controller: isCliOption(command, "controller") ? options.controller : undefined,
     useCase: isCliOption(command, "useCase") ? options.useCase : undefined,
     command: isCliOption(command, "command") ? options.command : undefined,
     query: isCliOption(command, "query") ? options.query : undefined,
@@ -1073,12 +1081,7 @@ function routeControllerNamesForResource(
   resourceName: string,
   nextControllerPath: string
 ): string[] {
-  const apiPrefix = `${featuresRoot}/${resourceName}/api/`;
-  const routeControllerPaths = generatedPaths
-    .filter((filePath) => filePath.startsWith(apiPrefix))
-    .map(routeControllerNameFromPath)
-    .filter((name): name is string => Boolean(name))
-    .filter((name) => name !== resourceName);
+  const routeControllerPaths = generatedControllerNamesForResource(generatedPaths, featuresRoot, resourceName);
   const nextName = routeControllerNameFromPath(nextControllerPath);
 
   if (nextName) {
@@ -1086,6 +1089,79 @@ function routeControllerNamesForResource(
   }
 
   return Array.from(new Set(routeControllerPaths));
+}
+
+function createAddRouteControllerFile(options: {
+  config: SoapConfig;
+  resource: ResourceRegistryEntry;
+  routePlan: Parameters<typeof createRouteControllerFile>[0];
+  controllerName?: string;
+}): PlannedFile {
+  const { config, resource, routePlan, controllerName } = options;
+
+  if (controllerName) {
+    const names = createNameVariants(controllerName);
+    const existingControllers = generatedControllerNamesForResource(
+      config.registry.generatedFiles.map((file) => file.path),
+      config.structure.featuresRoot,
+      resource.name
+    );
+
+    if (!existingControllers.includes(names.kebabName)) {
+      throw new CliError(`Controller "${names.kebabName}" was not found in feature "${resource.name}".`);
+    }
+
+    return createNamedRouteControllerFile({
+      resource,
+      routes: routesForController(config.registry.routes, resource.name, names.kebabName, config.project.controllerLayout),
+      featuresRoot: config.structure.featuresRoot,
+      architecture: config.project.architecture,
+      controllerName: names.kebabName,
+    });
+  }
+
+  if (config.project.controllerLayout === "per-feature") {
+    return createFeatureRouteControllerFile({
+      resource,
+      routes: config.registry.routes.filter((entry) => entry.resource === resource.name),
+      featuresRoot: config.structure.featuresRoot,
+      architecture: config.project.architecture,
+    });
+  }
+
+  return createRouteControllerFile(routePlan);
+}
+
+function generatedControllerNamesForResource(generatedPaths: string[], featuresRoot: string, resourceName: string): string[] {
+  const apiPrefix = `${featuresRoot}/${resourceName}/api/`;
+  return Array.from(new Set(generatedPaths
+    .filter((filePath) => filePath.startsWith(apiPrefix))
+    .map(routeControllerNameFromPath)
+    .filter((name): name is string => Boolean(name))
+  )).sort();
+}
+
+function routesForController(
+  routes: RouteRegistryEntry[],
+  resourceName: string,
+  controllerName: string,
+  controllerLayout: SoapConfig["project"]["controllerLayout"]
+): RouteRegistryEntry[] {
+  return routes.filter((route) => {
+    if (route.resource !== resourceName) {
+      return false;
+    }
+
+    if (route.controller) {
+      return route.controller === controllerName;
+    }
+
+    if (controllerLayout === "per-feature") {
+      return controllerName === resourceName;
+    }
+
+    return route.name === controllerName;
+  });
 }
 
 function routeControllerIndexResources(generatedPaths: string[], featuresRoot: string, nextResourceName?: string): string[] {
