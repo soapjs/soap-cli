@@ -196,8 +196,28 @@ function createMapperTs(
   domainRef: DomainReference,
   persistenceRef: PersistenceReference
 ): string {
+  const domainImport = domainRef.inlineRecord
+    ? `import type { ${domainRef.typeName} } from '${domainRef.dataImport}';`
+    : `import { ${domainRef.typeName} } from '${domainRef.dataImport}';`;
+  const toEntity = domainRef.inlineRecord
+    ? `      return {
+        ...record,
+        id: record.id || (_id ? String(_id) : ''),
+      } as ${domainRef.typeName};`
+    : `      return ${domainRef.typeName}.rehydrate({
+        ...record,
+        id: record.id || (_id ? String(_id) : ''),
+      });`;
+  const toModel = domainRef.inlineRecord
+    ? `      return {
+        ...entity,
+      } as ${persistenceRef.typeName};`
+    : `      return {
+        ...entity.props,
+      } as ${persistenceRef.typeName};`;
+
   return `import { Mapper } from '@soapjs/soap/data';
-import type { ${domainRef.typeName} } from '${domainRef.dataImport}';
+${domainImport}
 import type { ${persistenceRef.typeName} } from '${persistenceRef.dataImport}';
 
 export type ${names.pascalName}Mapper = Mapper<${domainRef.typeName}, ${persistenceRef.typeName}> & {
@@ -210,16 +230,11 @@ export function create${names.pascalName}Mapper(): ${names.pascalName}Mapper {
     toEntity(model) {
       const { _id, ...record } = model as ${persistenceRef.typeName} & { _id?: unknown };
 
-      return {
-        ...record,
-        id: record.id || (_id ? String(_id) : ''),
-      } as ${domainRef.typeName};
+${toEntity}
     },
 
     toModel(entity) {
-      return {
-        ...entity,
-      } as ${persistenceRef.typeName};
+${toModel}
     },
   };
 }

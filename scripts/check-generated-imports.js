@@ -206,8 +206,22 @@ try {
   }
   writeFile(
     path.join(tempRoot, "src/features/comics/domain/artist.entity.ts"),
-    `export class Artist {
-  constructor(public readonly id: string) {}
+    `export interface ArtistProps {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export class Artist {
+  private constructor(public readonly props: ArtistProps) {}
+
+  static rehydrate(props: ArtistProps): Artist {
+    return new Artist(props);
+  }
+
+  get id(): string {
+    return this.props.id;
+  }
 }
 `
   );
