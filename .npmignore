@@ -1,4 +1,5 @@
 .github/
+docs/assets/
 src/
 node_modules/
 test/

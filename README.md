@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/soapjs/soap-cli/main/docs/assets/soap_logo.png" alt="SoapJS CLI logo" width="180" />
+</p>
+
 # SoapJS CLI
 
 Deterministic project and code generator for SoapJS services.
